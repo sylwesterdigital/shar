@@ -1,0 +1,7 @@
+.DS_Store
+/archive/
+/.watch-state/
+/build/
+xcuserdata/
+DerivedData/
+*.xcuserstate
