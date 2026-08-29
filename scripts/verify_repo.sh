@@ -57,6 +57,10 @@ grep -Fq 'settingsPanel' LocalWebShare/ContentView.swift || fail "iOS settings d
 grep -Fq 'currentFilter' LocalWebShare/LocalWebServer.swift || fail "Apple browser media filters missing"
 grep -Fq 'settings-open' LocalWebShare/LocalWebServer.swift || fail "Apple browser settings drawer missing"
 grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
+grep -Fq 'lws-preset-v2' LocalWebShare/LocalWebServer.swift || fail "Apple browser density presets missing"
+grep -Fq 'id="thumbSize"' LocalWebShare/LocalWebServer.swift || fail "Apple browser thumbnail size control missing"
+grep -Fq 'fallback-icon.missing' LocalWebShare/LocalWebServer.swift || fail "Apple browser icon fallback fix missing"
+grep -Fq 'lws-preset-v2' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser density presets missing"
 
 grep -Fq 'https://mojoworks.xyz/labs/shar/' README.md || fail "README does not document the Shar homepage"
 grep -Fq '/var/www/mojoworks/labs/shar' README.md || fail "README does not document the Shar deployment directory"
@@ -71,9 +75,17 @@ if command -v plutil >/dev/null 2>&1; then plutil -lint LocalWebShare/Info.plist
 if command -v python3 >/dev/null 2>&1; then
   python3 - <<'PY'
 from pathlib import Path
-import json
+import json, re
 for p in [Path('LocalWebShare/Assets.xcassets/Contents.json'), Path('LocalWebShare/Assets.xcassets/AppIcon.appiconset/Contents.json')]:
     json.loads(p.read_text())
+apple=Path('LocalWebShare/LocalWebServer.swift').read_text()
+android=Path('android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java').read_text()
+def html(text):
+    m=re.search(r'<!doctype html>.*?</html>', text, re.S|re.I)
+    if not m: raise SystemExit('Embedded browser HTML missing')
+    return m.group(0)
+if html(apple) != html(android):
+    raise SystemExit('Apple and Android embedded browser UIs differ')
 PY
 fi
 

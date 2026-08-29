@@ -582,64 +582,72 @@ private final class HTTPConnectionSession {
           <meta name="viewport" content="width=device-width,initial-scale=1">
           <title>Local Web Share</title>
           <style>
-            :root { color-scheme: light dark; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; --accent:#0a84ff; --accent-soft:color-mix(in srgb,var(--accent) 15%,Canvas); }
+            :root { color-scheme: light dark; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; --accent:#0a84ff; --accent-soft:color-mix(in srgb,var(--accent) 15%,Canvas); --card-min:150px; --text-scale:.90; --grid-gap:8px; }
             * { box-sizing:border-box; }
+            html { font-size:calc(16px * var(--text-scale)); }
             body { margin:0; background:Canvas; color:CanvasText; }
             body[data-theme="forest"] { --accent:#26935b; }
             body[data-theme="sunset"] { --accent:#ef6334; }
             body[data-theme="violet"] { --accent:#8650ed; }
             body[data-theme="system"] { --accent:Highlight; }
-            .shell { max-width:1180px; margin:0 auto; padding:12px 14px 56px; }
-            .card { border:1px solid color-mix(in srgb,CanvasText 15%,transparent); border-radius:15px; padding:12px; margin:0 0 10px; background:color-mix(in srgb,Canvas 95%,CanvasText 5%); }
-            .drop { border:2px dashed color-mix(in srgb,CanvasText 25%,transparent); border-radius:13px; min-height:92px; padding:16px; display:grid; place-items:center; text-align:center; transition:.15s ease; cursor:pointer; }
-            .drop.drag { border-color:var(--accent); background:var(--accent-soft); transform:scale(1.003); }
-            .drop strong { display:block; font-size:16px; margin-bottom:3px; } .drop small { opacity:.62; }
-            #picker { display:none; } #status { white-space:pre-wrap; font-size:12px; margin:7px 0 3px; min-height:14px; } progress { width:100%; height:6px; accent-color:var(--accent); }
-            .files-head { display:flex; gap:10px; align-items:center; margin:4px 0 9px; }
-            .filters { display:flex; gap:7px; overflow:auto; scrollbar-width:none; flex:1; padding:2px 0; } .filters::-webkit-scrollbar{display:none}
-            .filter { white-space:nowrap; border-radius:999px; min-height:31px; padding:6px 10px; font-size:12px; font-weight:650; }
+            .shell { max-width:1320px; margin:0 auto; padding:8px 10px 42px; }
+            .card { border:1px solid color-mix(in srgb,CanvasText 14%,transparent); border-radius:13px; padding:8px; margin:0 0 7px; background:color-mix(in srgb,Canvas 96%,CanvasText 4%); }
+            .drop { border:1.5px dashed color-mix(in srgb,CanvasText 24%,transparent); border-radius:11px; min-height:64px; padding:9px 12px; display:grid; place-items:center; text-align:center; transition:.15s ease; cursor:pointer; }
+            .drop.drag { border-color:var(--accent); background:var(--accent-soft); transform:scale(1.002); }
+            .drop strong { display:block; font-size:.95rem; margin-bottom:2px; } .drop small { opacity:.6; font-size:.78rem; }
+            #picker { display:none; } #status { white-space:pre-wrap; font-size:.72rem; margin:5px 0 2px; min-height:10px; } progress { width:100%; height:5px; accent-color:var(--accent); }
+            .files-head { display:flex; gap:7px; align-items:center; margin:2px 0 7px; }
+            .filters { display:flex; gap:5px; overflow:auto; scrollbar-width:none; flex:1; padding:2px 0; } .filters::-webkit-scrollbar{display:none}
+            .filter { white-space:nowrap; border-radius:999px; min-height:28px; padding:4px 9px; font-size:.74rem; font-weight:650; }
             .filter.active { border-color:color-mix(in srgb,var(--accent) 65%,transparent); background:var(--accent-soft); }
-            .count { opacity:.6; font-size:12px; white-space:nowrap; }
-            button,.btn,select { appearance:none; border:1px solid color-mix(in srgb,CanvasText 18%,transparent); border-radius:9px; background:color-mix(in srgb,CanvasText 6%,Canvas); color:inherit; padding:7px 10px; font:inherit; text-decoration:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; }
+            .count { opacity:.58; font-size:.72rem; white-space:nowrap; }
+            button,.btn,select,input { font:inherit; }
+            button,.btn,select { appearance:none; border:1px solid color-mix(in srgb,CanvasText 18%,transparent); border-radius:8px; background:color-mix(in srgb,CanvasText 6%,Canvas); color:inherit; padding:5px 8px; text-decoration:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:30px; }
             button:hover,.btn:hover { background:color-mix(in srgb,CanvasText 11%,Canvas); }
-            .settings-button { margin-left:auto; color:var(--accent); font-size:17px; min-width:38px; }
-            .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:11px; }
-            .file { border:1px solid color-mix(in srgb,CanvasText 14%,transparent); border-radius:14px; overflow:hidden; background:Canvas; min-width:0; }
-            .preview { width:100%; height:150px; border:0; border-radius:0; padding:0; margin:0; display:grid; place-items:center; background:color-mix(in srgb,CanvasText 7%,Canvas); cursor:pointer; overflow:hidden; }
+            .settings-button { margin-left:auto; color:var(--accent); min-width:34px; }
+            .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(var(--card-min),calc(50% - var(--grid-gap))),1fr)); gap:var(--grid-gap); align-items:start; }
+            .file { border:1px solid color-mix(in srgb,CanvasText 13%,transparent); border-radius:11px; overflow:hidden; background:Canvas; min-width:0; }
+            .preview { width:100%; aspect-ratio:16/10; height:auto; border:0; border-radius:0; padding:0; margin:0; display:grid; place-items:center; background:color-mix(in srgb,CanvasText 7%,Canvas); cursor:pointer; overflow:hidden; }
             .preview img,.preview video { width:100%; height:100%; object-fit:cover; display:block; } .preview video { pointer-events:none; }
-            .icon { font-size:44px; opacity:.72; } .body { padding:10px; } .name { font-weight:650; overflow-wrap:anywhere; line-height:1.25; cursor:pointer; }
-            .meta,.audio-meta { font-size:11px; opacity:.62; margin-top:4px; } .audio-meta { opacity:.82; }
-            .audio-mini { display:grid; grid-template-columns:auto 1fr auto; gap:7px; align-items:center; margin-top:8px; }
-            .audio-mini input[type=range] { width:100%; min-width:0; accent-color:var(--accent); } .time { font-size:10px; opacity:.6; font-variant-numeric:tabular-nums; }
-            .actions { display:flex; gap:6px; margin-top:9px; align-items:center; } .danger { margin-left:auto; }
-            .ui-icon { width:18px; height:18px; object-fit:contain; display:none; } .fallback-icon { display:none; font-size:16px; line-height:1; }
+            .icon { font-size:2.5rem; opacity:.72; } .body { padding:7px; } .name { font-weight:650; overflow-wrap:anywhere; line-height:1.2; cursor:pointer; }
+            .meta,.audio-meta { font-size:.68rem; opacity:.6; margin-top:3px; line-height:1.2; } .audio-meta { opacity:.78; }
+            .audio-mini { display:grid; grid-template-columns:auto minmax(40px,1fr) auto; gap:5px; align-items:center; margin-top:6px; }
+            .audio-mini button { min-width:30px; padding-inline:5px; }
+            .audio-mini input[type=range] { width:100%; min-width:0; accent-color:var(--accent); } .time { font-size:.64rem; opacity:.6; font-variant-numeric:tabular-nums; }
+            .actions { display:flex; gap:4px; margin-top:6px; align-items:center; } .danger { margin-left:auto; }
+            .actions .action-button,.actions .btn { min-width:31px; padding-inline:6px; }
+            .ui-icon { width:17px; height:17px; object-fit:contain; display:none; } .fallback-icon { display:none; font-size:1rem; line-height:1; }
             body[data-button-mode="icons"] .short-label,body[data-button-mode="icons"] .full-label { display:none; }
-            body[data-button-mode="icons"] .ui-icon,body[data-button-mode="icons"] .fallback-icon { display:inline-block; }
-            body[data-button-mode="compact"] .ui-icon,body[data-button-mode="compact"] .fallback-icon { display:inline-block; }
+            body[data-button-mode="icons"] .ui-icon { display:inline-block; }
+            body[data-button-mode="icons"] .fallback-icon.missing { display:inline-block; }
+            body[data-button-mode="compact"] .ui-icon { display:inline-block; }
+            body[data-button-mode="compact"] .fallback-icon.missing { display:inline-block; }
             body[data-button-mode="compact"] .full-label { display:none; }
             body[data-button-mode="text"] .short-label,body[data-button-mode="text"] .ui-icon,body[data-button-mode="text"] .fallback-icon { display:none; }
             body[data-view="list"] .grid { display:block; }
-            body[data-view="list"] .file { display:grid; grid-template-columns:150px minmax(0,1fr); margin-bottom:9px; }
-            body[data-view="list"] .preview { height:118px; }
-            .empty { padding:35px 12px; text-align:center; opacity:.65; }
-            dialog { width:min(980px,calc(100vw - 18px)); max-height:calc(100vh - 18px); border:0; border-radius:17px; padding:0; background:Canvas; color:CanvasText; box-shadow:0 25px 80px #0008; overflow:hidden; }
+            body[data-view="list"] .file { display:grid; grid-template-columns:clamp(92px,var(--card-min),180px) minmax(0,1fr); margin-bottom:7px; }
+            body[data-view="list"] .preview { height:100%; min-height:92px; aspect-ratio:auto; }
+            .empty { padding:30px 10px; text-align:center; opacity:.65; }
+            dialog { width:min(980px,calc(100vw - 18px)); max-height:calc(100vh - 18px); border:0; border-radius:15px; padding:0; background:Canvas; color:CanvasText; box-shadow:0 25px 80px #0008; overflow:hidden; }
             dialog::backdrop { background:#0009; backdrop-filter:blur(5px); }
-            .modal-head { display:flex; gap:6px; align-items:center; border-bottom:1px solid color-mix(in srgb,CanvasText 14%,transparent); padding:9px 10px; }
+            .modal-head { display:flex; gap:5px; align-items:center; border-bottom:1px solid color-mix(in srgb,CanvasText 14%,transparent); padding:7px 8px; }
             .modal-title { font-weight:700; overflow-wrap:anywhere; flex:1; min-width:0; }
             .modal-content-wrap { position:relative; background:#000; }
             .modal-content { min-height:300px; height:min(76vh,760px); overflow:auto; display:grid; place-items:center; background:#000; touch-action:pan-y; }
             .modal-content img,.modal-content video { max-width:100%; max-height:100%; } .modal-content audio { width:min(680px,calc(100% - 40px)); }
-            .nav-arrow { position:absolute; z-index:3; top:50%; transform:translateY(-50%); width:42px; height:54px; border-radius:13px; background:#0008; color:white; border-color:#fff4; }
-            .nav-arrow.prev { left:8px; } .nav-arrow.next { right:8px; } .nav-arrow:disabled { opacity:.2; cursor:default; }
-            .viewer-position { font-size:11px; opacity:.65; white-space:nowrap; }
+            .nav-arrow { position:absolute; z-index:3; top:50%; transform:translateY(-50%); width:40px; height:52px; border-radius:11px; background:#0008; color:white; border-color:#fff4; }
+            .nav-arrow.prev { left:7px; } .nav-arrow.next { right:7px; } .nav-arrow:disabled { opacity:.2; cursor:default; }
+            .viewer-position { font-size:.68rem; opacity:.65; white-space:nowrap; }
             .settings-backdrop { position:fixed; inset:0; background:#0005; opacity:0; pointer-events:none; transition:.18s ease; z-index:20; }
-            .settings { position:fixed; z-index:21; right:0; top:0; bottom:0; width:min(350px,88vw); padding:18px; background:color-mix(in srgb,Canvas 93%,CanvasText 7%); box-shadow:-18px 0 50px #0005; transform:translateX(105%); transition:.22s ease; overflow:auto; }
+            .settings { position:fixed; z-index:21; right:0; top:0; bottom:0; width:min(360px,90vw); padding:16px; background:color-mix(in srgb,Canvas 94%,CanvasText 6%); box-shadow:-18px 0 50px #0005; transform:translateX(105%); transition:.22s ease; overflow:auto; }
             body.settings-open .settings { transform:translateX(0); } body.settings-open .settings-backdrop { opacity:1; pointer-events:auto; }
-            .settings-head { display:flex; align-items:center; gap:8px; margin-bottom:22px; }.settings-head h2{font-size:20px;margin:0;flex:1}.settings-group{margin:0 0 22px}.settings-group h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.55;margin:0 0 9px}.settings label{display:block;font-size:13px;margin:8px 0 4px}.settings select{width:100%}.theme-row{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.theme-swatch{height:35px;padding:0;border-radius:10px}.theme-swatch[data-theme-choice="ocean"]{background:#0a84ff}.theme-swatch[data-theme-choice="forest"]{background:#26935b}.theme-swatch[data-theme-choice="sunset"]{background:#ef6334}.theme-swatch[data-theme-choice="violet"]{background:#8650ed}.theme-swatch[data-theme-choice="system"]{background:linear-gradient(135deg,#111,#eee)}.theme-swatch.selected{outline:3px solid var(--accent);outline-offset:2px}
-            @media (max-width:560px) { .shell{padding:8px 8px 40px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.preview{height:118px}.body{padding:8px}.actions{gap:4px}.action-button,.btn{padding-inline:7px}.nav-arrow{width:36px}.modal-head{gap:4px} body[data-view="list"] .file{grid-template-columns:105px minmax(0,1fr)} body[data-view="list"] .preview{height:105px} }
+            .settings-head { display:flex; align-items:center; gap:8px; margin-bottom:18px; }.settings-head h2{font-size:1.15rem;margin:0;flex:1}.settings-group{margin:0 0 19px}.settings-group h3{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;opacity:.55;margin:0 0 8px}.settings label{display:block;font-size:.8rem;margin:8px 0 4px}.settings select{width:100%}.settings input[type=range]{width:100%;accent-color:var(--accent)}
+            .range-label { display:flex!important; align-items:center; gap:8px; }.range-label span{flex:1}.range-label output{font-variant-numeric:tabular-nums;opacity:.65;font-size:.74rem}.settings-actions{display:flex;gap:6px;margin-top:9px}.settings-actions button{flex:1;font-size:.76rem}.settings-note{font-size:.72rem;opacity:.62;margin:7px 0 0;line-height:1.35}
+            .theme-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.theme-swatch{height:32px;padding:0;border-radius:9px}.theme-swatch[data-theme-choice="ocean"]{background:#0a84ff}.theme-swatch[data-theme-choice="forest"]{background:#26935b}.theme-swatch[data-theme-choice="sunset"]{background:#ef6334}.theme-swatch[data-theme-choice="violet"]{background:#8650ed}.theme-swatch[data-theme-choice="system"]{background:linear-gradient(135deg,#111,#eee)}.theme-swatch.selected{outline:2px solid var(--accent);outline-offset:2px}
+            @media (max-width:560px) { .shell{padding:6px 6px 32px}.card{padding:6px}.drop{min-height:56px}.files-head{gap:5px}.body{padding:6px}.actions{gap:3px}.action-button,.btn{padding-inline:5px}.nav-arrow{width:34px}.modal-head{gap:3px} body[data-view="list"] .file{grid-template-columns:96px minmax(0,1fr)} }
           </style>
         </head>
-        <body data-button-mode="compact" data-view="grid" data-theme="ocean">
+        <body data-button-mode="icons" data-view="grid" data-theme="ocean">
           <main class="shell">
             <section class="card">
               <div id="drop" class="drop" tabindex="0"><div><strong>Drop files here</strong><small>or click to choose — upload starts automatically</small></div></div>
@@ -654,11 +662,12 @@ private final class HTTPConnectionSession {
           </main>
           <div id="settingsBackdrop" class="settings-backdrop"></div>
           <aside id="settings" class="settings" aria-label="Settings">
-            <div class="settings-head"><h2>Settings</h2><button id="settingsClose" type="button" aria-label="Close settings">×</button></div>
+            <div class="settings-head"><h2>Settings</h2><button id="settingsClose" type="button" aria-label="Close settings"></button></div>
+            <div class="settings-group"><h3>Layout preset</h3><label for="presetSelect">Preset</label><select id="presetSelect"><option value="minimal">Minimal</option><option value="balanced">Balanced</option><option value="large">Large</option><option value="saved">My saved preset</option><option value="custom">Custom</option></select><div class="settings-actions"><button id="savePreset" type="button">Save current</button><button id="resetMinimal" type="button">Use minimal</button></div><p class="settings-note">Minimal is the default. Saving stores the current buttons, layout, theme, thumbnail size and text size in this browser.</p></div>
             <div class="settings-group"><h3>Buttons</h3><label for="buttonMode">Labels</label><select id="buttonMode"><option value="text">Text</option><option value="icons">Icons</option><option value="compact">Icon + short</option></select></div>
-            <div class="settings-group"><h3>Files</h3><label for="viewMode">Layout</label><select id="viewMode"><option value="grid">Grid</option><option value="list">List</option></select></div>
+            <div class="settings-group"><h3>Files</h3><label for="viewMode">Layout</label><select id="viewMode"><option value="grid">Grid</option><option value="list">List</option></select><label class="range-label" for="thumbSize"><span>Thumbnail / card size</span><output id="thumbValue"></output></label><input id="thumbSize" type="range" min="120" max="320" step="10"><label class="range-label" for="textScale"><span>Text size</span><output id="textValue"></output></label><input id="textScale" type="range" min="75" max="125" step="5"><p class="settings-note">Smaller thumbnails automatically fit more grid columns. On narrow screens the grid keeps at least two columns.</p></div>
             <div class="settings-group"><h3>Colour theme</h3><div class="theme-row"><button class="theme-swatch" data-theme-choice="system" title="System"></button><button class="theme-swatch" data-theme-choice="ocean" title="Ocean"></button><button class="theme-swatch" data-theme-choice="forest" title="Forest"></button><button class="theme-swatch" data-theme-choice="sunset" title="Sunset"></button><button class="theme-swatch" data-theme-choice="violet" title="Violet"></button></div></div>
-            <div class="settings-group"><h3>Playback</h3><p style="font-size:12px;opacity:.65;margin:0">Only one audio or video player can play at a time.</p></div>
+            <div class="settings-group"><h3>Playback</h3><p class="settings-note">Only one audio or video player can play at a time.</p></div>
           </aside>
           <dialog id="viewer">
             <div class="modal-head">
@@ -669,20 +678,31 @@ private final class HTTPConnectionSession {
             <div class="modal-content-wrap"><button id="overlayPrev" class="nav-arrow prev" aria-label="Previous">‹</button><div id="viewerContent" class="modal-content"></div><button id="overlayNext" class="nav-arrow next" aria-label="Next">›</button></div>
           </dialog>
           <script>
-            const q=s=>document.querySelector(s), filesEl=q('#files'),countEl=q('#count'),statusEl=q('#status'),progressEl=q('#progress'),dropEl=q('#drop'),pickerEl=q('#picker'),viewer=q('#viewer'),viewerTitle=q('#viewerTitle'),viewerContent=q('#viewerContent'),viewerDownload=q('#viewerDownload'),viewerPosition=q('#viewerPosition'),buttonMode=q('#buttonMode'),viewMode=q('#viewMode'),filtersEl=q('#filters');
+            const q=s=>document.querySelector(s), filesEl=q('#files'),countEl=q('#count'),statusEl=q('#status'),progressEl=q('#progress'),dropEl=q('#drop'),pickerEl=q('#picker'),viewer=q('#viewer'),viewerTitle=q('#viewerTitle'),viewerContent=q('#viewerContent'),viewerDownload=q('#viewerDownload'),viewerPosition=q('#viewerPosition'),buttonMode=q('#buttonMode'),viewMode=q('#viewMode'),filtersEl=q('#filters'),presetSelect=q('#presetSelect'),thumbSize=q('#thumbSize'),thumbValue=q('#thumbValue'),textScale=q('#textScale'),textValue=q('#textValue');
             let currentFiles=[],viewerFiles=[],viewerIndex=-1,touchStartX=null,currentFilter='all';
             const glyph={preview:'👁',download:'↓',delete:'⌫',close:'×',play:'▶',pause:'Ⅱ',share:'↗',previous:'‹',next:'›',config:'⚙'};
             const filterDefs=[['all','All'],['image','Images'],['audio','Audio'],['video','Video'],['document','Docs'],['file','Other']];
+            const presets={minimal:{thumb:150,text:90,mode:'icons',view:'grid',theme:'ocean'},balanced:{thumb:210,text:100,mode:'compact',view:'grid',theme:'ocean'},large:{thumb:280,text:110,mode:'text',view:'grid',theme:'system'}};
             function bytes(n){const u=['B','KB','MB','GB','TB'];let i=0,v=Number(n);while(v>=1024&&i<u.length-1){v/=1024;i++}return `${v.toFixed(i?1:0)} ${u[i]}`}
             function time(v){if(!Number.isFinite(v)||v<0)return '0:00';v=Math.floor(v);return `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`}
+            function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||min))}
             function mediaURL(f){return '/media/'+encodeURIComponent(f.name)} function downloadURL(f){return '/files/'+encodeURIComponent(f.name)} function artworkURL(f){return '/artwork/'+encodeURIComponent(f.name)}
             function iconName(kind){return kind==='image'?'photo':kind==='audio'?'sound-on':kind==='video'?'video':'file'}
-            function uiIcon(name){const img=document.createElement('img');img.className='ui-icon';img.src='/ui-icon/'+name+'.svg';img.alt='';img.onerror=()=>{img.style.display='none';const fb=img.nextElementSibling;if(fb)fb.style.display='inline-block'};return img}
+            function uiIcon(name){const img=document.createElement('img');img.className='ui-icon';img.src='/ui-icon/'+name+'.svg';img.alt='';img.onerror=()=>{img.style.display='none';const fb=img.nextElementSibling;if(fb)fb.classList.add('missing')};return img}
             function setAction(el,icon,full,short=full){el.classList.add('action-button');el.replaceChildren();el.append(uiIcon(icon));const fb=document.createElement('span');fb.className='fallback-icon';fb.textContent=glyph[icon]||'•';const f=document.createElement('span');f.className='full-label';f.textContent=full;const s=document.createElement('span');s.className='short-label';s.textContent=short;el.append(fb,f,s);el.title=full;el.setAttribute('aria-label',full)}
-            function applyMode(mode){if(!['text','icons','compact'].includes(mode))mode='compact';document.body.dataset.buttonMode=mode;buttonMode.value=mode;localStorage.setItem('lws-button-mode',mode)}
-            function applyView(mode){if(!['grid','list'].includes(mode))mode='grid';document.body.dataset.view=mode;viewMode.value=mode;localStorage.setItem('lws-view-mode',mode)}
-            function applyTheme(theme){if(!['system','ocean','forest','sunset','violet'].includes(theme))theme='ocean';document.body.dataset.theme=theme;localStorage.setItem('lws-theme',theme);document.querySelectorAll('.theme-swatch').forEach(x=>x.classList.toggle('selected',x.dataset.themeChoice===theme))}
-            setAction(q('#settingsButton'),'config','Settings','Settings');setAction(q('#settingsClose'),'close','Close','Close');applyMode(localStorage.getItem('lws-button-mode')||'compact');applyView(localStorage.getItem('lws-view-mode')||'grid');applyTheme(localStorage.getItem('lws-theme')||'ocean');buttonMode.onchange=()=>applyMode(buttonMode.value);viewMode.onchange=()=>applyView(viewMode.value);document.querySelectorAll('.theme-swatch').forEach(x=>x.onclick=()=>applyTheme(x.dataset.themeChoice));
+            function applyMode(mode,persist=true){if(!['text','icons','compact'].includes(mode))mode='icons';document.body.dataset.buttonMode=mode;buttonMode.value=mode;if(persist)localStorage.setItem('lws-button-mode',mode)}
+            function applyView(mode,persist=true){if(!['grid','list'].includes(mode))mode='grid';document.body.dataset.view=mode;viewMode.value=mode;if(persist)localStorage.setItem('lws-view-mode',mode)}
+            function applyTheme(theme,persist=true){if(!['system','ocean','forest','sunset','violet'].includes(theme))theme='ocean';document.body.dataset.theme=theme;if(persist)localStorage.setItem('lws-theme',theme);document.querySelectorAll('.theme-swatch').forEach(x=>x.classList.toggle('selected',x.dataset.themeChoice===theme))}
+            function applyDensity(thumb,text,persist=true){thumb=clamp(thumb,120,320);text=clamp(text,75,125);document.documentElement.style.setProperty('--card-min',thumb+'px');document.documentElement.style.setProperty('--text-scale',(text/100).toFixed(2));thumbSize.value=thumb;textScale.value=text;thumbValue.textContent=thumb+' px';textValue.textContent=text+'%';if(persist){localStorage.setItem('lws-thumb-size',String(thumb));localStorage.setItem('lws-text-scale',String(text))}}
+            function savedPreset(){try{return JSON.parse(localStorage.getItem('lws-saved-preset')||'null')}catch{return null}}
+            function currentSettings(){return{thumb:Number(thumbSize.value),text:Number(textScale.value),mode:buttonMode.value,view:viewMode.value,theme:document.body.dataset.theme||'ocean'}}
+            function setPresetChoice(name){presetSelect.value=name;localStorage.setItem('lws-preset-v2',name)}
+            function markCustom(){setPresetChoice('custom')}
+            function applyPreset(name,persist=true){let p=presets[name];if(name==='saved')p=savedPreset();if(!p){name='minimal';p=presets.minimal}applyMode(p.mode,false);applyView(p.view,false);applyTheme(p.theme,false);applyDensity(p.thumb,p.text,false);localStorage.setItem('lws-button-mode',p.mode);localStorage.setItem('lws-view-mode',p.view);localStorage.setItem('lws-theme',p.theme);localStorage.setItem('lws-thumb-size',String(p.thumb));localStorage.setItem('lws-text-scale',String(p.text));if(persist)setPresetChoice(name);else presetSelect.value=name}
+            function restoreUI(){const chosen=localStorage.getItem('lws-preset-v2');if(chosen==='saved'&&savedPreset()){applyPreset('saved',false);presetSelect.value='saved';return}if(chosen&&presets[chosen]){applyPreset(chosen,false);presetSelect.value=chosen;return}if(chosen==='custom'){applyMode(localStorage.getItem('lws-button-mode')||'icons',false);applyView(localStorage.getItem('lws-view-mode')||'grid',false);applyTheme(localStorage.getItem('lws-theme')||'ocean',false);applyDensity(localStorage.getItem('lws-thumb-size')||150,localStorage.getItem('lws-text-scale')||90,false);presetSelect.value='custom';return}applyPreset('minimal',true)}
+            setAction(q('#settingsButton'),'config','Settings','Settings');setAction(q('#settingsClose'),'close','Close','Close');restoreUI();
+            presetSelect.onchange=()=>applyPreset(presetSelect.value,true);buttonMode.onchange=()=>{applyMode(buttonMode.value);markCustom()};viewMode.onchange=()=>{applyView(viewMode.value);markCustom()};thumbSize.oninput=()=>{applyDensity(thumbSize.value,textScale.value);markCustom()};textScale.oninput=()=>{applyDensity(thumbSize.value,textScale.value);markCustom()};document.querySelectorAll('.theme-swatch').forEach(x=>x.onclick=()=>{applyTheme(x.dataset.themeChoice);markCustom()});
+            q('#savePreset').onclick=()=>{localStorage.setItem('lws-saved-preset',JSON.stringify(currentSettings()));setPresetChoice('saved');presetSelect.value='saved';q('#savePreset').textContent='Saved ✓';setTimeout(()=>q('#savePreset').textContent='Save current',1000)};q('#resetMinimal').onclick=()=>applyPreset('minimal',true);
             q('#settingsButton').onclick=()=>document.body.classList.add('settings-open');q('#settingsClose').onclick=q('#settingsBackdrop').onclick=()=>document.body.classList.remove('settings-open');
             function visibleFiles(){return currentFilter==='all'?currentFiles:currentFiles.filter(f=>f.kind===currentFilter)}
             function pauseOtherMedia(except){document.querySelectorAll('audio,video').forEach(m=>{if(m!==except&&!m.paused)m.pause()})}

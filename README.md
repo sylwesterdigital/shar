@@ -1,4 +1,4 @@
-# LocalWebShare — 1.6.1
+# LocalWebShare — 1.7.0
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.6.1** (build/version code **10601**).
+`VERSION` is authoritative. Current release: **1.7.0** (build/version code **10700**).
 
 ## Branding
 
@@ -78,7 +78,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.6.1.zip
+LocalWebSharePrototype-v1.7.0.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
@@ -170,7 +170,12 @@ The browser UI is deliberately compact so the file library begins near the top o
 - Grid and List layouts, with Grid as the default;
 - a gear/settings drawer containing button style, layout and colour themes;
 - colour themes: System, Ocean, Forest, Sunset and Violet;
-- exclusive media playback: starting one audio/video player automatically pauses other players.
+- exclusive media playback: starting one audio/video player automatically pauses other players;
+- adaptive grid density controlled by a **Thumbnail / card size** slider (120–320 px), with smaller cards automatically fitting more columns while narrow screens retain at least two columns;
+- browser-wide **Text size** scaling from 75–125%;
+- built-in **Minimal**, **Balanced** and **Large** UI presets plus one browser-local **My saved preset**;
+- **Minimal** is the default browser preset: icon-only action buttons, 150 px adaptive cards, 90% text sizing, tighter spacing and a shorter upload area;
+- SVG action buttons render a single icon; fallback glyphs appear only when a configured SVG icon cannot load.
 
 The server routes are intentionally consistent across clients:
 
@@ -200,7 +205,7 @@ The repository keeps downloaded/local release material out of Git, but the build
 
 Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, gallery-style previous/next navigation, inline audio playback, MP3 artwork/title/artist metadata, delete/share actions and the local HTTP server.
 
-The iPhone/iPad home screen, introduced in 1.5.0 and retained in 1.6.0, is compact and media-first:
+The iPhone/iPad home screen, introduced in 1.5.0 and retained in 1.7.0, is compact and media-first:
 
 - system launch screen using the `SharLogo` asset followed by a startup splash with the shared logo/name and live Wi-Fi/mobile/offline network check;
 - top-row Sharing toggle plus Copy Address and Share Address controls;

@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.0] - 2026-08-29
+
+### Added
+- Added adaptive browser media-card density with a live Thumbnail / card size slider from 120–320 px. Smaller cards automatically create more grid columns; narrow browser windows retain at least two columns.
+- Added a browser-wide Text size slider from 75–125%.
+- Added built-in Minimal, Balanced and Large layout presets plus a browser-local “My saved preset” slot that stores button style, layout, theme, thumbnail size and text size.
+- Added a one-click “Use minimal” reset in the settings drawer.
+
+### Changed
+- Minimal is now the default browser layout: icon-only action buttons, 150 px adaptive cards, 90% typography, tighter spacing and a shorter upload drop area.
+- The browser grid now uses adaptive card sizing instead of a fixed 220 px minimum, allowing substantially denser libraries on desktop and tablets.
+- The browser settings drawer now exposes density controls alongside button labels, layout and colour theme.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.0 / 10700.
+
+### Fixed
+- Fixed duplicated action controls where an SVG icon and its fallback glyph were rendered at the same time. Fallback glyphs now appear only if the corresponding SVG fails to load.
+
 ## [1.6.1] - 2026-08-29
 
 ### Fixed
