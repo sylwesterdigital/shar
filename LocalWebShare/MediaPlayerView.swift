@@ -121,6 +121,7 @@ struct MediaPlayerView: View {
 }
 
 private struct MediaPreviewContent: View {
+    @Environment(\.scenePhase) private var scenePhase
     let file: SharedFile
     @State private var player: AVPlayer?
 
@@ -143,6 +144,11 @@ private struct MediaPreviewContent: View {
             }
         }
         .onDisappear { player?.pause() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active && file.mediaKind == .video {
+                player?.pause()
+            }
+        }
     }
 
     private var imagePreview: some View {
@@ -243,7 +249,12 @@ private struct AudioControls: View {
                 Text(format(currentTime))
                 Spacer()
                 Button {
-                    isPlaying ? player.pause() : player.play()
+                    if isPlaying {
+                        player.pause()
+                    } else {
+                        BackgroundAudioSession.activatePlayback()
+                        player.play()
+                    }
                     isPlaying.toggle()
                 } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
@@ -256,6 +267,7 @@ private struct AudioControls: View {
             .font(.caption.monospacedDigit())
         }
         .onAppear {
+            BackgroundAudioSession.activatePlayback()
             Task {
                 if let item = player.currentItem,
                    let loadedDuration = try? await item.asset.load(.duration),

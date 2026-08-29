@@ -2,6 +2,27 @@
 
 All notable changes to Shar are recorded here.
 
+## [1.7.5] - 2026-08-29
+
+### Fixed
+- Fixed the macOS distribution build failure introduced by iOS background-audio support in v1.7.4.
+- Guarded all `AVAudioSession` activation and interruption handling with iOS-only conditional compilation so the shared media code compiles on macOS.
+- Preserved iOS background/lock-screen audio playback and interruption handling while leaving macOS playback behavior unchanged.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.5 / 10705.
+
+## [1.7.4] - 2026-08-29
+
+### Added
+- Added iOS/iPadOS background audio playback so an audio track can continue while Shar is minimized or while the screen is locked.
+- Added the iOS `audio` background mode and an `AVAudioSession` playback category for lock-screen/background media playback.
+- Added audio-interruption handling so calls/Siri can pause inline playback and it can resume when iOS reports that resumption is appropriate.
+
+### Changed
+- Video preview playback now pauses when Shar leaves the foreground; background playback is intentionally limited to audio media.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.4 / 10704.
+
 ## [1.7.3] - 2026-08-29
 
 ### Changed

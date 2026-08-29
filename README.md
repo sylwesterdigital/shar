@@ -1,4 +1,4 @@
-# Shar — 1.7.3
+# Shar — 1.7.5
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.7.3** (build/version code **10703**).
+`VERSION` is authoritative. Current release: **1.7.5** (build/version code **10705**).
 
 ## Branding
 
@@ -67,6 +67,12 @@ shar/
 ```
 
 
+## Background audio on iPhone/iPad
+
+Shar enables the iOS `audio` background mode and uses an `AVAudioSession` playback category for audio files. When an audio track is playing, it can continue after Shar is sent to the background or the iPhone/iPad screen locks. Video playback intentionally pauses when Shar leaves the foreground. Normal system audio interruptions (for example calls or Siri) can pause playback and Shar resumes when iOS indicates that playback should continue.
+
+Background audio is for media playback only; it is not used as a workaround to guarantee that the local HTTP sharing server remains available while iOS is backgrounded.
+
 ## Preview behavior
 
 Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
@@ -88,7 +94,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.7.3.zip
+LocalWebSharePrototype-v1.7.5.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
@@ -432,3 +438,8 @@ scripts/setup_android_release.sh       automatic one-time Android signing bootst
 scripts/check_*_release_credentials.sh release-host preflight checks
 scripts/release_profile.sh             private SSH deployment-profile loader
 ```
+
+
+## v1.7.5 platform guard
+
+Shar's iOS background-audio session setup is compiled only for iOS. The shared media playback controller remains available to macOS without referencing `AVAudioSession`, which Apple marks unavailable on macOS. This keeps background/lock-screen audio on iPhone while allowing the universal2 macOS release build to compile normally.

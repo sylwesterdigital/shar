@@ -65,6 +65,33 @@ grep -Fq 'UTType.movie.identifier' LocalWebShare/ContentView.swift || fail "iOS 
 grep -Fq '<key>NSCameraUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS camera permission text missing"
 grep -Fq '<key>NSMicrophoneUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS microphone permission text missing"
 grep -Fq '<key>NSPhotoLibraryUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS photo-library permission text missing"
+grep -Fq '<key>UIBackgroundModes</key>' LocalWebShare/Info.plist || fail "iOS background modes key missing"
+grep -A3 -F '<key>UIBackgroundModes</key>' LocalWebShare/Info.plist | grep -Fq '<string>audio</string>' || fail "iOS background audio mode missing"
+grep -Fq 'AVAudioSession.sharedInstance()' LocalWebShare/MediaSupport.swift || fail "iOS background audio session missing"
+grep -Fq 'setCategory(.playback' LocalWebShare/MediaSupport.swift || fail "iOS playback audio category missing"
+python3 - <<'PYIOSGUARD'
+from pathlib import Path
+lines=Path('LocalWebShare/MediaSupport.swift').read_text().splitlines()
+ios_depth=0
+stack=[]
+violations=[]
+for lineno, raw in enumerate(lines, 1):
+    stripped=raw.strip()
+    if stripped.startswith('#if '):
+        is_ios = stripped == '#if os(iOS)'
+        stack.append(is_ios)
+        if is_ios: ios_depth += 1
+        continue
+    if stripped == '#endif':
+        if stack:
+            was_ios=stack.pop()
+            if was_ios: ios_depth -= 1
+        continue
+    if 'AVAudioSession' in raw and ios_depth <= 0:
+        violations.append(lineno)
+if violations:
+    raise SystemExit('AVAudioSession references escape the iOS-only guard at lines: ' + ', '.join(map(str, violations)))
+PYIOSGUARD
 grep -Fq 'Shar · v\(appVersion)' LocalWebShare/ContentView.swift || fail "iOS visible Settings version missing"
 ! grep -A110 -F 'private var settingsPanel' LocalWebShare/ContentView.swift | grep -Fq '.ignoresSafeArea()' || fail "iOS Settings panel ignores safe area"
 grep -Fq 'android:label="Shar"' android/app/src/main/AndroidManifest.xml || fail "Android display name is not Shar"

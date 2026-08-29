@@ -198,6 +198,20 @@ final class NetworkStatusMonitor: ObservableObject {
     deinit { monitor.cancel() }
 }
 
+enum BackgroundAudioSession {
+    static func activatePlayback() {
+#if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch {
+            print("Shar background audio session error: \(error.localizedDescription)")
+        }
+#endif
+    }
+}
+
 @MainActor
 final class SharedAudioPlaybackController: ObservableObject {
     @Published private(set) var activeFileID: String?
@@ -205,8 +219,27 @@ final class SharedAudioPlaybackController: ObservableObject {
 
     private var player: AVPlayer?
     private var statusObserver: NSKeyValueObservation?
+    private var interruptionObserver: NSObjectProtocol?
+    private var shouldResumeAfterInterruption = false
+
+    init() {
+#if os(iOS)
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor [weak self] in self?.handleInterruption(note) }
+        }
+#endif
+    }
+
+    deinit {
+        if let interruptionObserver { NotificationCenter.default.removeObserver(interruptionObserver) }
+    }
 
     func toggle(_ file: SharedFile) {
+        BackgroundAudioSession.activatePlayback()
         if activeFileID == file.id, let player {
             if player.timeControlStatus == .playing {
                 player.pause()
@@ -238,6 +271,34 @@ final class SharedAudioPlaybackController: ObservableObject {
         activeFileID = nil
         isPlaying = false
     }
+
+#if os(iOS)
+    private func handleInterruption(_ notification: Notification) {
+        guard
+            let info = notification.userInfo,
+            let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+            let type = AVAudioSession.InterruptionType(rawValue: rawType)
+        else { return }
+
+        switch type {
+        case .began:
+            shouldResumeAfterInterruption = isPlaying
+            player?.pause()
+            isPlaying = false
+        case .ended:
+            let rawOptions = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            if shouldResumeAfterInterruption && options.contains(.shouldResume) {
+                BackgroundAudioSession.activatePlayback()
+                player?.play()
+                isPlaying = true
+            }
+            shouldResumeAfterInterruption = false
+        @unknown default:
+            break
+        }
+    }
+#endif
 
     func isPlaying(_ file: SharedFile) -> Bool {
         activeFileID == file.id && isPlaying
