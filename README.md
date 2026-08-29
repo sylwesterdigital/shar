@@ -1,4 +1,4 @@
-# Shar — 1.7.1
+# Shar — 1.7.2
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.7.1** (build/version code **10701**).
+`VERSION` is authoritative. Current release: **1.7.2** (build/version code **10702**).
 
 ## Branding
 
@@ -78,7 +78,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.7.1.zip
+LocalWebSharePrototype-v1.7.2.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
@@ -208,7 +208,10 @@ Native SwiftUI client with Files/Documents storage, media thumbnails, image/audi
 The iPhone/iPad home screen is compact and media-first:
 
 - system launch screen using the `SharLogo` asset followed by a startup splash that displays **Shar** and a live Wi-Fi/mobile/offline network check;
-- an always-visible circular **+** button in the top-left opens the native iOS Files picker and imports one or more selected files directly into Shar's Documents/shared library;
+- an always-visible circular **+** button in the top-left opens an add menu with **Photos & Videos**, **Record Video**, and **Files**;
+- **Photos & Videos** opens the native multi-select Photos picker and copies selected images/videos into Shar's Documents/shared library;
+- **Record Video** opens the native camera full-screen, records video with microphone audio, then stores the finished timestamped `.mov` directly in Shar;
+- **Files** retains the native multi-file Files picker for iCloud Drive, On My iPhone and installed document providers;
 - top-row Sharing toggle plus Copy Address and Share Address controls;
 - horizontally scrolling media-type filter chips immediately below the sharing row;
 - Grid view by default, with optional List view;
@@ -306,14 +309,14 @@ The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an 
 Local debug output:
 
 ```text
-release/LocalWebShare-v1.7.1-android-debug.apk
+release/LocalWebShare-v1.7.2-android-debug.apk
 ```
 
 Public signed release output from `scripts/build_android_release.sh`:
 
 ```text
-release/LocalWebShare-v1.7.1-android.apk
-release/LocalWebShare-v1.7.1-android.aab
+release/LocalWebShare-v1.7.2-android.apk
+release/LocalWebShare-v1.7.2-android.aab
 ```
 
 ## Build all clients

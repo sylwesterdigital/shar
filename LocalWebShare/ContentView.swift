@@ -1,6 +1,7 @@
 import AVFoundation
 import SwiftUI
 import UIKit
+import PhotosUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
@@ -21,6 +22,8 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var copiedAddress = false
     @State private var showingFileImporter = false
+    @State private var showingPhotoPicker = false
+    @State private var showingVideoCamera = false
 
     private var actionLabelMode: ActionLabelMode {
         ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact
@@ -57,8 +60,25 @@ struct ContentView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            showingFileImporter = true
+                        Menu {
+                            Button {
+                                showingPhotoPicker = true
+                            } label: {
+                                Label("Photos & Videos", systemImage: "photo.on.rectangle.angled")
+                            }
+
+                            Button {
+                                showingVideoCamera = true
+                            } label: {
+                                Label("Record Video", systemImage: "video.badge.plus")
+                            }
+                            .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+
+                            Button {
+                                showingFileImporter = true
+                            } label: {
+                                Label("Files", systemImage: "folder")
+                            }
                         } label: {
                             Image(systemName: "plus")
                                 .font(.subheadline.weight(.bold))
@@ -67,7 +87,7 @@ struct ContentView: View {
                                 .background(colorTheme.accent, in: Circle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Add files")
+                        .accessibilityLabel("Add photos, videos, camera recordings or files")
                     }
                     ToolbarItem(placement: .principal) {
                         Text("Files")
@@ -115,6 +135,22 @@ struct ContentView: View {
             case .failure(let error):
                 fileStore.lastError = error.localizedDescription
             }
+        }
+        .sheet(isPresented: $showingPhotoPicker) {
+            PhotoVideoLibraryPicker(isPresented: $showingPhotoPicker) { url in
+                fileStore.importFile(from: url)
+            } onError: { message in
+                fileStore.lastError = message
+            }
+            .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showingVideoCamera) {
+            VideoCameraPicker(isPresented: $showingVideoCamera) { url in
+                fileStore.importFile(from: url)
+            } onError: { message in
+                fileStore.lastError = message
+            }
+            .ignoresSafeArea()
         }
         .confirmationDialog(
             filePendingDelete.map { "Delete \($0.name)?" } ?? "Delete file?",
@@ -243,7 +279,7 @@ struct ContentView: View {
             ContentUnavailableView(
                 "No Files Yet",
                 systemImage: "folder",
-                description: Text("Tap + to add files on this iPhone, or turn on Sharing and upload from another device.")
+                description: Text("Tap + to choose Photos & Videos, record a video, or import Files. Turn on Sharing to upload from another device.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if filteredFiles.isEmpty {
@@ -590,6 +626,170 @@ private struct AudioMetadataLine: View {
         .foregroundStyle(.secondary)
         .task(id: file.id) {
             metadata = await Task.detached(priority: .utility) { MediaMetadataReader.read(file.url) }.value
+        }
+    }
+}
+
+
+private struct PhotoVideoLibraryPicker: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let onPicked: (URL) -> Void
+    let onError: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPresented: $isPresented, onPicked: onPicked, onError: onError)
+    }
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .any(of: [.images, .videos])
+        configuration.selectionLimit = 0
+        configuration.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        private var isPresented: Binding<Bool>
+        private let onPicked: (URL) -> Void
+        private let onError: (String) -> Void
+
+        init(isPresented: Binding<Bool>, onPicked: @escaping (URL) -> Void, onError: @escaping (String) -> Void) {
+            self.isPresented = isPresented
+            self.onPicked = onPicked
+            self.onError = onError
+        }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            isPresented.wrappedValue = false
+            for result in results {
+                importResult(result)
+            }
+        }
+
+        private func importResult(_ result: PHPickerResult) {
+            let provider = result.itemProvider
+            let typeIdentifier: String
+            if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+                typeIdentifier = UTType.movie.identifier
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                typeIdentifier = UTType.image.identifier
+            } else {
+                DispatchQueue.main.async { self.onError("The selected Photos item is not an image or video.") }
+                return
+            }
+
+            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] sourceURL, error in
+                guard let self else { return }
+                if let error {
+                    DispatchQueue.main.async { self.onError(error.localizedDescription) }
+                    return
+                }
+                guard let sourceURL else {
+                    DispatchQueue.main.async { self.onError("Photos could not provide the selected item.") }
+                    return
+                }
+
+                do {
+                    let temporaryURL = try Self.makeTemporaryCopy(
+                        from: sourceURL,
+                        suggestedName: provider.suggestedName
+                    )
+                    DispatchQueue.main.async {
+                        self.onPicked(temporaryURL)
+                        try? FileManager.default.removeItem(at: temporaryURL.deletingLastPathComponent())
+                    }
+                } catch {
+                    DispatchQueue.main.async { self.onError(error.localizedDescription) }
+                }
+            }
+        }
+
+        private static func makeTemporaryCopy(from sourceURL: URL, suggestedName: String?) throws -> URL {
+            let fm = FileManager.default
+            var filename = (suggestedName ?? sourceURL.lastPathComponent)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if filename.isEmpty { filename = "Shar Media" }
+            if URL(fileURLWithPath: filename).pathExtension.isEmpty, !sourceURL.pathExtension.isEmpty {
+                filename += ".\(sourceURL.pathExtension)"
+            }
+            let directory = fm.temporaryDirectory
+                .appendingPathComponent("SharPhotoImports", isDirectory: true)
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+            let destination = directory.appendingPathComponent(filename)
+            try fm.copyItem(at: sourceURL, to: destination)
+            return destination
+        }
+    }
+}
+
+private struct VideoCameraPicker: UIViewControllerRepresentable {
+    @Binding var isPresented: Bool
+    let onPicked: (URL) -> Void
+    let onError: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPresented: $isPresented, onPicked: onPicked, onError: onError)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = .camera
+        picker.mediaTypes = [UTType.movie.identifier]
+        picker.cameraCaptureMode = .video
+        picker.videoQuality = .typeHigh
+        picker.videoMaximumDuration = 600
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        private var isPresented: Binding<Bool>
+        private let onPicked: (URL) -> Void
+        private let onError: (String) -> Void
+
+        init(isPresented: Binding<Bool>, onPicked: @escaping (URL) -> Void, onError: @escaping (String) -> Void) {
+            self.isPresented = isPresented
+            self.onPicked = onPicked
+            self.onError = onError
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            isPresented.wrappedValue = false
+        }
+
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        ) {
+            guard let sourceURL = info[.mediaURL] as? URL else {
+                isPresented.wrappedValue = false
+                onError("The camera did not return a recorded video.")
+                return
+            }
+
+            do {
+                let fm = FileManager.default
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+                let filename = "Shar Video \(formatter.string(from: Date())).mov"
+                let directory = fm.temporaryDirectory.appendingPathComponent("SharCamera", isDirectory: true)
+                try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+                let destination = directory.appendingPathComponent(filename)
+                try? fm.removeItem(at: destination)
+                try fm.copyItem(at: sourceURL, to: destination)
+                onPicked(destination)
+                try? fm.removeItem(at: destination)
+            } catch {
+                onError(error.localizedDescription)
+            }
+            isPresented.wrappedValue = false
         }
     }
 }

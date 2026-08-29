@@ -24,6 +24,12 @@
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Shar uses your local network so computers and other devices on the same Wi-Fi network can upload and download files.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Shar uses the camera when you choose Record Video so the recording can be added to your shared library.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Shar uses the microphone while recording video so captured videos can include audio.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Shar lets you choose photos and videos to add to your shared library.</string>
     <key>UIFileSharingEnabled</key>
     <true/>
     <key>LSSupportsOpeningDocumentsInPlace</key>

@@ -2,6 +2,18 @@
 
 All notable changes to Shar are recorded here.
 
+## [1.7.2] - 2026-08-29
+
+### Added
+- Expanded the always-visible iOS/iPadOS **+** control into a native add menu with **Photos & Videos**, **Record Video**, and **Files**.
+- Added multi-select Photos library import for both still images and videos using the native iOS picker. Imported assets are copied directly into Shar's shared library and appear immediately in the app/browser file grid.
+- Added native full-screen video capture from the iPhone/iPad camera. Finished recordings are stored in Shar automatically with timestamped `.mov` filenames and become available to browser sharing immediately.
+- Added iOS camera, microphone, and photo-library privacy descriptions required for capture/import workflows.
+
+### Changed
+- Updated the empty-library guidance to explain all three local import paths from the **+** button.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.2 / 10702.
+
 ## [1.7.1] - 2026-08-29
 
 ### Added
