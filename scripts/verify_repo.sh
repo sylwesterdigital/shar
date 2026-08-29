@@ -45,6 +45,13 @@ grep -Fq "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" LocalWebShare.xcodeproj/proj
 grep -Eq "versionName[[:space:]]+'$VERSION_VALUE'" android/app/build.gradle || fail "Android versionName mismatch"
 grep -Eq "versionCode[[:space:]]+$BUILD_NUMBER" android/app/build.gradle || fail "Android versionCode mismatch"
 grep -Fq 'ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS AppIcon asset is not configured"
+grep -Fq '<string>SharLogo</string>' LocalWebShare/Info.plist || fail "iOS launch screen does not reference SharLogo"
+grep -Fq 'NWPathMonitor' LocalWebShare/MediaSupport.swift || fail "iOS network status monitor missing"
+grep -Fq 'LazyVGrid' LocalWebShare/ContentView.swift || fail "iOS grid media view missing"
+grep -Fq 'settingsPanel' LocalWebShare/ContentView.swift || fail "iOS settings drawer missing"
+grep -Fq 'currentFilter' LocalWebShare/LocalWebServer.swift || fail "Apple browser media filters missing"
+grep -Fq 'settings-open' LocalWebShare/LocalWebServer.swift || fail "Apple browser settings drawer missing"
+grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
 
 for s in scripts/*.sh; do [[ -x "$s" ]] || fail "Script is not executable: $s"; done
 

@@ -2,6 +2,30 @@
 
 All notable changes to LocalWebShare are recorded here.
 
+## [1.5.0] - 2026-08-29
+
+### Added
+- Added an iOS/iPadOS launch screen using the `SharLogo` asset plus an app-level startup splash with the shared Shar logo and app name.
+- Added live startup/network status detection for Wi-Fi, cellular/mobile data, wired/other network and offline states using `NWPathMonitor`.
+- Added a compact top sharing strip on iPhone/iPad with the Sharing toggle, current local address, Copy Address and Share Address controls in one row.
+- Added a right-side settings drawer opened from the top-right gear icon.
+- Added persisted colour themes: System, Ocean, Forest, Sunset and Violet.
+- Added persisted Grid/List file-layout selection, with Grid as the default.
+- Added media filter chips for All, Images, Audio, Video, Documents and Other.
+- Added optional Auto-start on Wi-Fi and Show file sizes settings.
+- Added a shared iOS inline-audio playback controller so only one file-list audio item can play at once.
+- Added browser media-type filter chips, Grid/List selection and a gear-driven settings drawer.
+- Added browser colour-theme selection with persisted preferences.
+- Added global browser media exclusivity so starting any inline or preview audio/video pauses every other active player.
+
+### Changed
+- Removed the large Local Web Share heading/subheading from the browser UI so uploads and files start much higher on the page.
+- Reworked the iPhone/iPad main screen from a tall `List`/section layout into a compact sharing bar + filters + media grid/list.
+- Opening an iOS full media preview now stops any inline audio playback first.
+- Browser gallery previous/next navigation now follows the currently selected media filter.
+- iOS marketing/build version bumped to 1.5.0 / 10500.
+- Android versionName/versionCode bumped to 1.5.0 / 10500 to keep the multi-platform release version aligned.
+
 ## [1.4.1] - 2026-08-29
 
 ### Added

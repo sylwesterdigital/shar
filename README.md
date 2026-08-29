@@ -1,4 +1,4 @@
-# LocalWebShare — 1.4.1
+# LocalWebShare — 1.5.0
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.4.1** (build/version code **10401**).
+`VERSION` is authoritative. Current release: **1.5.0** (build/version code **10500**).
 
 ## Branding
 
@@ -68,7 +68,7 @@ When sharing is enabled, open the displayed local URL from another device on the
 http://192.168.1.42:8080
 ```
 
-The browser UI supports:
+The browser UI is deliberately compact so the file library begins near the top of the page. It has no large product/logo header and supports:
 
 - drag files anywhere onto the upload area to upload immediately;
 - multi-file picker upload;
@@ -83,7 +83,12 @@ The browser UI supports:
 - left/right swipe navigation in the preview and keyboard arrow navigation in the browser;
 - audio play/pause and seeking directly from the file list;
 - MP3/M4A metadata (title/artist) and embedded album artwork when present;
-- three button-label modes: **Text**, **Icons**, and **Icon + short**.
+- three button-label modes: **Text**, **Icons**, and **Icon + short**;
+- media filter chips for All, Images, Audio, Video, Documents and Other;
+- Grid and List layouts, with Grid as the default;
+- a gear/settings drawer containing button style, layout and colour themes;
+- colour themes: System, Ocean, Forest, Sunset and Violet;
+- exclusive media playback: starting one audio/video player automatically pauses other players.
 
 The server routes are intentionally consistent across clients:
 
@@ -112,6 +117,19 @@ The repository keeps downloaded/local release material out of Git, but the build
 ## iOS / iPadOS
 
 Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, gallery-style previous/next navigation, inline audio playback, MP3 artwork/title/artist metadata, delete/share actions and the local HTTP server.
+
+The iPhone/iPad home screen in 1.5.0 is compact and media-first:
+
+- system launch screen using the `SharLogo` asset followed by a startup splash with the shared logo/name and live Wi-Fi/mobile/offline network check;
+- top-row Sharing toggle plus Copy Address and Share Address controls;
+- horizontally scrolling media-type filter chips immediately below the sharing row;
+- Grid view by default, with optional List view;
+- a right-side settings drawer opened from the top-right gear;
+- persisted Text / Icons / Icon + short button style;
+- persisted System / Ocean / Forest / Sunset / Violet accent themes;
+- optional auto-start sharing on Wi-Fi and file-size display;
+- one shared inline audio player, so playing a new track stops the previous track;
+- opening any full preview stops inline audio first.
 
 Build, sign, install and launch on the tethered iPhone/iPad:
 
@@ -166,7 +184,7 @@ Build without launching:
 The build creates:
 
 ```text
-release/LocalWebShare-v1.4.1-macOS-<arch>.zip
+release/LocalWebShare-v1.5.0-macOS-<arch>.zip
 ```
 
 The app is ad-hoc signed for local use. Distribution/notarization can be added later without changing the application architecture.
@@ -205,7 +223,7 @@ The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an 
 APK output:
 
 ```text
-release/LocalWebShare-v1.4.1-android-debug.apk
+release/LocalWebShare-v1.5.0-android-debug.apk
 ```
 
 ## Build all clients
