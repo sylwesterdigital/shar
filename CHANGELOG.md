@@ -2,6 +2,17 @@
 
 All notable changes to Shar are recorded here.
 
+## [1.7.3] - 2026-08-29
+
+### Changed
+- Image previews on iOS/iPadOS now default to fit the complete image inside the available preview area instead of using a scrollable minimum-size layout that could appear cropped or zoomed.
+- Browser image/video previews now explicitly use `object-fit: contain` so the complete asset stays visible inside the modal viewer.
+- Cellular network status now explains that direct inbound sharing is normally blocked by carrier NAT/firewalls rather than implying that a carrier public IP is a usable Shar endpoint.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.3 / 10703.
+
+### Added
+- Added a persistent bottom-right **X** close button to the iOS/iPadOS media preview. Swipe/gesture dismissal and previous/next gallery navigation remain available.
+
 ## [1.7.2] - 2026-08-29
 
 ### Added

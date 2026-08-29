@@ -634,7 +634,7 @@ private final class HTTPConnectionSession {
             .modal-title { font-weight:700; overflow-wrap:anywhere; flex:1; min-width:0; }
             .modal-content-wrap { position:relative; background:#000; }
             .modal-content { min-height:300px; height:min(76vh,760px); overflow:auto; display:grid; place-items:center; background:#000; touch-action:pan-y; }
-            .modal-content img,.modal-content video { max-width:100%; max-height:100%; } .modal-content audio { width:min(680px,calc(100% - 40px)); }
+            .modal-content img,.modal-content video { width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; display:block; } .modal-content audio { width:min(680px,calc(100% - 40px)); }
             .nav-arrow { position:absolute; z-index:3; top:50%; transform:translateY(-50%); width:40px; height:52px; border-radius:11px; background:#0008; color:white; border-color:#fff4; }
             .nav-arrow.prev { left:7px; } .nav-arrow.next { right:7px; } .nav-arrow:disabled { opacity:.2; cursor:default; }
             .viewer-position { font-size:.68rem; opacity:.65; white-space:nowrap; }

@@ -1,4 +1,4 @@
-# Shar — 1.7.2
+# Shar — 1.7.3
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.7.2** (build/version code **10702**).
+`VERSION` is authoritative. Current release: **1.7.3** (build/version code **10703**).
 
 ## Branding
 
@@ -67,6 +67,16 @@ shar/
 ```
 
 
+## Preview behavior
+
+Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
+
+## Wi-Fi versus cellular sharing
+
+Shar is a local HTTP server. On Wi-Fi/LAN, other devices on the same reachable network can connect directly to the Shar address. A cellular connection can have Internet access while still being unsuitable for inbound hosting: most mobile carriers place phones behind carrier-grade NAT and/or inbound firewalls, so discovering the carrier-facing public IP does **not** normally make port 8080 reachable from the Internet.
+
+For sharing outside the local network, use a private VPN/tunnel or a future Shar relay service. Shar does not advertise a cellular public IP as a working share address because that would be misleading on the majority of carrier networks.
+
 ## Automated release pipeline
 
 The normal release workflow is now deliberately one-action: leave the foreground watcher running and save a newer release ZIP into:
@@ -78,7 +88,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.7.2.zip
+LocalWebSharePrototype-v1.7.3.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
@@ -309,14 +319,14 @@ The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an 
 Local debug output:
 
 ```text
-release/LocalWebShare-v1.7.2-android-debug.apk
+release/LocalWebShare-v1.7.3-android-debug.apk
 ```
 
 Public signed release output from `scripts/build_android_release.sh`:
 
 ```text
-release/LocalWebShare-v1.7.2-android.apk
-release/LocalWebShare-v1.7.2-android.aab
+release/LocalWebShare-v1.7.3-android.apk
+release/LocalWebShare-v1.7.3-android.aab
 ```
 
 ## Build all clients

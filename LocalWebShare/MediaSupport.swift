@@ -145,7 +145,7 @@ enum NetworkConnectionKind: String {
     var detail: String {
         switch self {
         case .wifi: return "Ready for local browser sharing"
-        case .cellular: return "Connect to Wi-Fi for local browser sharing"
+        case .cellular: return "Direct inbound sharing is usually blocked by the mobile carrier; use Wi-Fi or a private tunnel/relay"
         case .wired: return "Ready for local browser sharing"
         case .other: return "Local sharing availability depends on this connection"
         case .offline: return "Enable Wi-Fi or mobile data"

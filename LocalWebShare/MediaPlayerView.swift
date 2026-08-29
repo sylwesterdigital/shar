@@ -63,14 +63,29 @@ struct MediaPlayerView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if files.count > 1 {
-                    Text("\(index + 1) of \(files.count) • swipe left/right for next/previous")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 7)
-                        .frame(maxWidth: .infinity)
-                        .background(.ultraThinMaterial)
+                HStack(spacing: 10) {
+                    if files.count > 1 {
+                        Text("\(index + 1) of \(files.count) • swipe left/right for next/previous")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+                    Spacer(minLength: 8)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline.weight(.bold))
+                            .frame(width: 36, height: 36)
+                            .background(.thinMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close preview")
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(.ultraThinMaterial)
             }
             .confirmationDialog(
                 file.map { "Delete \($0.name)?" } ?? "Delete file?",
@@ -132,18 +147,19 @@ private struct MediaPreviewContent: View {
 
     private var imagePreview: some View {
         GeometryReader { proxy in
-            ScrollView([.horizontal, .vertical]) {
+            ZStack {
+                Color.black
                 if let image = UIImage(contentsOfFile: file.url.path) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
-                        .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
                 } else {
                     ContentUnavailableView("Cannot Preview Image", systemImage: "photo.badge.exclamationmark")
                         .frame(width: proxy.size.width, height: proxy.size.height)
                 }
             }
-            .background(Color.black)
+            .clipped()
         }
     }
 
