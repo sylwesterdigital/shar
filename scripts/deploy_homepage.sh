@@ -17,8 +17,10 @@ fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; printf 'WARNING: retry %d/%d in %ss: %s\n' "$n" "$max" "$delay" "$*" >&2; sleep "$delay"; n=$((n+1)); done; }
 for t in gh python3 rsync ssh curl gzip; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 [[ -f "$ROOT/homepage/index.html" ]] || fail "homepage/index.html missing"
+[[ -f "$ROOT/homepage/receive.html" ]] || fail "homepage/receive.html missing"
 mkdir -p "$BUILD_DIR"
 cp "$ROOT/homepage/index.html" "$BUILD_DIR/index.html"
+cp "$ROOT/homepage/receive.html" "$BUILD_DIR/receive.html"
 cp "$ROOT/assets/shar-logo.svg" "$BUILD_DIR/shar-logo.svg"
 
 log "Resolving published GitHub release $TAG"
@@ -56,6 +58,7 @@ p.write_text(text)
 PY
 rm -f "$RELEASE_JSON"
 grep -F "$TAG" "$BUILD_DIR/index.html" >/dev/null || fail "Homepage does not contain release tag $TAG"
+grep -F 'Receive with Shar' "$BUILD_DIR/receive.html" >/dev/null || fail "Remote receiver page is invalid"
 find "$BUILD_DIR" -type f \( -name '*.html' -o -name '*.json' -o -name '*.svg' \) -print0 | while IFS= read -r -d '' f; do gzip -9 -kf "$f"; done
 
 log "Deploying homepage to $SHAR_REMOTE_HOST:$SHAR_REMOTE_DIR"
@@ -70,4 +73,6 @@ trap 'rm -f "$TMP"' EXIT
 retry 4 8 curl --fail --silent --show-error --location "${REMOTE_URL%/}/?deploy=$STAMP" -o "$TMP"
 grep -qi '<title[^>]*>Shar' "$TMP" || fail "Public page is reachable but title verification failed."
 grep -F "$TAG" "$TMP" >/dev/null || fail "Public page does not contain $TAG."
-printf 'Homepage deployed and verified: %s\n' "$REMOTE_URL"
+retry 4 8 curl --fail --silent --show-error --location "${REMOTE_URL%/}/receive.html?deploy=$STAMP" -o "$TMP"
+grep -F 'Receive with Shar' "$TMP" >/dev/null || fail "Public remote receiver page verification failed."
+printf 'Homepage + remote receiver deployed and verified: %s\n' "$REMOTE_URL"

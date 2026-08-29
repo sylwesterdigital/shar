@@ -25,6 +25,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     private File inlineFile;
     private Button inlineButton;
     private int buttonMode;
+    private boolean showDeveloperInfo;
     private boolean rebuilding;
     private static final int PICK_FILES = 4001;
 
@@ -33,6 +34,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
         sharedDir = new File(getFilesDir(), "shared"); sharedDir.mkdirs();
         server = new LocalHttpServer(sharedDir, this);
         buttonMode=getPreferences(MODE_PRIVATE).getInt("button_mode",2);
+        showDeveloperInfo=getPreferences(MODE_PRIVATE).getBoolean("show_developer_info",false);
         rebuildUI();
     }
 
@@ -40,12 +42,39 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
 
     private View buildUI() {
         ScrollView scroll=new ScrollView(this); LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(18),dp(18),dp(40));scroll.addView(root);
-        LinearLayout title=new LinearLayout(this);title.setOrientation(LinearLayout.HORIZONTAL);title.setGravity(Gravity.CENTER_VERTICAL);ImageView logo=new ImageView(this);logo.setImageResource(R.mipmap.ic_launcher);title.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(64)));TextView h=text("Shar\nWi-Fi media sharing",22);h.setPadding(dp(12),0,0,0);title.addView(h);root.addView(title);
+        LinearLayout title=new LinearLayout(this);title.setOrientation(LinearLayout.HORIZONTAL);title.setGravity(Gravity.CENTER_VERTICAL);ImageView logo=new ImageView(this);logo.setImageResource(R.mipmap.ic_launcher);title.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(64)));TextView h=text("Shar\nWi-Fi media sharing",22);h.setPadding(dp(12),0,0,0);title.addView(h,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));if(showDeveloperInfo){Button info=new Button(this);info.setText("ⓘ");info.setContentDescription("Developer updates");info.setOnClickListener(v->showDeveloperUpdates());title.addView(info);}root.addView(title);
         stateText=text("Sharing is OFF",18);stateText.setPadding(0,dp(20),0,dp(4));root.addView(stateText);addressText=text("Server stopped",14);addressText.setTextIsSelectable(true);root.addView(addressText);
         toggleButton=new Button(this);toggleButton.setOnClickListener(v->toggleServer());root.addView(toggleButton);
         Button importButton=new Button(this);setLabel(importButton,"Import Files","Import","＋");importButton.setOnClickListener(v->chooseFiles());root.addView(importButton);
         LinearLayout modeRow=new LinearLayout(this);modeRow.setGravity(Gravity.CENTER_VERTICAL);TextView ml=text("Buttons",14);modeRow.addView(ml);Spinner spinner=new Spinner(this);ArrayAdapter<String>a=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Text","Icons","Icon + short"});spinner.setAdapter(a);spinner.setSelection(buttonMode,false);spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onNothingSelected(android.widget.AdapterView<?>p){}public void onItemSelected(android.widget.AdapterView<?>p,View v,int pos,long id){if(rebuilding||pos==buttonMode)return;buttonMode=pos;getPreferences(MODE_PRIVATE).edit().putInt("button_mode",pos).apply();rebuildUI();}});modeRow.addView(spinner,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));root.addView(modeRow);
-        LinearLayout filesHeader=new LinearLayout(this);filesHeader.setGravity(Gravity.CENTER_VERTICAL);filesHeader.setPadding(0,dp(18),0,dp(8));TextView fh=text("Files",20);filesHeader.addView(fh,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));countText=text("0",14);filesHeader.addView(countText);root.addView(filesHeader);filesLayout=new LinearLayout(this);filesLayout.setOrientation(LinearLayout.VERTICAL);root.addView(filesLayout);TextView version=text("Version 1.4.1 (10401)",12);version.setPadding(0,dp(24),0,0);root.addView(version);return scroll;
+        CheckBox developerToggle=new CheckBox(this);developerToggle.setText("Show ⓘ developer updates");developerToggle.setChecked(showDeveloperInfo);developerToggle.setOnCheckedChangeListener((button,checked)->{if(rebuilding)return;showDeveloperInfo=checked;getPreferences(MODE_PRIVATE).edit().putBoolean("show_developer_info",checked).apply();rebuildUI();});root.addView(developerToggle);
+        LinearLayout filesHeader=new LinearLayout(this);filesHeader.setGravity(Gravity.CENTER_VERTICAL);filesHeader.setPadding(0,dp(18),0,dp(8));TextView fh=text("Files",20);filesHeader.addView(fh,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));countText=text("0",14);filesHeader.addView(countText);root.addView(filesHeader);filesLayout=new LinearLayout(this);filesLayout.setOrientation(LinearLayout.VERTICAL);root.addView(filesLayout);TextView version=text(appVersionLabel(),12);version.setPadding(0,dp(24),0,0);root.addView(version);return scroll;
+    }
+
+    private void showDeveloperUpdates(){
+        String message="v2.0.5  Remote service readiness\nFixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation.\n\n"+
+                "v2.0.4  Native iPhone Remote Share\nRemote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI.\n\n"+
+                "v2.0.3  Public route verification\nMade the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts.\n\n"+
+                "v2.0.2  Remote routing repair\nFixed exact mojoworks.xyz API routing and automatic public-endpoint repair.\n\n"+
+                "v2.0.1  Android release fix\nRestored Android release compilation and kept version display sourced from package metadata.\n\n"+
+            "v2.0.0  Remote WebRTC sharing\nExpiring QR/link shares with P2P data channels and TURN fallback.\n\n"+
+            "v1.7.6  Optional developer info\nHidden-by-default ⓘ updates panel and preference.\n\n"+
+            "v1.7.5  Cross-platform audio fix\nRestored macOS release builds while keeping iOS background audio.\n\n"+
+            "v1.7.4  Background audio\nAudio continues while Shar is minimized or the screen is locked.\n\n"+
+            "v1.7.3  Better preview\nFit-first images and a persistent X close control.\n\n"+
+            "v1.7.2  More ways to add\nPhotos & Videos, camera recording, and Files from +.\n\n"+
+            "v1.7.1  Shar identity\nShar branding and persistent iOS + importer.";
+        new AlertDialog.Builder(this).setTitle("Developer updates").setMessage(message).setPositiveButton("Close",null).show();
+    }
+
+    private String appVersionLabel(){
+        try {
+            android.content.pm.PackageInfo info=getPackageManager().getPackageInfo(getPackageName(),0);
+            long code=android.os.Build.VERSION.SDK_INT>=android.os.Build.VERSION_CODES.P ? info.getLongVersionCode() : info.versionCode;
+            return "Version "+(info.versionName==null?"?":info.versionName)+" ("+code+")";
+        } catch(Exception ignored) {
+            return "Version ?";
+        }
     }
 
     private String label(String full,String shortText,String icon){return buttonMode==0?full:buttonMode==1?icon:icon+" "+shortText;}
@@ -63,6 +92,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
         ImageView thumb=new ImageView(this);thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);Bitmap bmp=thumbnail(f);if(bmp!=null)thumb.setImageBitmap(bmp);else thumb.setImageResource(android.R.drawable.ic_menu_report_image);row.addView(thumb,new LinearLayout.LayoutParams(dp(58),dp(58)));
         LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);info.setPadding(dp(12),0,dp(8),0);String[] md=audioMetadata(f);TextView name=text(md[0]!=null?md[0]:f.getName(),16);info.addView(name);if(md[1]!=null){TextView artist=text(md[1],12);artist.setAlpha(.7f);info.addView(artist);}TextView meta=text(MediaTypes.kind(f.getName()).toUpperCase(Locale.ROOT)+" • "+Formatter.formatFileSize(this,f.length()),12);info.addView(meta);row.addView(info,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
         if(MediaTypes.kind(f.getName()).equals("audio")){Button play=new Button(this);setLabel(play,"Play","Play","▶");play.setOnClickListener(v->{playInline(f,play);});row.addView(play);}
+        Button remote=new Button(this);setLabel(remote,"Remote","Remote","↗");remote.setOnClickListener(v->openRemoteShare(f));row.addView(remote);
         Button del=new Button(this);setLabel(del,"Delete","Del","⌫");del.setOnClickListener(v->confirmDelete(f));row.addView(del);row.setOnClickListener(v->openPreview(f));return row;
     }
 
@@ -73,6 +103,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     private String[] audioMetadata(File f){if(!MediaTypes.kind(f.getName()).equals("audio"))return new String[]{null,null};try{MediaMetadataRetriever r=new MediaMetadataRetriever();r.setDataSource(f.getAbsolutePath());String title=r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),artist=r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);r.release();return new String[]{blank(title)?null:title,blank(artist)?null:artist};}catch(Exception ignored){return new String[]{null,null};}}
     private boolean blank(String s){return s==null||s.trim().isEmpty();}
 
+    private void openRemoteShare(File f){stopInline();if(!server.isRunning()){try{server.start();}catch(Exception e){Toast.makeText(this,e.toString(),Toast.LENGTH_LONG).show();return;}}Intent i=new Intent(this,RemoteShareActivity.class);i.putExtra("name",f.getName());startActivity(i);}
     private void openPreview(File f){stopInline();Intent i=new Intent(this,PreviewActivity.class);i.putExtra("dir",sharedDir.getAbsolutePath());i.putExtra("name",f.getName());i.putExtra("button_mode",buttonMode);startActivity(i);} private void confirmDelete(File f){new AlertDialog.Builder(this).setTitle("Delete "+f.getName()+"?").setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{if(f.delete())refreshFiles();}).show();}
     private void chooseFiles(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,PICK_FILES);} @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req!=PICK_FILES||res!=RESULT_OK||data==null)return;if(data.getClipData()!=null){for(int x=0;x<data.getClipData().getItemCount();x++)importUri(data.getClipData().getItemAt(x).getUri());}else if(data.getData()!=null)importUri(data.getData());refreshFiles();}
     private void importUri(Uri uri){String name=queryName(uri);if(name==null)name="Imported-"+System.currentTimeMillis();File dest=unique(name);try(InputStream in=getContentResolver().openInputStream(uri);OutputStream out=new FileOutputStream(dest)){if(in!=null){byte[]buf=new byte[65536];int n;while((n=in.read(buf))>0)out.write(buf,0,n);}}catch(Exception e){Toast.makeText(this,e.toString(),Toast.LENGTH_LONG).show();}} private String queryName(Uri uri){try(Cursor c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(c!=null&&c.moveToFirst())return c.getString(0);}catch(Exception ignored){}return uri.getLastPathSegment();} private File unique(String name){File f=new File(sharedDir,new File(name).getName());if(!f.exists())return f;String base=f.getName(),ext="";int p=base.lastIndexOf('.');if(p>0){ext=base.substring(p);base=base.substring(0,p);}for(int n=2;;n++){f=new File(sharedDir,base+" "+n+ext);if(!f.exists())return f;}}

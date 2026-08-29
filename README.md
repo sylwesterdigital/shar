@@ -1,6 +1,6 @@
-# Shar — 1.7.5
+# Shar — 2.0.5
 
-Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
+Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
 ## Repository
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.7.5** (build/version code **10705**).
+`VERSION` is authoritative. Current release: **2.0.5** (build/version code **20005**).
 
 ## Branding
 
@@ -44,6 +44,8 @@ shar/
 ├── LocalWebShare.xcodeproj/
 ├── macos/                           # native macOS SwiftUI client + iconset
 ├── android/                         # native Android client
+├── remote/                          # dependency-free signaling service source
+├── homepage/                        # product page + public WebRTC receiver
 ├── scripts/
 │   ├── build-watch.sh               # visible foreground ZIP watcher
 │   ├── deploy.sh                    # foreground entry point for full release/deploy
@@ -57,6 +59,10 @@ shar/
 │   ├── release_and_deploy.sh        # build → GitHub Release → homepage deployment
 │   ├── publish_github_release.sh    # GitHub tag/release/assets
 │   ├── deploy_homepage.sh           # render + rsync + verify /labs/shar
+│   ├── check_remote_share.sh        # remote API/TURN + bootstrap capability preflight
+│   ├── test_remote_protocol.sh      # local signaling/auth/path-safety smoke test
+│   ├── deploy_remote_share.sh       # install/update/verify signaling + TURN
+│   ├── remote_bootstrap.sh          # one-time Ubuntu/Debian privileged bootstrap
 │   ├── release_profile.sh           # private SSH profile loader/importer
 │   ├── bump-version.sh              # bumps iOS + Android metadata together
 │   └── package-release.sh
@@ -65,6 +71,13 @@ shar/
 ├── VERSION
 └── .gitignore
 ```
+
+
+## Optional developer updates
+
+Shar can show a compact **ⓘ** developer-updates button. It is **off by default** to keep the minimal interface clean. On iOS/iPadOS enable **Settings → Developer → Show ⓘ updates button**; macOS and Android expose the same opt-in preference in their local controls.
+
+The panel is intentionally brief: it shows the latest few release versions with one short development summary each, similar to a development-channel update feed rather than the complete `CHANGELOG.md`. The shared browser UI has the same hidden-by-default option and remembers the choice in browser storage. Native clients persist the preference locally as well.
 
 
 ## Background audio on iPhone/iPad
@@ -77,11 +90,45 @@ Background audio is for media playback only; it is not used as a workaround to g
 
 Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
 
-## Wi-Fi versus cellular sharing
+## LAN and remote WebRTC sharing
 
-Shar is a local HTTP server. On Wi-Fi/LAN, other devices on the same reachable network can connect directly to the Shar address. A cellular connection can have Internet access while still being unsuitable for inbound hosting: most mobile carriers place phones behind carrier-grade NAT and/or inbound firewalls, so discovering the carrier-facing public IP does **not** normally make port 8080 reachable from the Internet.
+LAN sharing remains unchanged: devices on the same reachable network can open the local Shar URL such as `http://192.168.1.42:8080`. Cellular carrier IP addresses are still not treated as inbound-routable Shar addresses.
 
-For sharing outside the local network, use a private VPN/tunnel or a future Shar relay service. Shar does not advertise a cellular public IP as a working share address because that would be misleading on the majority of carrier networks.
+For different networks, use **Remote Share**. On iPhone/iPad, choose **Remote** directly on a native Shar file card. This path is independent of the LAN Sharing switch: Shar does not start or navigate to the local `:8080` browser server. The native SwiftUI sheet immediately creates the Internet share and shows the QR code/link, status and transfer progress. The shared browser UI still has its own ↗ Remote Share control for people intentionally using Shar from a browser. Shar creates a 30-minute, one-receiver capability URL such as:
+
+```text
+https://mojoworks.xyz/labs/shar/receive.html?share=<random-token>
+```
+
+The sender displays the link and a QR code. The receiver needs only a modern browser. Signaling is handled by `https://mojoworks.xyz/api/shar/remote/v1`; file bytes are never uploaded there. WebRTC first attempts a direct peer-to-peer connection, then automatically uses the dedicated Shar TURN relay when direct ICE connectivity fails. The receiver UI reports whether it is connected and saves files directly to disk when the browser exposes the File System Access API.
+
+Folder sharing uses a file manifest containing relative paths. Desktop browsers with directory access can recreate the folder hierarchy; browsers without direct file-system writing fall back to individual Save links and enforce a memory safety limit for large transfers. On iOS, the native Remote Share sheet uses an internal off-screen WebRTC engine and reads the selected native file through a controlled chunk bridge; the user never sees the local browser UI and the LAN server can remain disabled. Keep Shar in the foreground while an outgoing remote transfer is active because iOS does not grant arbitrary long-running background networking to a file sender.
+
+### Remote infrastructure and first-time bootstrap
+
+v2.0.5 keeps the native iOS Remote Share architecture from v2.0.4 and hardens signaling-service deployment readiness. The bootstrap stops the source path watcher before replacing `server.js`, validates the installed Node source/environment, restarts the service, and waits through bounded localhost health retries before nginx/public-route validation. If startup genuinely fails it prints `systemctl status`, recent `journalctl` output and listening-socket diagnostics before rollback. v2.0.4 separates native iOS Remote Share completely from LAN browser sharing. v2.0.3 hardens nginx routing using nginx's own effective configuration rather than directory-order guesses. Every loaded TLS server block whose `server_name` contains the exact apex token `mojoworks.xyz` receives the Shar include, while stale includes are removed from non-target blocks. This covers duplicate/legacy apex vhosts safely. The bootstrap no longer treats a forced `127.0.0.1` SNI request as authoritative, because production nginx listeners may be bound to a specific public address. It validates the signaling upstream directly, reloads nginx, then makes the real public HTTPS API (with cache-busting retries) the release gate. On failure it prints response/nginx/DNS diagnostics and restores all nginx files it changed. If the signaling service exists locally but the public endpoint is missing or stale, normal deployments automatically re-enter this repair/bootstrap path instead of incorrectly taking the fast update path.
+
+The normal ZIP pipeline manages the remote pieces automatically. `scripts/deploy_remote_share.sh` connects using the same private Shar SSH profile as the homepage deployment. On the first v2 release it checks the Ubuntu/Debian host and, when passwordless sudo is available, installs only missing packages (`nodejs`, `qrencode`, `coturn`, `nginx`, etc.), creates a dedicated `shar-coturn.service`, installs the signaling service, safely injects an nginx API proxy, opens TURN ports in UFW when UFW is active, and verifies the public health endpoint.
+
+The dedicated TURN service uses port **3479** and relay range **49210–49250**, avoiding changes to an existing Rantlist coturn setup. Its long-lived HMAC secret lives only in `/etc/shar-remote.env` (root-readable); clients receive short-lived TURN usernames/passwords from the signaling service.
+
+If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
+
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.0.5.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+
+If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
+
+### Android release build note
+
+Shar reads the visible Android version from the installed package metadata (`PackageInfo`) rather than directly referencing Gradle-generated `BuildConfig` constants. This keeps the native UI compatible with Android Gradle Plugin configurations where BuildConfig generation is disabled. Repository verification guards against reintroducing the broken `BuildConfig.VERSION_*` dependency.
+
+Useful checks:
+
+```text
+./scripts/check_remote_share.sh
+./scripts/deploy_remote_share.sh
+curl https://mojoworks.xyz/api/shar/remote/v1/health
+```
 
 ## Automated release pipeline
 
@@ -94,24 +141,26 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.7.5.zip
+LocalWebSharePrototype-v2.0.5.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
 
 ```text
 verify repository and credentials
+→ smoke-test remote signaling/auth/path safety
 → create/check Android release signing
 → build + notarize macOS universal2 DMG/ZIP
 → build signed Android APK/AAB
 → compile-check iOS/iPadOS Release
 → install/launch iOS on a tethered development device when one is available
+→ deploy/update + verify Shar signaling and dedicated TURN relay
 → git commit + push main
 → tag the exact commit
 → publish GitHub Release assets
 → render homepage against that exact release
-→ rsync homepage to /var/www/mojoworks/labs/shar
-→ verify https://mojoworks.xyz/labs/shar/
+→ rsync homepage + WebRTC receiver to /var/www/mojoworks/labs/shar
+→ verify https://mojoworks.xyz/labs/shar/ and /receive.html
 → resume foreground watching
 ```
 
@@ -192,6 +241,8 @@ The browser UI is deliberately compact so the file library begins near the top o
 - built-in **Minimal**, **Balanced** and **Large** UI presets plus one browser-local **My saved preset**;
 - **Minimal** is the default browser preset: icon-only action buttons, 150 px adaptive cards, 90% text sizing, tighter spacing and a shorter upload area;
 - SVG action buttons render a single icon; fallback glyphs appear only when a configured SVG icon cannot load.
+- **Remote** on any file card creates an expiring WebRTC share link + QR code; the top ↗ button can also share files/folders selected directly from the browser device.
+- Remote transfers use ordered WebRTC DataChannels with 64 KiB chunks, buffered-amount backpressure, per-file byte-count validation, and automatic direct-vs-TURN connection reporting.
 
 The server routes are intentionally consistent across clients:
 
@@ -204,6 +255,13 @@ GET    /artwork/<filename>
 GET    /ui-icon/<name>.svg
 GET    /files/<filename>
 DELETE /files/<filename>
+```
+
+Remote signaling is intentionally separate from the local server:
+
+```text
+https://mojoworks.xyz/api/shar/remote/v1
+https://mojoworks.xyz/labs/shar/receive.html
 ```
 
 
@@ -443,3 +501,9 @@ scripts/release_profile.sh             private SSH deployment-profile loader
 ## v1.7.5 platform guard
 
 Shar's iOS background-audio session setup is compiled only for iOS. The shared media playback controller remains available to macOS without referencing `AVAudioSession`, which Apple marks unavailable on macOS. This keeps background/lock-screen audio on iPhone while allowing the universal2 macOS release build to compile normally.
+
+Remote signaling defaults to an active-session cap and 30 new remote shares per hour per source IP.
+
+### Remote release safety checks
+
+A local protocol smoke test runs before any server deployment. It validates disposable session creation/join, TURN credential issuance, signaling relay, one-time completion invalidation, and path-traversal rejection. The Ubuntu bootstrap separately validates systemd services, TURN listening ports, nginx syntax/rollback, and the public API health endpoint before the GitHub release/homepage are published.

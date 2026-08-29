@@ -31,13 +31,15 @@ for p in \
   android/app/src/main/java/com/localwebshare/app/MainActivity.java \
   android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java \
   android/app/src/main/java/com/localwebshare/app/PreviewActivity.java \
+  android/app/src/main/java/com/localwebshare/app/RemoteShareActivity.java \
   android/app/src/main/java/com/localwebshare/app/GeneratedUIIcons.java \
   scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh \
   scripts/build_macos_release.sh scripts/build_android_release.sh scripts/build_ios_check.sh \
   scripts/release_and_deploy.sh scripts/publish_github_release.sh scripts/deploy_homepage.sh \
+  scripts/check_remote_share.sh scripts/deploy_remote_share.sh scripts/remote_bootstrap.sh scripts/test_remote_protocol.sh \
   scripts/release_profile.sh scripts/setup_android_release.sh scripts/check_android_release_credentials.sh \
   scripts/check_macos_release_credentials.sh scripts/check_ios_release_credentials.sh scripts/android_env.sh \
-  homepage/index.html; do
+  remote/server.js homepage/index.html homepage/receive.html; do
   [[ -e "$p" ]] || fail "Missing $p"
 done
 
@@ -56,12 +58,17 @@ grep -A1 -F '<key>CFBundleDisplayName</key>' LocalWebShare/Info.plist | grep -Fq
 grep -Fq 'NWPathMonitor' LocalWebShare/MediaSupport.swift || fail "iOS network status monitor missing"
 grep -Fq 'LazyVGrid' LocalWebShare/ContentView.swift || fail "iOS grid media view missing"
 grep -Fq 'settingsPanel' LocalWebShare/ContentView.swift || fail "iOS settings drawer missing"
+grep -Fq '@AppStorage("showDeveloperInfo")' LocalWebShare/ContentView.swift || fail "iOS developer-info preference missing"
+grep -Fq 'Show ⓘ updates button' LocalWebShare/ContentView.swift || fail "iOS developer-info Settings toggle missing"
+grep -Fq 'DeveloperUpdatesView' LocalWebShare/ContentView.swift || fail "iOS developer updates panel missing"
 grep -Fq 'showingFileImporter' LocalWebShare/ContentView.swift || fail "iOS + file importer missing"
 grep -Fq 'allowsMultipleSelection: true' LocalWebShare/ContentView.swift || fail "iOS multi-file import missing"
 grep -Fq 'PhotoVideoLibraryPicker' LocalWebShare/ContentView.swift || fail "iOS Photos/video picker missing"
 grep -Fq 'configuration.selectionLimit = 0' LocalWebShare/ContentView.swift || fail "iOS Photos multi-select missing"
 grep -Fq 'VideoCameraPicker' LocalWebShare/ContentView.swift || fail "iOS video camera picker missing"
 grep -Fq 'UTType.movie.identifier' LocalWebShare/ContentView.swift || fail "iOS video import/capture type missing"
+grep -Fq '<key>NSAppTransportSecurity</key>' LocalWebShare/Info.plist || fail "iOS ATS configuration missing"
+grep -A5 -F '<key>NSAppTransportSecurity</key>' LocalWebShare/Info.plist | grep -Fq '<key>NSAllowsLocalNetworking</key>' || fail "iOS local-only ATS exception missing"
 grep -Fq '<key>NSCameraUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS camera permission text missing"
 grep -Fq '<key>NSMicrophoneUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS microphone permission text missing"
 grep -Fq '<key>NSPhotoLibraryUsageDescription</key>' LocalWebShare/Info.plist || fail "iOS photo-library permission text missing"
@@ -96,19 +103,76 @@ grep -Fq 'Shar · v\(appVersion)' LocalWebShare/ContentView.swift || fail "iOS v
 ! grep -A110 -F 'private var settingsPanel' LocalWebShare/ContentView.swift | grep -Fq '.ignoresSafeArea()' || fail "iOS Settings panel ignores safe area"
 grep -Fq 'android:label="Shar"' android/app/src/main/AndroidManifest.xml || fail "Android display name is not Shar"
 grep -Fq 'Text("Shar").font(.title2.bold())' macos/LocalWebShareMacApp.swift || fail "macOS header is not Shar"
+grep -Fq 'Show ⓘ developer updates' macos/LocalWebShareMacApp.swift || fail "macOS developer-info preference missing"
+grep -Fq 'show_developer_info' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android developer-info preference missing"
+grep -Fq 'Developer updates' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android developer updates panel missing"
+grep -Fq 'appVersionLabel()' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android package-metadata version helper missing"
+! grep -Eq 'BuildConfig\.VERSION_(NAME|CODE)' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android UI must not depend on generated BuildConfig version constants"
 grep -Fq '<title>Shar</title>' LocalWebShare/LocalWebServer.swift || fail "Apple browser page title is not Shar"
 grep -Fq 'currentFilter' LocalWebShare/LocalWebServer.swift || fail "Apple browser media filters missing"
 grep -Fq 'settings-open' LocalWebShare/LocalWebServer.swift || fail "Apple browser settings drawer missing"
+grep -Fq 'id="infoButton"' LocalWebShare/LocalWebServer.swift || fail "Apple browser developer-info button missing"
+grep -Fq 'lws-show-developer-info' LocalWebShare/LocalWebServer.swift || fail "Apple browser developer-info preference missing"
+grep -Fq 'Developer updates' LocalWebShare/LocalWebServer.swift || fail "Apple browser developer updates panel missing"
 grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
 grep -Fq 'lws-preset-v2' LocalWebShare/LocalWebServer.swift || fail "Apple browser density presets missing"
 grep -Fq 'id="thumbSize"' LocalWebShare/LocalWebServer.swift || fail "Apple browser thumbnail size control missing"
 grep -Fq 'fallback-icon.missing' LocalWebShare/LocalWebServer.swift || fail "Apple browser icon fallback fix missing"
 grep -Fq 'lws-preset-v2' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser density presets missing"
+grep -Fq "const REMOTE_API='https://mojoworks.xyz/api/shar/remote/v1'" LocalWebShare/LocalWebServer.swift || fail "Apple browser remote-share API missing"
+grep -Fq 'RTCPeerConnection' LocalWebShare/LocalWebServer.swift || fail "Apple browser WebRTC sender missing"
+grep -Fq 'remoteStart([serverSource(f)])' LocalWebShare/LocalWebServer.swift || fail "Browser file-card remote share action missing"
+grep -Fq 'webkitdirectory' LocalWebShare/LocalWebServer.swift || fail "Browser folder remote-share picker missing"
+grep -Fq 'NativeRemoteShareCoordinator' LocalWebShare/ContentView.swift || fail "iOS native Remote Share coordinator missing"
+grep -Fq 'NativeRemoteShareQR' LocalWebShare/ContentView.swift || fail "iOS native Remote Share QR generator missing"
+grep -Fq "const API='https://mojoworks.xyz/api/shar/remote/v1'" LocalWebShare/ContentView.swift || fail "iOS native Remote Share public API missing"
+grep -Fq "pc=new RTCPeerConnection" LocalWebShare/ContentView.swift || fail "iOS internal WebRTC engine missing"
+grep -Fq "type:'chunk'" LocalWebShare/ContentView.swift || fail "iOS native file-to-WebRTC bridge missing"
+! grep -Fq 'RemoteShareWebView' LocalWebShare/ContentView.swift || fail "iOS Remote Share must not open the local browser UI"
+python3 - <<'PYREMOTEIOS'
+from pathlib import Path
+import re
+s=Path('LocalWebShare/ContentView.swift').read_text()
+m=re.search(r'private func openRemoteShare\(_ file: SharedFile\) \{(.*?)\n    \}', s, re.S)
+if not m: raise SystemExit('iOS openRemoteShare function missing')
+if 'webServer.start' in m.group(1): raise SystemExit('iOS Remote Share still starts the LAN HTTP server')
+PYREMOTEIOS
+grep -Fq 'openRemoteShare' macos/LocalWebShareMacApp.swift || fail "macOS remote share action missing"
+grep -Fq 'RemoteShareActivity' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android remote share action missing"
+grep -Fq '<activity android:name=".RemoteShareActivity"' android/app/src/main/AndroidManifest.xml || fail "Android RemoteShareActivity is not registered"
+grep -Fq 'const TURN_SECRET = process.env.SHAR_TURN_SECRET' remote/server.js || fail "Remote server TURN secret must come from environment"
+grep -Fq 'crypto.createHmac' remote/server.js || fail "Short-lived TURN credential generation missing"
+grep -Fq 'MAX_SIGNALS' remote/server.js || fail "Remote signaling bounds missing"
+grep -Fq 'MAX_ACTIVE_SESSIONS' remote/server.js || fail "Remote active-session cap missing"
+grep -Fq 'MAX_CREATES_PER_HOUR' remote/server.js || fail "Remote share-creation rate limit missing"
+grep -Fq 'Receive with Shar' homepage/receive.html || fail "Remote receiver page missing"
+grep -Fq 'showDirectoryPicker' homepage/receive.html || fail "Receiver direct-to-directory support missing"
+grep -Fq 'RTCPeerConnection' homepage/receive.html || fail "Receiver WebRTC implementation missing"
+grep -Fq 'shar-coturn.service' scripts/remote_bootstrap.sh || fail "Dedicated TURN bootstrap missing"
+grep -Fq 'nginx -t' scripts/remote_bootstrap.sh || fail "Remote nginx safety validation missing"
+grep -Fq 'previous nginx configuration was restored automatically' scripts/remote_bootstrap.sh || fail "Remote nginx rollback missing"
+grep -Fq 'SHAR_NGINX_HOST' scripts/remote_bootstrap.sh || fail "Remote nginx exact-host selection missing"
+grep -Fq 'exact=(host in names(block) and is_tls(block))' scripts/remote_bootstrap.sh || fail "Remote nginx exact server_name token check missing"
+grep -Fq 'Removed stale Shar include from' scripts/remote_bootstrap.sh || fail "Remote nginx stale-vhost cleanup missing"
+grep -Fq "nginx -T >/tmp/shar-nginx-effective.txt" scripts/remote_bootstrap.sh || fail "Remote effective-nginx discovery missing"
+grep -Fq 'Verifying public HTTPS routing (authoritative)' scripts/remote_bootstrap.sh || fail "Remote authoritative public-route health check missing"
+grep -Fq 'Waiting for direct Shar signaling upstream' scripts/remote_bootstrap.sh || fail "Remote signaling readiness wait missing"
+grep -Fq 'systemctl status shar-remote.service --no-pager -l' scripts/remote_bootstrap.sh || fail "Remote systemd startup diagnostics missing"
+grep -Fq 'journalctl -u shar-remote.service' scripts/remote_bootstrap.sh || fail "Remote journal diagnostics missing"
+grep -Fq 'systemctl stop shar-remote.path' scripts/remote_bootstrap.sh || fail "Remote path-watcher race guard missing"
+grep -Fq 'Waiting for updated Shar signaling service' scripts/deploy_remote_share.sh || fail "Remote fast-update readiness wait missing"
+grep -Fq 'cache-busting retries' README.md || fail "Remote public-route verification documentation missing"
+grep -Fq 'public API is missing/stale' scripts/deploy_remote_share.sh || fail "Remote public-route repair path missing"
+grep -Fq "version:'$VERSION_VALUE'" remote/server.js || fail "Remote signaling server version mismatch"
+grep -Fq './scripts/deploy_remote_share.sh' scripts/release_and_deploy.sh || fail "Release pipeline does not deploy remote sharing"
+grep -Fq './scripts/test_remote_protocol.sh' scripts/release_and_deploy.sh || fail "Release pipeline does not smoke-test remote signaling"
+grep -Fq 'Retrying deployment for current v' scripts/build-watch.sh || fail "Watcher same-version deployment retry support missing"
 
 grep -Fq 'https://mojoworks.xyz/labs/shar/' README.md || fail "README does not document the Shar homepage"
 grep -Fq '/var/www/mojoworks/labs/shar' README.md || fail "README does not document the Shar deployment directory"
 grep -Fq '__MAC_DMG_URL__' homepage/index.html || fail "Homepage macOS release placeholder missing"
 grep -Fq '__ANDROID_APK_URL__' homepage/index.html || fail "Homepage Android release placeholder missing"
+grep -Fq 'receive.html' homepage/index.html || fail "Homepage remote receiver link missing"
 grep -Fq 'sylwesterdigital/shar' scripts/publish_github_release.sh || fail "GitHub release repository mismatch"
 grep -Fq '/var/www/mojoworks/labs/shar' scripts/release_profile.sh || fail "Shar remote deployment directory mismatch"
 
@@ -129,7 +193,15 @@ def html(text):
     return m.group(0)
 if html(apple) != html(android):
     raise SystemExit('Apple and Android embedded browser UIs differ')
+Path('/tmp/shar-browser-verify.js').write_text(re.search(r'<script>(.*?)</script>', html(apple), re.S).group(1))
+receiver=Path('homepage/receive.html').read_text()
+Path('/tmp/shar-receiver-verify.js').write_text(re.search(r'<script>(.*?)</script>', receiver, re.S).group(1))
 PY
+  if command -v node >/dev/null 2>&1; then
+    node --check remote/server.js >/dev/null || fail "Remote signaling JavaScript syntax failed"
+    node --check /tmp/shar-browser-verify.js >/dev/null || fail "Embedded browser JavaScript syntax failed"
+    node --check /tmp/shar-receiver-verify.js >/dev/null || fail "Remote receiver JavaScript syntax failed"
+  fi
 fi
 
 ok "repository structure"

@@ -2,6 +2,117 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.0.5] - 2026-08-30
+
+### Fixed
+- Fixed a first-start race in the Ubuntu Remote Share deployment where `systemctl restart shar-remote.service` could return before Node had bound `127.0.0.1:8787`, causing an immediate `curl` connection-refused error and unnecessary nginx rollback.
+- Prevented the existing `shar-remote.path` watcher from racing the bootstrap while `server.js` is being replaced; the path watcher is stopped before source installation and re-enabled only after the signaling service is healthy.
+- Remote deployment now waits for the signaling service to become genuinely ready instead of probing port 8787 immediately.
+
+### Diagnostics / hardening
+- Added preflight `node --check` validation of the installed signaling source, environment-file checks, bounded readiness retries, and automatic `systemctl status`, `journalctl`, socket and source diagnostics when startup fails.
+- The fast-update path now verifies localhost signaling readiness after replacing `server.js` before deciding whether nginx/public-route repair can proceed.
+- Nginx changes are only rolled back after the service has failed the full readiness window, rather than on a transient startup race.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.5 / 20005.
+- Remote Share protocol, TURN ports and native iOS Remote Share UI remain unchanged from v2.0.4.
+
+## [2.0.4] - 2026-08-30
+
+### Fixed
+- Fixed the iOS Remote Share UX being implemented as a visible WKWebView of Shar's local `:8080` browser interface. Tapping **Remote** on a native iOS file card now stays in the native SwiftUI client and no longer starts or navigates to the LAN web server.
+- Removed the redundant **Choose files / Choose folder** controls when a specific iOS file has already been selected for remote sharing.
+- Remote-share failures now show a native error state with **Retry** instead of leaving an empty/dead browser form on screen.
+
+### Added
+- Added a native iOS Remote Share sheet with QR code, copyable HTTPS receiver link, iOS Share Sheet integration, expiry/status display, transfer progress, connection state, retry and cancel controls.
+- Added an internal off-screen WebRTC engine bridged directly to the selected native file in 64 KiB chunks. It uses the public Shar signaling API and its STUN/TURN ICE configuration without requiring the local Wi-Fi Sharing switch or `192.168.x.x:8080` server to be enabled.
+- Added release guards that reject regressions where the iOS Remote action starts the LAN server or reintroduces the visible local-browser Remote Share view.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.4 / 20004.
+- LAN Sharing and Remote Share are now explicitly separate iOS paths: the Sharing switch controls only the local HTTP server, while Remote Share operates over the Internet from the native app.
+
+## [2.0.3] - 2026-08-30
+
+### Fixed
+- Fixed a false-negative nginx verification on hosts where the production HTTPS listener is not authoritative on `127.0.0.1`; Remote Share no longer rolls back a potentially correct apex configuration solely because a forced loopback/SNI probe returns 404.
+- Nginx repair now uses `nginx -T` as the loaded-configuration source of truth and installs the Shar API include into every loaded TLS server block with an exact `mojoworks.xyz` `server_name` token, covering duplicate/legacy apex blocks without touching subdomains.
+- Public API verification now uses the real HTTPS endpoint with cache-busting retries and validates Shar service/version JSON before release publication. Failed verification prints response headers/body, loaded Shar nginx includes and DNS addresses before restoring all changed nginx files.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.3 / 20003.
+- Kept the signaling service, TURN ports/protocol and Remote Share wire format unchanged from v2.0.x.
+
+## [2.0.2] - 2026-08-30
+
+### Fixed
+- Fixed the first live Remote Share nginx bootstrap selecting `drive.mojoworks.xyz` because a word-boundary domain regex treated the apex `mojoworks.xyz` as a substring match. nginx selection now requires an exact `server_name` token and prefers the HTTPS/TLS block.
+- Fixed subsequent deployments skipping nginx repair merely because the local `shar-remote.service` was healthy; the fast path now also requires the public API to be healthy and running the current Shar version.
+- Removed stale Shar nginx includes from non-target vhosts left by the v2.0.1 bootstrap and added exact local HTTPS/SNI verification before external public verification.
+
+### Hardened
+- Added multi-file nginx backup/rollback for every vhost touched by stale-route cleanup or exact-route insertion.
+- Added repository checks for exact-host nginx selection, public-route repair behavior and remote signaling version parity.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.2 / 20002.
+
+## [2.0.1] - 2026-08-30
+
+### Fixed
+- Fixed the Android release compilation failure in v2.0.0 where `MainActivity` referenced `BuildConfig.VERSION_NAME` and `BuildConfig.VERSION_CODE` even though this Gradle configuration did not expose the generated `BuildConfig` class.
+- Android now reads the installed app version/build from `PackageManager` / `PackageInfo`, so the visible Settings/footer version does not depend on Gradle-generated Java constants.
+- Preserved all v2.0.0 Remote Share, signaling, TURN bootstrap, macOS notarization and iOS behavior unchanged.
+
+### Hardened
+- Added a repository regression check that rejects Android source references to `BuildConfig.VERSION_NAME` / `BuildConfig.VERSION_CODE` and requires the package-metadata version helper.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.1 / 20001.
+
+## [2.0.0] - 2026-08-29
+
+### Hardened after implementation review
+- Added a local signaling protocol smoke test to the release pipeline before any remote host is modified.
+- Added signaling session-capacity and per-IP creation limits to reduce abuse.
+- Added an iOS local-network-only ATS exception so the native Remote Share sheet can load Shar's own `127.0.0.1` sender UI without allowing arbitrary cleartext traffic.
+
+### Added
+- Added **Remote Share** over WebRTC DataChannel for transfers between different Internet networks. Shar now creates a temporary one-receiver HTTPS link plus QR code, negotiates a direct peer-to-peer connection when possible, and falls back to a dedicated TURN relay when NAT/firewalls block direct connectivity.
+- Added remote sharing from each Shar file card in the shared browser UI, plus direct local **Choose files** and **Choose folder** sources with relative folder paths preserved in the transfer manifest.
+- Added native iOS/iPadOS remote-share sheets using an in-app WKWebView so the local Shar server remains foregrounded during a transfer.
+- Added native macOS and Android **Remote** actions which open the same local WebRTC sender workflow.
+- Added the public receiver at `https://mojoworks.xyz/labs/shar/receive.html`. Chromium desktop receivers can stream directly into a selected file/directory through the File System Access API; other browsers use a bounded in-memory fallback and expose explicit Save links.
+- Added a dependency-free Node.js signaling service with expiring capability tokens, one active receiver, bounded signaling queues, rate limiting, no file storage, and short-lived TURN REST credentials.
+- Added a dedicated Shar coturn service on port 3479 with a narrow relay range, separate from any existing Rantlist TURN configuration.
+- Added `scripts/check_remote_share.sh`, `scripts/deploy_remote_share.sh`, and `scripts/remote_bootstrap.sh` to preflight, install/update and verify the Ubuntu/Debian signaling + TURN infrastructure automatically.
+- Added safe nginx integration with a generated snippet, pre-change backup, `nginx -t`, and automatic rollback if validation fails.
+- Documented the only external network prerequisite the Ubuntu bootstrap cannot control: provider-level firewall access for the dedicated TURN/relay ports.
+- Added remote service systemd hardening and a path-triggered restart so later ZIP deployments can update `remote/server.js` without ongoing root access.
+
+### Changed
+- The foreground watcher now supports an intentional same-version retry when a failed release ZIP is touched/re-downloaded, so one-time server bootstrap fixes do not require an artificial version bump.
+- The release pipeline now deploys/verifies remote WebRTC signaling + TURN after native builds and before publishing the release. Missing Ubuntu packages are installed only during first-time bootstrap.
+- Homepage deployment now includes and verifies `receive.html`, and the public homepage documents remote WebRTC sharing.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.0 / 20000.
+
+### Security
+- Remote links are random capability URLs, expire after 30 minutes by default, allow one receiver by default, and can be revoked by the sender.
+- Permanent TURN credentials are never shipped in the app/repository; the server creates short-lived HMAC credentials from a root-owned secret.
+- Signaling stores only temporary session metadata/SDP/ICE messages in memory; file bytes are transferred only through the encrypted WebRTC data channel (directly or via TURN).
+
+## [1.7.6] - 2026-08-29
+
+### Added
+- Added an optional **ⓘ Developer updates** button to the iOS/iPadOS toolbar, macOS client, Android client, and shared browser UI. It is hidden by default and can be enabled from Settings.
+- Added a compact recent-development feed with short summaries of the latest Shar releases instead of exposing the full changelog in the app.
+- Added a persistent browser preference for the developer-info control, so enabling or hiding it survives reloads on that browser.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.6 / 10706.
+
 ## [1.7.5] - 2026-08-29
 
 ### Fixed

@@ -210,14 +210,18 @@ process_zip() {
     fi
 
     current_version="$(current_repo_version)"
-    if ! version_gt "$version" "$current_version"; then
-        log "Ignoring v$version because repository is already v$current_version."
+    if version_gt "$current_version" "$version"; then
+        log "Ignoring older v$version because repository is already v$current_version."
         mark_processed "$signature"
         rm -rf "$tmp_dir"
         return 0
     fi
 
-    log "Release version: v$version (current v$current_version)"
+    if [[ "$version" == "$current_version" ]]; then
+        log "Retrying deployment for current v$version because this ZIP has a new signature."
+    else
+        log "Release version: v$version (current v$current_version)"
+    fi
     log "Synchronising repository:"
     echo "  FROM: $source_dir"
     echo "  TO:   $REPO_DIR"
@@ -273,7 +277,7 @@ report_failure() {
     echo "============================================================"
     echo "LOCALWEBSHARE UPDATE FAILED"
     echo "The failed ZIP will not auto-run again every five seconds."
-    echo "Fix the problem, then re-download/touch a newer release ZIP."
+    echo "Fix the problem, then touch/re-download this ZIP to retry, or save a newer release ZIP."
     echo "============================================================"
 }
 

@@ -13,7 +13,7 @@ log(){ printf '\n==> %s\n' "$*"; }
 fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "Shar releases must run on macOS."
-for t in git gh rsync ssh curl shasum xcodebuild xcrun security python3; do command -v "$t" >/dev/null 2>&1 || fail "Required release tool missing: $t"; done
+for t in git gh rsync ssh curl shasum xcodebuild xcrun security python3 node; do command -v "$t" >/dev/null 2>&1 || fail "Required release tool missing: $t"; done
 [[ -d .git ]] || fail "$ROOT is not a Git checkout."
 [[ "$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)" == "$BRANCH" ]] || fail "Release must run on branch $BRANCH."
 [[ -z "$(git diff --name-only --diff-filter=U)" ]] || fail "Resolve Git conflicts before release."
@@ -24,17 +24,23 @@ gh auth status -h github.com >/dev/null 2>&1 || fail "GitHub CLI is not authenti
 
 log "Repository verification"
 ./scripts/verify_repo.sh
+log "Remote signaling protocol smoke test"
+./scripts/test_remote_protocol.sh
 log "Release/deployment credentials"
 ./scripts/check_macos_release_credentials.sh
 ./scripts/setup_android_release.sh
 ./scripts/check_android_release_credentials.sh
 ./scripts/check_ios_release_credentials.sh
+./scripts/check_remote_share.sh
 source ./scripts/release_profile.sh
 shar_load_release_profile
 ssh -o BatchMode=yes -o ConnectTimeout=12 -p "$SHAR_REMOTE_PORT" "$SHAR_REMOTE_USER@$SHAR_REMOTE_HOST" true || fail "Homepage SSH access failed."
 
 log "Building all clients"
 ./scripts/build_all.sh
+
+log "Deploying/validating remote WebRTC signaling + TURN"
+./scripts/deploy_remote_share.sh
 
 log "Committing release source"
 git add -A

@@ -23,9 +23,11 @@ struct MacContentView: View {
     @EnvironmentObject private var fileStore: FileStore
     @EnvironmentObject private var webServer: LocalWebServer
     @AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.compact.rawValue
+    @AppStorage("showDeveloperInfo") private var showDeveloperInfo = false
     @State private var selectedFile: SharedFile?
     @State private var deleteCandidate: SharedFile?
     @State private var isDropTargeted = false
+    @State private var showingDeveloperUpdates = false
 
     private var mode: ActionLabelMode { ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact }
 
@@ -39,6 +41,8 @@ struct MacContentView: View {
                     ForEach(ActionLabelMode.allCases) { Text($0.title).tag($0.rawValue) }
                 }
                 .pickerStyle(.segmented)
+                Toggle("Show ⓘ developer updates", isOn: $showDeveloperInfo)
+                    .font(.caption)
                 Spacer()
                 Text("Shared folder").font(.caption).foregroundStyle(.secondary)
                 Text(FileStore.documentsDirectory.path).font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
@@ -50,6 +54,10 @@ struct MacContentView: View {
         .sheet(item: $selectedFile) { file in
             MacMediaGallery(files: fileStore.files, initialFile: file) { deleted in fileStore.delete(deleted) }
                 .frame(minWidth: 760, minHeight: 560)
+        }
+        .sheet(isPresented: $showingDeveloperUpdates) {
+            MacDeveloperUpdatesView()
+                .frame(minWidth: 520, minHeight: 430)
         }
         .confirmationDialog(deleteCandidate.map { "Delete \($0.name)?" } ?? "Delete file?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate=nil } })) {
             Button("Delete", role: .destructive) { if let f=deleteCandidate { fileStore.delete(f) }; deleteCandidate=nil }
@@ -63,6 +71,12 @@ struct MacContentView: View {
                 Image(nsImage:image).resizable().scaledToFit().frame(width:58,height:58).clipShape(RoundedRectangle(cornerRadius:12))
             }
             VStack(alignment:.leading,spacing:2){Text("Shar").font(.title2.bold());Text("Wi-Fi media sharing").foregroundStyle(.secondary)}
+            Spacer()
+            if showDeveloperInfo {
+                Button { showingDeveloperUpdates = true } label: { Image(systemName: "info.circle.fill").font(.title3) }
+                    .buttonStyle(.borderless)
+                    .help("Developer updates")
+            }
         }
     }
 
@@ -118,10 +132,11 @@ struct MacContentView: View {
                         Spacer()
                         if file.mediaKind == .audio { MacInlineAudioButton(file:file) }
                         MacActionButton(full:"Preview",short:"View",icon:"eye",mode:mode){selectedFile=file}.buttonStyle(.borderless)
+                        MacActionButton(full:"Remote",short:"Remote",icon:"network",mode:mode){openRemoteShare(file)}.buttonStyle(.borderless)
                         MacActionButton(full:"Delete",short:"Del",icon:"trash",mode:mode){deleteCandidate=file}.buttonStyle(.borderless)
                     }
                     .contentShape(Rectangle()).onTapGesture(count:2){selectedFile=file}
-                    .contextMenu { Button("Preview"){selectedFile=file};Button("Reveal in Finder"){NSWorkspace.shared.activateFileViewerSelecting([file.url])};Divider();Button("Delete",role:.destructive){deleteCandidate=file} }
+                    .contextMenu { Button("Preview"){selectedFile=file};Button("Remote share"){openRemoteShare(file)};Button("Reveal in Finder"){NSWorkspace.shared.activateFileViewerSelecting([file.url])};Divider();Button("Delete",role:.destructive){deleteCandidate=file} }
                     .padding(.vertical,3)
                 }.listStyle(.inset)
             }
@@ -129,7 +144,46 @@ struct MacContentView: View {
     }
 
     private func chooseFiles(){let p=NSOpenPanel();p.canChooseFiles=true;p.canChooseDirectories=false;p.allowsMultipleSelection=true;if p.runModal() == .OK {p.urls.forEach{fileStore.importFile(from:$0)}}}
+    private func openRemoteShare(_ file:SharedFile){if !webServer.isRunning{webServer.start()};var c=URLComponents(string:"http://127.0.0.1:8080/")!;c.queryItems=[URLQueryItem(name:"remote",value:file.name)];if let u=c.url{DispatchQueue.main.asyncAfter(deadline:.now()+0.3){NSWorkspace.shared.open(u)}}}
     private var appVersion:String {"\(Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "?") (\(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "?"))"}
+}
+
+
+private struct MacDeveloperUpdatesView: View {
+    @Environment(\.dismiss) private var dismiss
+    private let updates: [(String, String, String)] = [
+        ("2.0.5", "Remote service readiness", "Fixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation."),
+        ("2.0.4", "Native iPhone Remote Share", "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
+        ("2.0.3", "Public route verification", "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts."),
+        ("2.0.2", "Remote routing repair", "Fixed exact mojoworks.xyz API routing and automatic repair when the public share endpoint returns 404."),
+        ("2.0.1", "Android release fix", "Restored Android release compilation and made its visible version read from package metadata."),
+        ("2.0.0", "Remote WebRTC sharing", "Added expiring QR/link shares, peer-to-peer data channels, TURN fallback, and automated signaling/TURN deployment."),
+        ("1.7.6", "Optional developer info", "Added the hidden-by-default ⓘ updates panel and preference."),
+        ("1.7.5", "Cross-platform audio fix", "Kept iOS background audio while restoring the macOS release build."),
+        ("1.7.4", "Background audio", "Audio can continue while Shar is minimized or the iPhone screen is locked."),
+        ("1.7.3", "Better preview", "Images fit the viewer and previews gained a persistent X close control."),
+        ("1.7.2", "More ways to add", "Added Photos & Videos, camera recording, and Files from the + menu."),
+        ("1.7.1", "Shar identity", "Renamed the visible product to Shar and added the persistent iOS + importer.")
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Developer updates").font(.title3.bold())
+                Spacer()
+                Button { dismiss() } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.borderless)
+            }
+            .padding(16)
+            Divider()
+            List(Array(updates.enumerated()), id: \.offset) { _, update in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack { Text("v\(update.0)").font(.caption.monospaced().bold()); Text(update.1).font(.subheadline.bold()) }
+                    Text(update.2).font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 3)
+            }
+        }
+    }
 }
 
 private struct MacEmptyStateView: View {
