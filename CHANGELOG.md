@@ -1,6 +1,45 @@
 # Changelog
 
+## [1.6.1] - 2026-08-29
+
+### Fixed
+- Fixed the macOS distribution build failure caused by `ContentUnavailableView`, which is only available on macOS 14 while Shar intentionally targets macOS 13.
+- Replaced all macOS `ContentUnavailableView` usage with a native SwiftUI empty-state component compatible with macOS 13.
+- Fixed the empty gallery and unsupported-preview states to use the same macOS 13-compatible component.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.6.1 / 10601.
+- Updated README release/version examples and documented the macOS 13 deployment target compatibility fix.
+
 All notable changes to LocalWebShare are recorded here.
+
+## [1.6.0] - 2026-08-29
+
+### Added
+- Added a fully automated multi-platform release pipeline triggered by the existing foreground ZIP watcher.
+- Added signed/notarized universal2 macOS distribution builds producing both DMG and ZIP artifacts.
+- Added persistent Android release signing stored outside the repository, with the signing password stored in macOS Keychain.
+- Added signed Android APK and AAB release builds plus SHA-256 checksum manifests.
+- Added generic iOS/iPadOS Release compilation validation so the pipeline can validate iOS even when no device is connected.
+- Added optional automatic tethered iPhone/iPad install/launch when a development device is connected; absence of a device no longer blocks macOS/Android/web publication.
+- Added GitHub Release publication to `sylwesterdigital/shar` with release notes and native release artifacts.
+- Added a Shar product homepage source under `homepage/` with live links to the exact published GitHub release assets.
+- Added automated deployment of the homepage to `/var/www/mojoworks/labs/shar` and verification of `https://mojoworks.xyz/labs/shar/`.
+- Added a private Shar SSH deployment profile which bootstraps automatically from the existing Rantlist release profile when available.
+- Added release credential checks for macOS Developer ID/notarization, Android signing, iOS/Xcode and homepage SSH access.
+
+### Changed
+- `scripts/deploy.sh` is now a thin foreground entry point for the complete `release_and_deploy.sh` workflow.
+- `scripts/build_all.sh` now creates distribution-quality macOS and Android artifacts, validates iOS Release compilation, and installs iOS on a connected development device when available.
+- The release workflow now commits/pushes source before publishing the matching Git tag/GitHub Release, then deploys the homepage only after release assets are verified.
+- macOS public distribution now uses the existing WORKWORK.FUN Developer ID fingerprint and notarization profile used by the established release host, both overrideable by environment variables.
+- Android versionName/versionCode and iOS marketing/build version bumped to 1.6.0 / 10600.
+
+### Homepage
+- Added macOS DMG and ZIP download buttons.
+- Added Android APK and AAB download buttons.
+- Added iOS/Xcode source link to the exact GitHub release.
+- Added published version/tag, release notes and source links.
 
 ## [1.5.0] - 2026-08-29
 

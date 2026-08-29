@@ -1,4 +1,4 @@
-# LocalWebShare — 1.5.0
+# LocalWebShare — 1.6.1
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.5.0** (build/version code **10500**).
+`VERSION` is authoritative. Current release: **1.6.1** (build/version code **10601**).
 
 ## Branding
 
@@ -46,12 +46,18 @@ shar/
 ├── android/                         # native Android client
 ├── scripts/
 │   ├── build-watch.sh               # visible foreground ZIP watcher
-│   ├── deploy.sh                    # verify + iOS build + Git commit/push
+│   ├── deploy.sh                    # foreground entry point for full release/deploy
 │   ├── verify_repo.sh               # cross-platform release consistency checks
 │   ├── app_build.sh                 # iOS build/sign/install/launch
 │   ├── build_macos.sh               # macOS build/install/launch
 │   ├── build_android.sh             # Android APK build/install when attached
-│   ├── build_all.sh                 # macOS + Android + iOS
+│   ├── build_all.sh                 # distribution macOS + Android + iOS validation/install
+│   ├── build_macos_release.sh       # universal2 signed/notarized DMG + ZIP
+│   ├── build_android_release.sh     # signed APK + AAB
+│   ├── release_and_deploy.sh        # build → GitHub Release → homepage deployment
+│   ├── publish_github_release.sh    # GitHub tag/release/assets
+│   ├── deploy_homepage.sh           # render + rsync + verify /labs/shar
+│   ├── release_profile.sh           # private SSH profile loader/importer
 │   ├── bump-version.sh              # bumps iOS + Android metadata together
 │   └── package-release.sh
 ├── CHANGELOG.md
@@ -59,6 +65,82 @@ shar/
 ├── VERSION
 └── .gitignore
 ```
+
+
+## Automated release pipeline
+
+The normal release workflow is now deliberately one-action: leave the foreground watcher running and save a newer release ZIP into:
+
+```text
+/Users/smielniczuk/Documents/works/shar/archive/
+```
+
+For example:
+
+```text
+LocalWebSharePrototype-v1.6.1.zip
+```
+
+`scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
+
+```text
+verify repository and credentials
+→ create/check Android release signing
+→ build + notarize macOS universal2 DMG/ZIP
+→ build signed Android APK/AAB
+→ compile-check iOS/iPadOS Release
+→ install/launch iOS on a tethered development device when one is available
+→ git commit + push main
+→ tag the exact commit
+→ publish GitHub Release assets
+→ render homepage against that exact release
+→ rsync homepage to /var/www/mojoworks/labs/shar
+→ verify https://mojoworks.xyz/labs/shar/
+→ resume foreground watching
+```
+
+The public release repository is:
+
+```text
+https://github.com/sylwesterdigital/shar/releases
+```
+
+The product page is:
+
+```text
+https://mojoworks.xyz/labs/shar/
+```
+
+### Distribution artifacts
+
+A successful automated release produces:
+
+```text
+release/LocalWebShare-vVERSION-macOS-universal2.dmg
+release/LocalWebShare-vVERSION-macOS-universal2.zip
+release/LocalWebShare-vVERSION-macOS-SHA256.txt
+release/LocalWebShare-vVERSION-android.apk
+release/LocalWebShare-vVERSION-android.aab
+release/LocalWebShare-vVERSION-android-SHA256.txt
+```
+
+The macOS build targets **macOS 13.0+**, is Developer ID signed and notarized. v1.6.1 removes macOS-14-only `ContentUnavailableView` usage so the declared macOS 13 deployment target compiles correctly. Android uses a persistent release key at `~/.config/workwork/shar-android-release.keystore`; its password is stored in macOS Keychain under `workwork.shar.android.keystore`. If the key does not exist on the release Mac, the pipeline creates it automatically on the first release. The keystore must be backed up because future Android upgrades must use the same key.
+
+### Homepage deployment profile
+
+Shar keeps SSH credentials outside Git at:
+
+```text
+~/.config/workwork/shar-release.env
+```
+
+On the first run, `scripts/release_profile.sh` imports the existing Rantlist deployment host/user/port/ownership settings when available and pins Shar's remote directory to:
+
+```text
+/var/www/mojoworks/labs/shar
+```
+
+The homepage is rendered only after the matching GitHub Release is published and its required macOS/Android assets are present.
 
 ## Shared browser experience
 
@@ -118,7 +200,7 @@ The repository keeps downloaded/local release material out of Git, but the build
 
 Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, gallery-style previous/next navigation, inline audio playback, MP3 artwork/title/artist metadata, delete/share actions and the local HTTP server.
 
-The iPhone/iPad home screen in 1.5.0 is compact and media-first:
+The iPhone/iPad home screen, introduced in 1.5.0 and retained in 1.6.0, is compact and media-first:
 
 - system launch screen using the `SharLogo` asset followed by a startup splash with the shared logo/name and live Wi-Fi/mobile/offline network check;
 - top-row Sharing toggle plus Copy Address and Share Address controls;
@@ -181,13 +263,7 @@ Build without launching:
 ./scripts/build_macos.sh --no-launch
 ```
 
-The build creates:
-
-```text
-release/LocalWebShare-v1.5.0-macOS-<arch>.zip
-```
-
-The app is ad-hoc signed for local use. Distribution/notarization can be added later without changing the application architecture.
+The fast local build creates an architecture-specific ZIP under `release/`. For public releases, `scripts/build_macos_release.sh` builds a universal2 binary, Developer ID signs it, submits it for Apple notarization, staples it, and produces DMG + ZIP assets. `scripts/build_macos.sh` remains available for fast local development builds.
 
 ## Android
 
@@ -206,7 +282,7 @@ Features:
 - browser drag-and-drop upload/download/preview/delete using the same route contract as iOS/macOS;
 - app-private shared file storage.
 
-Build the debug APK and install/launch automatically when an authorised Android device is attached:
+For fast local development, build the debug APK and install/launch automatically when an authorised Android device is attached:
 
 ```zsh
 ./scripts/build_android.sh
@@ -220,10 +296,17 @@ Build APK without installing:
 
 The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an existing Android Studio/Homebrew JDK and SDK, installs missing SDK packages through `sdkmanager` when available, and downloads Gradle 8.9 into local build output when needed.
 
-APK output:
+Local debug output:
 
 ```text
-release/LocalWebShare-v1.5.0-android-debug.apk
+release/LocalWebShare-v1.6.1-android-debug.apk
+```
+
+Public signed release output from `scripts/build_android_release.sh`:
+
+```text
+release/LocalWebShare-v1.6.1-android.apk
+release/LocalWebShare-v1.6.1-android.aab
 ```
 
 ## Build all clients
@@ -237,10 +320,14 @@ With the required toolchains available:
 Order:
 
 ```text
-macOS → Android → iOS/iPadOS
+Android signing bootstrap/check
+→ signed + notarized macOS universal2 DMG/ZIP
+→ signed Android APK/AAB
+→ generic iOS/iPadOS Release compile validation
+→ tethered iOS install/launch when a development device is available
 ```
 
-The Android build installs only when an authorised device is attached. The iOS build requires the tethered Apple device because `app_build.sh` is also the installation test.
+A missing tethered iPhone/iPad does not block macOS/Android publication; the generic iOS Release compile still has to pass.
 
 ## Foreground release watcher
 
@@ -263,14 +350,17 @@ There is no LaunchAgent and no background daemon. The obsolete `com.localwebshar
 
 ## Deployment and Git
 
-`scripts/deploy.sh` performs:
+`scripts/deploy.sh` delegates to the full release workflow, which performs:
 
 ```text
-verify repository/version/platform assets
-→ build/sign/install/launch iOS client
-→ git add
-→ git commit "Release vX.Y.Z"
-→ git push origin <current branch>
+verify repo + credentials
+→ build macOS/Android/iOS
+→ git commit "Release vX.Y.Z" + push main
+→ create/push tag vX.Y.Z
+→ publish GitHub Release with macOS + Android artifacts
+→ render the homepage from that exact published release
+→ deploy to /var/www/mojoworks/labs/shar
+→ verify https://mojoworks.xyz/labs/shar/
 ```
 
 Git operations run locally on the Mac using the existing SSH configuration for:
@@ -279,7 +369,7 @@ Git operations run locally on the Mac using the existing SSH configuration for:
 git@github.com:sylwesterdigital/shar.git
 ```
 
-For explicit multi-platform local builds before deployment, run `./scripts/build_all.sh` first.
+For an explicit release-quality multi-platform build without publishing/deploying, run `./scripts/build_all.sh`.
 
 ## Release policy
 
@@ -307,4 +397,18 @@ Package:
 ```zsh
 ./scripts/verify_repo.sh
 ./scripts/package-release.sh
+```
+
+## Release scripts
+
+```text
+scripts/release_and_deploy.sh           full release pipeline
+scripts/publish_github_release.sh      publish/update GitHub Release
+scripts/deploy_homepage.sh             render, rsync and verify mojoworks homepage
+scripts/build_macos_release.sh         signed/notarized universal2 macOS artifacts
+scripts/build_android_release.sh       signed Android APK + AAB
+scripts/build_ios_check.sh             generic unsigned iOS Release compile validation
+scripts/setup_android_release.sh       automatic one-time Android signing bootstrap
+scripts/check_*_release_credentials.sh release-host preflight checks
+scripts/release_profile.sh             private SSH deployment-profile loader
 ```

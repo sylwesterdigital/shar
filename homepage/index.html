@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111318">
+  <title>Shar — local file sharing</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0c0e12;--card:#151922;--line:#272d39;--text:#f5f7fb;--muted:#aab2c0;--accent:#69a7ff;--good:#72d49d}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#192237 0,#0c0e12 42%);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}main{max-width:980px;margin:auto;padding:56px 24px 80px}.hero{display:grid;grid-template-columns:112px 1fr;gap:26px;align-items:center;margin-bottom:38px}.logo{width:112px;height:112px;object-fit:contain}.eyebrow{color:var(--good);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:12px}.hero h1{font-size:clamp(38px,8vw,72px);line-height:.95;margin:8px 0 14px}.hero p{color:var(--muted);max-width:680px;margin:0;font-size:18px}.release{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:18px 0 36px}.tag{border:1px solid var(--line);background:#11151d;border-radius:999px;padding:7px 12px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card{background:color-mix(in srgb,var(--card) 94%,transparent);border:1px solid var(--line);border-radius:18px;padding:22px;min-height:210px}.card h2{margin:0 0 7px;font-size:22px}.card p{color:var(--muted);margin:0 0 18px}.buttons{display:flex;flex-wrap:wrap;gap:9px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 14px;border-radius:11px;text-decoration:none;color:var(--text);border:1px solid var(--line);background:#1b202b;font-weight:650}.btn.primary{background:var(--accent);color:#07111f;border-color:transparent}.meta{margin-top:35px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}.meta a{color:var(--text)}@media(max-width:620px){main{padding-top:30px}.hero{grid-template-columns:72px 1fr;gap:16px}.logo{width:72px;height:72px}.hero h1{font-size:44px}.hero p{grid-column:1/-1}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <img class="logo" src="shar-logo.svg" alt="Shar logo">
+    <div><div class="eyebrow">Local-first media sharing</div><h1>Shar</h1><p>Move, preview and play files between your devices over your own local network. Native clients for Apple and Android, plus a browser interface for everything else.</p></div>
+  </section>
+  <div class="release"><strong>Latest release __VERSION__</strong><span class="tag">__TAG__</span><a class="btn" href="__RELEASE_URL__">GitHub release</a></div>
+  <section class="grid">
+    <article class="card"><h2>macOS</h2><p>Universal Apple Silicon + Intel build, Developer ID signed and notarized.</p><div class="buttons"><a class="btn primary" href="__MAC_DMG_URL__">Download DMG</a><a class="btn" href="__MAC_ZIP_URL__">ZIP</a></div></article>
+    <article class="card"><h2>Android</h2><p>Signed Android release. APK for direct installation; AAB for store distribution.</p><div class="buttons"><a class="btn primary" href="__ANDROID_APK_URL__">Download APK</a><a class="btn" href="__ANDROID_AAB_URL__">AAB</a></div></article>
+    <article class="card"><h2>iPhone &amp; iPad</h2><p>The iOS client is built from the same release and can be installed through Xcode with the included automated device builder.</p><div class="buttons"><a class="btn primary" href="__RELEASE_URL__">iOS source</a><a class="btn" href="https://github.com/sylwesterdigital/shar">Repository</a></div></article>
+  </section>
+  <div class="meta"><span>Published __PUBLISHED_AT__</span><a href="__RELEASE_URL__">Release notes</a><a href="https://github.com/sylwesterdigital/shar">Source code</a></div>
+</main>
+</body>
+</html>

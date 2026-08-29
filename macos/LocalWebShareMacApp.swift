@@ -99,7 +99,13 @@ struct MacContentView: View {
         VStack(spacing:0) {
             HStack { Text("Files").font(.title2.bold());Text("\(fileStore.files.count)").foregroundStyle(.secondary);Spacer();MacActionButton(full:"Show Folder",short:"Folder",icon:"folder",mode:mode){NSWorkspace.shared.open(FileStore.documentsDirectory)};MacActionButton(full:"Refresh",short:"Refresh",icon:"arrow.clockwise",mode:mode){fileStore.refresh()} }.padding(18)
             Divider()
-            if fileStore.files.isEmpty { ContentUnavailableView("No Files Yet",systemImage:"folder",description:Text("Drop files into this window or upload them from the browser.")) }
+            if fileStore.files.isEmpty {
+                MacEmptyStateView(
+                    title: "No Files Yet",
+                    systemImage: "folder",
+                    message: "Drop files into this window or upload them from the browser."
+                )
+            }
             else {
                 List(fileStore.files) { file in
                     HStack(spacing:12) {
@@ -124,6 +130,31 @@ struct MacContentView: View {
 
     private func chooseFiles(){let p=NSOpenPanel();p.canChooseFiles=true;p.canChooseDirectories=false;p.allowsMultipleSelection=true;if p.runModal() == .OK {p.urls.forEach{fileStore.importFile(from:$0)}}}
     private var appVersion:String {"\(Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "?") (\(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "?"))"}
+}
+
+private struct MacEmptyStateView: View {
+    let title: String
+    let systemImage: String
+    let message: String?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 42, weight: .regular))
+                .foregroundStyle(.secondary)
+            Text(title)
+                .font(.title3.bold())
+            if let message {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 360)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(32)
+    }
 }
 
 private struct MacActionButton: View {
@@ -153,7 +184,7 @@ private struct MacMediaGallery: View {
     let onDelete:(SharedFile)->Void
     init(files:[SharedFile],initialFile:SharedFile,onDelete:@escaping(SharedFile)->Void){_files=State(initialValue:files);_index=State(initialValue:files.firstIndex(of:initialFile) ?? 0);self.onDelete=onDelete}
     private var file:SharedFile?{files.indices.contains(index) ? files[index]:nil}
-    var body: some View { VStack(spacing:0){HStack{Button{prev()}label:{Image(systemName:"chevron.left")}.disabled(index<=0);Button{next()}label:{Image(systemName:"chevron.right")}.disabled(index>=files.count-1);Text(file?.name ?? "Preview").font(.headline).lineLimit(1);Spacer();Text(files.isEmpty ? "":"\(index+1) / \(files.count)").foregroundStyle(.secondary);if let f=file{Button("Reveal"){NSWorkspace.shared.activateFileViewerSelecting([f.url])};Button(role:.destructive){confirmDelete=true}label:{Image(systemName:"trash")}};Button("Done"){dismiss()}}.padding(14);Divider();if let f=file{MacPreviewContent(file:f).id(f.id).simultaneousGesture(DragGesture(minimumDistance:35).onEnded{v in if v.translation.width < -60 {next()} else if v.translation.width > 60 {prev()}})}else{ContentUnavailableView("No Files",systemImage:"folder")}}.confirmationDialog(file.map{"Delete \($0.name)?"} ?? "Delete file?",isPresented:$confirmDelete){Button("Delete",role:.destructive){deleteCurrent()};Button("Cancel",role:.cancel){}} }
+    var body: some View { VStack(spacing:0){HStack{Button{prev()}label:{Image(systemName:"chevron.left")}.disabled(index<=0);Button{next()}label:{Image(systemName:"chevron.right")}.disabled(index>=files.count-1);Text(file?.name ?? "Preview").font(.headline).lineLimit(1);Spacer();Text(files.isEmpty ? "":"\(index+1) / \(files.count)").foregroundStyle(.secondary);if let f=file{Button("Reveal"){NSWorkspace.shared.activateFileViewerSelecting([f.url])};Button(role:.destructive){confirmDelete=true}label:{Image(systemName:"trash")}};Button("Done"){dismiss()}}.padding(14);Divider();if let f=file{MacPreviewContent(file:f).id(f.id).simultaneousGesture(DragGesture(minimumDistance:35).onEnded{v in if v.translation.width < -60 {next()} else if v.translation.width > 60 {prev()}})}else{MacEmptyStateView(title:"No Files",systemImage:"folder",message:nil)}}.confirmationDialog(file.map{"Delete \($0.name)?"} ?? "Delete file?",isPresented:$confirmDelete){Button("Delete",role:.destructive){deleteCurrent()};Button("Cancel",role:.cancel){}} }
     private func prev(){if index>0{index-=1}};private func next(){if index+1<files.count{index+=1}};private func deleteCurrent(){guard let f=file else{return};onDelete(f);files.remove(at:index);if files.isEmpty{dismiss()}else if index>=files.count{index=files.count-1}}
 }
 
@@ -161,7 +192,7 @@ private struct MacPreviewContent: View {
     let file:SharedFile;@State private var player:AVPlayer?
     init(file:SharedFile){self.file=file;_player=State(initialValue:file.isPlayableMedia ? AVPlayer(url:file.url):nil)}
     var body: some View { Group { switch file.mediaKind {case .image:if let i=NSImage(contentsOf:file.url){ScrollView([.horizontal,.vertical]){Image(nsImage:i).resizable().scaledToFit().padding(16)}.background(Color.black)}else{unavailable};case .video:if let player{VideoPlayer(player:player).onAppear{player.play()}};case .audio:VStack(spacing:20){Spacer();MacThumbnail(file:file).scaleEffect(3);let m=MediaMetadataReader.read(file.url);Text(m.title ?? file.name).font(.title3.bold());if let a=m.artist{Text(a).foregroundStyle(.secondary)};if let player{MacAudioControls(player:player)};Spacer()}.padding(28);case .document,.file:MacQuickLook(url:file.url)}}.frame(maxWidth:.infinity,maxHeight:.infinity).onDisappear{player?.pause()} }
-    private var unavailable:some View{ContentUnavailableView("Cannot Preview",systemImage:"doc.questionmark")}
+    private var unavailable:some View{MacEmptyStateView(title:"Cannot Preview",systemImage:"doc.questionmark",message:nil)}
 }
 
 private struct MacAudioControls: View {

@@ -188,7 +188,10 @@ PYDEV
 
 if [[ -z "$DEVICE_ID" ]]; then
   FIRST_DEVICE="$(head -n 1 "$DEVICE_ROWS_FILE")"
-  [[ -n "$FIRST_DEVICE" ]] || fail "No connected physical iPhone/iPad is available to CoreDevice. Connect/unlock the device and approve any iOS trust prompt, then rerun this same script."
+  if [[ -z "$FIRST_DEVICE" ]]; then
+    printf '\nNo connected physical iPhone/iPad is available to CoreDevice.\n' >&2
+    exit 20
+  fi
   IFS=$'\t' read -r DEVICE_ID DEVICE_NAME DEVICE_DEVMODE <<< "$FIRST_DEVICE"
 else
   DEVICE_NAME="selected device"

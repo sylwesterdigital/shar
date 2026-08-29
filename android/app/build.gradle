@@ -1,5 +1,10 @@
 plugins { id 'com.android.application' }
 
+def releaseStore = System.getenv('SHAR_ANDROID_KEYSTORE')
+def releaseAlias = System.getenv('SHAR_ANDROID_KEY_ALIAS') ?: 'shar'
+def releaseStorePassword = System.getenv('SHAR_ANDROID_STORE_PASSWORD')
+def releaseKeyPassword = System.getenv('SHAR_ANDROID_KEY_PASSWORD') ?: releaseStorePassword
+
 android {
     namespace 'com.localwebshare.app'
     compileSdk 35
@@ -8,12 +13,27 @@ android {
         applicationId 'com.localwebshare.app'
         minSdk 26
         targetSdk 35
-        versionCode 10500
-        versionName '1.5.0'
+        versionCode 10601
+        versionName '1.6.1'
+    }
+
+    signingConfigs {
+        release {
+            if (releaseStore && releaseStorePassword) {
+                storeFile file(releaseStore)
+                storePassword releaseStorePassword
+                keyAlias releaseAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
             minifyEnabled false
         }
     }

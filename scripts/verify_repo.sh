@@ -32,7 +32,12 @@ for p in \
   android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java \
   android/app/src/main/java/com/localwebshare/app/PreviewActivity.java \
   android/app/src/main/java/com/localwebshare/app/GeneratedUIIcons.java \
-  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh; do
+  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh \
+  scripts/build_macos_release.sh scripts/build_android_release.sh scripts/build_ios_check.sh \
+  scripts/release_and_deploy.sh scripts/publish_github_release.sh scripts/deploy_homepage.sh \
+  scripts/release_profile.sh scripts/setup_android_release.sh scripts/check_android_release_credentials.sh \
+  scripts/check_macos_release_credentials.sh scripts/check_ios_release_credentials.sh scripts/android_env.sh \
+  homepage/index.html; do
   [[ -e "$p" ]] || fail "Missing $p"
 done
 
@@ -52,6 +57,13 @@ grep -Fq 'settingsPanel' LocalWebShare/ContentView.swift || fail "iOS settings d
 grep -Fq 'currentFilter' LocalWebShare/LocalWebServer.swift || fail "Apple browser media filters missing"
 grep -Fq 'settings-open' LocalWebShare/LocalWebServer.swift || fail "Apple browser settings drawer missing"
 grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
+
+grep -Fq 'https://mojoworks.xyz/labs/shar/' README.md || fail "README does not document the Shar homepage"
+grep -Fq '/var/www/mojoworks/labs/shar' README.md || fail "README does not document the Shar deployment directory"
+grep -Fq '__MAC_DMG_URL__' homepage/index.html || fail "Homepage macOS release placeholder missing"
+grep -Fq '__ANDROID_APK_URL__' homepage/index.html || fail "Homepage Android release placeholder missing"
+grep -Fq 'sylwesterdigital/shar' scripts/publish_github_release.sh || fail "GitHub release repository mismatch"
+grep -Fq '/var/www/mojoworks/labs/shar' scripts/release_profile.sh || fail "Shar remote deployment directory mismatch"
 
 for s in scripts/*.sh; do [[ -x "$s" ]] || fail "Script is not executable: $s"; done
 
