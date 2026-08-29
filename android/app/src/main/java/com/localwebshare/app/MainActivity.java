@@ -40,7 +40,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
 
     private View buildUI() {
         ScrollView scroll=new ScrollView(this); LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(18),dp(18),dp(40));scroll.addView(root);
-        LinearLayout title=new LinearLayout(this);title.setOrientation(LinearLayout.HORIZONTAL);title.setGravity(Gravity.CENTER_VERTICAL);ImageView logo=new ImageView(this);logo.setImageResource(R.mipmap.ic_launcher);title.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(64)));TextView h=text("Local Web Share\nWi-Fi media sharing",22);h.setPadding(dp(12),0,0,0);title.addView(h);root.addView(title);
+        LinearLayout title=new LinearLayout(this);title.setOrientation(LinearLayout.HORIZONTAL);title.setGravity(Gravity.CENTER_VERTICAL);ImageView logo=new ImageView(this);logo.setImageResource(R.mipmap.ic_launcher);title.addView(logo,new LinearLayout.LayoutParams(dp(64),dp(64)));TextView h=text("Shar\nWi-Fi media sharing",22);h.setPadding(dp(12),0,0,0);title.addView(h);root.addView(title);
         stateText=text("Sharing is OFF",18);stateText.setPadding(0,dp(20),0,dp(4));root.addView(stateText);addressText=text("Server stopped",14);addressText.setTextIsSelectable(true);root.addView(addressText);
         toggleButton=new Button(this);toggleButton.setOnClickListener(v->toggleServer());root.addView(toggleButton);
         Button importButton=new Button(this);setLabel(importButton,"Import Files","Import","＋");importButton.setOnClickListener(v->chooseFiles());root.addView(importButton);

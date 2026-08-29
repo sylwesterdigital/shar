@@ -1,5 +1,19 @@
 # Changelog
 
+All notable changes to Shar are recorded here.
+
+## [1.7.1] - 2026-08-29
+
+### Added
+- Added an always-visible circular **+** button in the iOS/iPadOS top-left toolbar. It opens the native Files picker, supports multiple selection and copies chosen files into Shar's local shared library immediately.
+- Added the installed Shar version/build directly beneath the iOS Settings title, while retaining the About version row.
+
+### Changed
+- Standardized the user-facing product name to **Shar** across the iOS splash/app label, macOS header/display name, Android launcher/header and browser page title. Internal project paths and build artifact names remain `LocalWebShare` for pipeline compatibility.
+- Moved the iOS Settings drawer content below the safe area/notch and added extra top spacing so its title no longer collides with iPhone sensor housing/status UI.
+- Updated the empty iOS library guidance to explain both local **+** imports and browser uploads.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 1.7.1 / 10701.
+
 ## [1.7.0] - 2026-08-29
 
 ### Added
@@ -28,7 +42,6 @@
 - Bumped iOS marketing/build version and Android versionName/versionCode to 1.6.1 / 10601.
 - Updated README release/version examples and documented the macOS 13 deployment target compatibility fix.
 
-All notable changes to LocalWebShare are recorded here.
 
 ## [1.6.0] - 2026-08-29
 

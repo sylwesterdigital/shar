@@ -1,4 +1,4 @@
-# LocalWebShare — 1.7.0
+# Shar — 1.7.1
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.7.0** (build/version code **10700**).
+`VERSION` is authoritative. Current release: **1.7.1** (build/version code **10701**).
 
 ## Branding
 
@@ -78,7 +78,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v1.7.0.zip
+LocalWebSharePrototype-v1.7.1.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:
@@ -205,13 +205,15 @@ The repository keeps downloaded/local release material out of Git, but the build
 
 Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, gallery-style previous/next navigation, inline audio playback, MP3 artwork/title/artist metadata, delete/share actions and the local HTTP server.
 
-The iPhone/iPad home screen, introduced in 1.5.0 and retained in 1.7.0, is compact and media-first:
+The iPhone/iPad home screen is compact and media-first:
 
-- system launch screen using the `SharLogo` asset followed by a startup splash with the shared logo/name and live Wi-Fi/mobile/offline network check;
+- system launch screen using the `SharLogo` asset followed by a startup splash that displays **Shar** and a live Wi-Fi/mobile/offline network check;
+- an always-visible circular **+** button in the top-left opens the native iOS Files picker and imports one or more selected files directly into Shar's Documents/shared library;
 - top-row Sharing toggle plus Copy Address and Share Address controls;
 - horizontally scrolling media-type filter chips immediately below the sharing row;
 - Grid view by default, with optional List view;
-- a right-side settings drawer opened from the top-right gear;
+- a right-side settings drawer opened from the top-right gear, positioned below the iPhone safe area/notch;
+- the Settings header and About section both show the installed app version/build;
 - persisted Text / Icons / Icon + short button style;
 - persisted System / Ocean / Forest / Sunset / Violet accent themes;
 - optional auto-start sharing on Wi-Fi and file-size display;
@@ -233,7 +235,7 @@ Defaults:
 - bundle ID generated from the team unless overridden
 - existing app Documents/uploads preserved unless `--fresh` is supplied
 
-The supplied `shar-logo.svg` is now the iOS/iPadOS app icon via `Assets.xcassets`.
+The supplied `shar-logo.svg` is the iOS/iPadOS app icon via `Assets.xcassets`, and the installed app display name is **Shar**.
 
 Keep the iOS app in the foreground while serving files because iOS can suspend listener sockets when the app is backgrounded or the device locks.
 
@@ -304,14 +306,14 @@ The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an 
 Local debug output:
 
 ```text
-release/LocalWebShare-v1.6.1-android-debug.apk
+release/LocalWebShare-v1.7.1-android-debug.apk
 ```
 
 Public signed release output from `scripts/build_android_release.sh`:
 
 ```text
-release/LocalWebShare-v1.6.1-android.apk
-release/LocalWebShare-v1.6.1-android.aab
+release/LocalWebShare-v1.7.1-android.apk
+release/LocalWebShare-v1.7.1-android.aab
 ```
 
 ## Build all clients

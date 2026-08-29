@@ -52,7 +52,7 @@ private struct SplashView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 .shadow(radius: 12, y: 6)
 
-            Text("Local Web Share")
+            Text("Shar")
                 .font(.title.bold())
 
             VStack(spacing: 5) {

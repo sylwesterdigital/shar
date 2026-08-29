@@ -62,7 +62,7 @@ struct MacContentView: View {
             if let image=Bundle.main.url(forResource:"shar-logo-1024",withExtension:"png").flatMap(NSImage.init(contentsOf:)) {
                 Image(nsImage:image).resizable().scaledToFit().frame(width:58,height:58).clipShape(RoundedRectangle(cornerRadius:12))
             }
-            VStack(alignment:.leading,spacing:2){Text("Local Web Share").font(.title2.bold());Text("Wi-Fi media sharing").foregroundStyle(.secondary)}
+            VStack(alignment:.leading,spacing:2){Text("Shar").font(.title2.bold());Text("Wi-Fi media sharing").foregroundStyle(.secondary)}
         }
     }
 
@@ -87,7 +87,7 @@ struct MacContentView: View {
     private var importCard: some View {
         GroupBox("Import") {
             VStack(spacing:8) {
-                Image(systemName:"square.and.arrow.down.on.square").font(.system(size:30));Text("Drop files here").fontWeight(.semibold);Text("They are copied into Local Web Share immediately.").font(.caption).foregroundStyle(.secondary)
+                Image(systemName:"square.and.arrow.down.on.square").font(.system(size:30));Text("Drop files here").fontWeight(.semibold);Text("They are copied into Shar immediately.").font(.caption).foregroundStyle(.secondary)
                 MacActionButton(full:"Choose Files…",short:"Choose",icon:"plus",mode:mode){chooseFiles()}
             }
             .frame(maxWidth:.infinity).padding(.vertical,16).background(isDropTargeted ? Color.accentColor.opacity(0.12):Color.clear).clipShape(RoundedRectangle(cornerRadius:10))

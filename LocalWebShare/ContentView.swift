@@ -1,6 +1,7 @@
 import AVFoundation
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject private var fileStore: FileStore
@@ -19,6 +20,7 @@ struct ContentView: View {
     @State private var filePendingDelete: SharedFile?
     @State private var showingSettings = false
     @State private var copiedAddress = false
+    @State private var showingFileImporter = false
 
     private var actionLabelMode: ActionLabelMode {
         ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact
@@ -55,6 +57,19 @@ struct ContentView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showingFileImporter = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(colorTheme.accent, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Add files")
+                    }
+                    ToolbarItem(placement: .principal) {
                         Text("Files")
                             .font(.headline)
                     }
@@ -88,6 +103,18 @@ struct ContentView: View {
                 fileStore.delete(deleted)
             }
             .tint(colorTheme.accent)
+        }
+        .fileImporter(
+            isPresented: $showingFileImporter,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
+                urls.forEach { fileStore.importFile(from: $0) }
+            case .failure(let error):
+                fileStore.lastError = error.localizedDescription
+            }
         }
         .confirmationDialog(
             filePendingDelete.map { "Delete \($0.name)?" } ?? "Delete file?",
@@ -216,7 +243,7 @@ struct ContentView: View {
             ContentUnavailableView(
                 "No Files Yet",
                 systemImage: "folder",
-                description: Text("Turn on Sharing and drop files into the browser.")
+                description: Text("Tap + to add files on this iPhone, or turn on Sharing and upload from another device.")
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if filteredFiles.isEmpty {
@@ -275,9 +302,14 @@ struct ContentView: View {
                 Spacer()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        HStack {
-                            Label("Settings", systemImage: "gearshape.fill")
-                                .font(.title3.bold())
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label("Settings", systemImage: "gearshape.fill")
+                                    .font(.title3.bold())
+                                Text("Shar · v\(appVersion)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Spacer()
                             Button {
                                 withAnimation(.snappy(duration: 0.25)) { showingSettings = false }
@@ -357,7 +389,9 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(20)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 20)
                 }
                 .frame(width: min(350, proxy.size.width * 0.88))
                 .frame(maxHeight: .infinity)
@@ -365,7 +399,6 @@ struct ContentView: View {
                 .shadow(radius: 24, x: -8)
             }
         }
-        .ignoresSafeArea()
     }
 
     private func settingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
