@@ -45,6 +45,16 @@ struct ThumbnailView: View {
             return
         }
 
+        if file.mediaKind == .audio {
+            let data = await Task.detached(priority: .utility) {
+                MediaMetadataReader.read(file.url).artworkData
+            }.value
+            if let data, let image = UIImage(data: data) {
+                thumbnail = image
+                return
+            }
+        }
+
         let scale = UIScreen.main.scale
         let request = QLThumbnailGenerator.Request(
             fileAt: file.url,

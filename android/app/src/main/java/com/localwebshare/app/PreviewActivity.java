@@ -1,44 +1,29 @@
 package com.localwebshare.app;
 
 import android.app.*;
-import android.graphics.BitmapFactory;
-import android.media.MediaPlayer;
+import android.graphics.*;
+import android.media.*;
 import android.os.*;
 import android.view.*;
 import android.widget.*;
 
 import java.io.File;
+import java.util.*;
 
 public class PreviewActivity extends Activity {
-    private MediaPlayer player;
-    private final Handler handler=new Handler(Looper.getMainLooper());
-    private Runnable updater;
-    private File file;
-
-    @Override public void onCreate(Bundle state){
-        super.onCreate(state);
-        String path=getIntent().getStringExtra("path");
-        file=path==null?null:new File(path);
-        if(file==null||!file.isFile()){finish();return;}
-        setTitle(file.getName());
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        root.addView(toolbar(),new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-        View content=contentFor(file);
-        root.addView(content,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
-        setContentView(root);
-    }
-
-    private View toolbar(){
-        LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(16,8,16,8);
-        TextView title=new TextView(this);title.setText(file.getName());title.setTextSize(17);title.setSingleLine(true);bar.addView(title,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        Button del=new Button(this);del.setText("Delete");del.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Delete "+file.getName()+"?").setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{if(file.delete()){setResult(RESULT_OK);finish();}}).show());bar.addView(del);
-        Button done=new Button(this);done.setText("Done");done.setOnClickListener(v->finish());bar.addView(done);return bar;
-    }
-
-    private View contentFor(File f){String kind=MediaTypes.kind(f.getName());switch(kind){case"image":return image(f);case"video":return video(f);case"audio":return audio(f);default:return info(f);}}
+    private MediaPlayer player; private final Handler handler=new Handler(Looper.getMainLooper()); private Runnable updater; private File[] files=new File[0]; private int index; private LinearLayout root; private FrameLayout contentHost; private TextView title,position; private Button prev,next,del,done; private int buttonMode; private GestureDetector gestures;
+    @Override public void onCreate(Bundle state){super.onCreate(state);File dir=new File(getIntent().getStringExtra("dir"));String name=getIntent().getStringExtra("name");buttonMode=getIntent().getIntExtra("button_mode",2);File[] all=dir.listFiles(File::isFile);if(all!=null)files=all;Arrays.sort(files,Comparator.comparing(File::getName,String.CASE_INSENSITIVE_ORDER));for(int i=0;i<files.length;i++)if(files[i].getName().equals(name)){index=i;break;}if(files.length==0){finish();return;}gestures=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){@Override public boolean onFling(android.view.MotionEvent e1,android.view.MotionEvent e2,float vx,float vy){float dx=e2.getX()-e1.getX();if(Math.abs(dx)>80){if(dx<0)goNext();else goPrev();return true;}return false;}});build();showCurrent();}
+    private void build(){root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.addView(toolbar(),new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));contentHost=new FrameLayout(this);contentHost.setOnTouchListener((v,e)->gestures.onTouchEvent(e));root.addView(contentHost,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));setContentView(root);}
+    private String label(String full,String shortText,String icon){return buttonMode==0?full:buttonMode==1?icon:icon+" "+shortText;} private void setLabel(Button b,String f,String s,String i){b.setText(label(f,s,i));b.setContentDescription(f);}
+    private View toolbar(){LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);bar.setPadding(12,8,12,8);prev=new Button(this);setLabel(prev,"Previous","Prev","‹");prev.setOnClickListener(v->goPrev());bar.addView(prev);next=new Button(this);setLabel(next,"Next","Next","›");next.setOnClickListener(v->goNext());bar.addView(next);LinearLayout names=new LinearLayout(this);names.setOrientation(LinearLayout.VERTICAL);title=new TextView(this);title.setTextSize(17);title.setSingleLine(true);position=new TextView(this);position.setTextSize(11);names.addView(title);names.addView(position);bar.addView(names,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));del=new Button(this);setLabel(del,"Delete","Del","⌫");del.setOnClickListener(v->confirmDelete());bar.addView(del);done=new Button(this);setLabel(done,"Done","Done","×");done.setOnClickListener(v->finish());bar.addView(done);return bar;}
+    private File file(){return files[index];} private void goPrev(){if(index>0){index--;showCurrent();}} private void goNext(){if(index+1<files.length){index++;showCurrent();}}
+    private void showCurrent(){releasePlayer();File f=file();title.setText(f.getName());position.setText((index+1)+" / "+files.length+" • swipe left/right");prev.setEnabled(index>0);next.setEnabled(index+1<files.length);contentHost.removeAllViews();View c=contentFor(f);c.setOnTouchListener((v,e)->gestures.onTouchEvent(e));contentHost.addView(c,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));}
+    private View contentFor(File f){switch(MediaTypes.kind(f.getName())){case"image":return image(f);case"video":return video(f);case"audio":return audio(f);default:return info(f);}}
     private View image(File f){ImageView v=new ImageView(this);v.setBackgroundColor(0xff000000);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setImageBitmap(BitmapFactory.decodeFile(f.getAbsolutePath()));return v;}
     private View video(File f){VideoView v=new VideoView(this);MediaController c=new MediaController(this);v.setMediaController(c);v.setVideoPath(f.getAbsolutePath());v.setOnPreparedListener(mp->v.start());return v;}
-    private View audio(File f){LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setGravity(Gravity.CENTER);root.setPadding(40,40,40,40);TextView name=new TextView(this);name.setText(f.getName());name.setTextSize(20);root.addView(name);SeekBar seek=new SeekBar(this);root.addView(seek,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));Button play=new Button(this);play.setText("Play");root.addView(play);try{player=new MediaPlayer();player.setDataSource(f.getAbsolutePath());player.prepare();seek.setMax(Math.max(1,player.getDuration()));play.setOnClickListener(v->{if(player.isPlaying()){player.pause();play.setText("Play");}else{player.start();play.setText("Pause");}});seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int p,boolean u){if(u)player.seekTo(p);}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});updater=new Runnable(){public void run(){if(player!=null){seek.setProgress(player.getCurrentPosition());handler.postDelayed(this,250);}}};handler.post(updater);}catch(Exception e){name.setText("Cannot play audio: "+e);}return root;}
-    private View info(File f){LinearLayout root=new LinearLayout(this);root.setGravity(Gravity.CENTER);TextView t=new TextView(this);t.setText(f.getName()+"\n\n"+MediaTypes.mime(f.getName())+"\n"+f.length()+" bytes");t.setGravity(Gravity.CENTER);root.addView(t);return root;}
-    @Override protected void onDestroy(){if(updater!=null)handler.removeCallbacks(updater);if(player!=null){player.release();player=null;}super.onDestroy();}
+    private View audio(File f){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setGravity(Gravity.CENTER);box.setPadding(40,40,40,40);try{MediaMetadataRetriever r=new MediaMetadataRetriever();r.setDataSource(f.getAbsolutePath());byte[] art=r.getEmbeddedPicture();String mt=r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE),ma=r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST);r.release();if(art!=null){ImageView iv=new ImageView(this);iv.setScaleType(ImageView.ScaleType.CENTER_CROP);iv.setImageBitmap(BitmapFactory.decodeByteArray(art,0,art.length));box.addView(iv,new LinearLayout.LayoutParams(dp(220),dp(220)));}TextView name=new TextView(this);name.setText(mt==null||mt.trim().isEmpty()?f.getName():mt);name.setTextSize(20);name.setGravity(Gravity.CENTER);box.addView(name);if(ma!=null&&!ma.trim().isEmpty()){TextView ar=new TextView(this);ar.setText(ma);ar.setGravity(Gravity.CENTER);box.addView(ar);}SeekBar seek=new SeekBar(this);box.addView(seek,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));Button play=new Button(this);setLabel(play,"Play","Play","▶");box.addView(play);player=new MediaPlayer();player.setDataSource(f.getAbsolutePath());player.prepare();seek.setMax(Math.max(1,player.getDuration()));play.setOnClickListener(v->{if(player.isPlaying()){player.pause();setLabel(play,"Play","Play","▶");}else{player.start();setLabel(play,"Pause","Pause","Ⅱ");}});seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int p,boolean u){if(u&&player!=null)player.seekTo(p);}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});updater=new Runnable(){public void run(){if(player!=null){seek.setProgress(player.getCurrentPosition());handler.postDelayed(this,250);}}};handler.post(updater);}catch(Exception e){TextView t=new TextView(this);t.setText("Cannot play audio: "+e);box.addView(t);}return box;}
+    private View info(File f){LinearLayout box=new LinearLayout(this);box.setGravity(Gravity.CENTER);TextView t=new TextView(this);t.setText(f.getName()+"\n\n"+MediaTypes.mime(f.getName())+"\n"+f.length()+" bytes");t.setGravity(Gravity.CENTER);box.addView(t);return box;}
+    private void confirmDelete(){File f=file();new AlertDialog.Builder(this).setTitle("Delete "+f.getName()+"?").setNegativeButton("Cancel",null).setPositiveButton("Delete",(d,w)->{if(f.delete()){List<File> left=new ArrayList<>(Arrays.asList(files));left.remove(index);files=left.toArray(new File[0]);if(files.length==0){setResult(RESULT_OK);finish();}else{if(index>=files.length)index=files.length-1;showCurrent();}}}).show();}
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);} private void releasePlayer(){if(updater!=null){handler.removeCallbacks(updater);updater=null;}if(player!=null){player.release();player=null;}}
+    @Override protected void onDestroy(){releasePlayer();super.onDestroy();}
 }

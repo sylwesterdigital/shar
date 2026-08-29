@@ -23,6 +23,7 @@ for p in \
   README.md CHANGELOG.md .gitignore \
   assets/shar-logo.svg assets/shar-logo-1024.png \
   LocalWebShare.xcodeproj/project.pbxproj LocalWebShare/Info.plist \
+  LocalWebShare/MediaSupport.swift LocalWebShare/GeneratedUIIcons.swift \
   LocalWebShare/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
   macos/LocalWebShareMacApp.swift macos/AppIcon.iconset/icon_512x512@2x.png \
   android/settings.gradle android/build.gradle android/app/build.gradle \
@@ -30,7 +31,8 @@ for p in \
   android/app/src/main/java/com/localwebshare/app/MainActivity.java \
   android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java \
   android/app/src/main/java/com/localwebshare/app/PreviewActivity.java \
-  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh; do
+  android/app/src/main/java/com/localwebshare/app/GeneratedUIIcons.java \
+  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh; do
   [[ -e "$p" ]] || fail "Missing $p"
 done
 

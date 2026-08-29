@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
+"$SCRIPT_DIR/sync_ui_icons.sh"
+
 VERSION="$(tr -d '[:space:]' < VERSION)"
 BUILD_NUMBER="$(python3 - "$VERSION" <<'PY'
 import sys
@@ -46,6 +48,8 @@ xcrun --sdk macosx swiftc \
   -target "${ARCH}-apple-macos13.0" \
   -o "$MACOS/LocalWebShare" \
   "$ROOT/LocalWebShare/FileStore.swift" \
+  "$ROOT/LocalWebShare/MediaSupport.swift" \
+  "$ROOT/LocalWebShare/GeneratedUIIcons.swift" \
   "$ROOT/LocalWebShare/LocalWebServer.swift" \
   "$ROOT/macos/LocalWebShareMacApp.swift" \
   -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit \

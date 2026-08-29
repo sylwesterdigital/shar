@@ -1,4 +1,4 @@
-# LocalWebShare — 1.4.0
+# LocalWebShare — 1.4.1
 
 Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **1.4.0** (build/version code **10400**).
+`VERSION` is authoritative. Current release: **1.4.1** (build/version code **10401**).
 
 ## Branding
 
@@ -78,7 +78,12 @@ The browser UI supports:
 - byte-range media serving for seeking;
 - download;
 - delete with confirmation;
-- file type and size metadata.
+- file type and size metadata;
+- previous/next preview navigation without closing the viewer;
+- left/right swipe navigation in the preview and keyboard arrow navigation in the browser;
+- audio play/pause and seeking directly from the file list;
+- MP3/M4A metadata (title/artist) and embedded album artwork when present;
+- three button-label modes: **Text**, **Icons**, and **Icon + short**.
 
 The server routes are intentionally consistent across clients:
 
@@ -87,13 +92,26 @@ GET    /
 GET    /api/files
 POST   /upload?filename=...
 GET    /media/<filename>
+GET    /artwork/<filename>
+GET    /ui-icon/<name>.svg
 GET    /files/<filename>
 DELETE /files/<filename>
 ```
 
+
+## Optional UI icon source
+
+The repository keeps downloaded/local release material out of Git, but the build can use the existing SVG icon library at:
+
+```text
+/Users/smielniczuk/Documents/works/shar/archive/icons
+```
+
+`scripts/sync_ui_icons.sh` runs automatically before iOS, macOS and Android builds. It embeds supported SVGs such as `play.svg`, `pause.svg`, `preview.svg`, `download.svg`, `delete.svg`, `close.svg`, `photo.svg`, `video.svg` and `file.svg` into the local builds. The `archive/` folder remains ignored and the icon source itself is not committed. If that folder is unavailable, native/system fallback icons are used.
+
 ## iOS / iPadOS
 
-Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, delete/share actions and the local HTTP server.
+Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, gallery-style previous/next navigation, inline audio playback, MP3 artwork/title/artist metadata, delete/share actions and the local HTTP server.
 
 Build, sign, install and launch on the tethered iPhone/iPad:
 
@@ -120,7 +138,9 @@ Native SwiftUI client using the same Swift HTTP server implementation as iOS.
 
 Features:
 
-- native file/media library;
+- native file/media library with previous/next/swipe preview navigation;
+- inline audio play/pause and embedded artwork/title/artist metadata;
+- selectable Text / Icons / Icon + short button presentation;
 - local HTTP sharing on port 8080;
 - drag files directly into the Mac app to import;
 - image/audio/video/Quick Look previews;
@@ -146,7 +166,7 @@ Build without launching:
 The build creates:
 
 ```text
-release/LocalWebShare-v1.4.0-macOS-<arch>.zip
+release/LocalWebShare-v1.4.1-macOS-<arch>.zip
 ```
 
 The app is ad-hoc signed for local use. Distribution/notarization can be added later without changing the application architecture.
@@ -158,6 +178,9 @@ Native Android client implemented with Android platform APIs and no third-party 
 Features:
 
 - local HTTP sharing on port 8080;
+- previous/next and swipe navigation in the native preview;
+- inline audio play/pause plus embedded album artwork/title/artist metadata;
+- selectable Text / Icons / Icon + short button presentation;
 - native file import;
 - native file list with image/video thumbnails;
 - tap to preview images, video and audio;
@@ -182,7 +205,7 @@ The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an 
 APK output:
 
 ```text
-release/LocalWebShare-v1.4.0-android-debug.apk
+release/LocalWebShare-v1.4.1-android-debug.apk
 ```
 
 ## Build all clients

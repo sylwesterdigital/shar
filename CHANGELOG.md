@@ -2,6 +2,26 @@
 
 All notable changes to LocalWebShare are recorded here.
 
+## [1.4.1] - 2026-08-29
+
+### Added
+- Added gallery-style previous/next navigation in browser, iOS/iPadOS, macOS and Android previews.
+- Added swipe-left/swipe-right navigation in native previews and the browser; browser previews also support left/right arrow keys.
+- Added inline play/pause controls for audio files in iOS/iPadOS, macOS and Android file lists.
+- Added MP3/M4A title/artist metadata extraction and embedded album-artwork thumbnails where metadata contains artwork.
+- Added `/artwork/<filename>` to expose embedded audio artwork to the browser UI.
+- Added three button presentation modes: Text, Icons, and Icon + short.
+- Added `scripts/sync_ui_icons.sh`, which imports supported SVG controls from `archive/icons` at build time without committing the ignored icon library.
+- Added `/ui-icon/<name>.svg` for browser controls backed by the locally embedded SVG icon set.
+
+### Changed
+- Browser audio rows now use compact inline play/pause + seek controls instead of requiring the preview viewer.
+- Browser preview now stays open while navigating through the entire current file list and updates its position indicator.
+- Audio cards use embedded cover artwork when available and show title/artist metadata.
+- iOS/macOS/Android builds automatically synchronise the local SVG control icon library before compilation.
+- iOS marketing/build version bumped to 1.4.1 / 10401.
+- Android versionName/versionCode bumped to 1.4.1 / 10401.
+
 ## [1.4.0] - 2026-08-29
 
 ### Added

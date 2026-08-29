@@ -25,6 +25,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_DIR"
 
+"$SCRIPT_DIR/sync_ui_icons.sh"
+
 PROJECT="$REPO_DIR/LocalWebShare.xcodeproj"
 SCHEME="LocalWebShare"
 CONFIGURATION="Debug"

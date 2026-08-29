@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
+"$SCRIPT_DIR/sync_ui_icons.sh"
+
 VERSION="$(tr -d '[:space:]' < VERSION)"
 ANDROID_DIR="$ROOT/android"
 BUILD_ROOT="$ROOT/build/android-tools"

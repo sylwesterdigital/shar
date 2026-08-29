@@ -1,11 +1,17 @@
+import AVFoundation
 import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var fileStore: FileStore
     @EnvironmentObject private var webServer: LocalWebServer
 
+    @AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.compact.rawValue
     @State private var selectedFile: SharedFile?
     @State private var filePendingDelete: SharedFile?
+
+    private var actionLabelMode: ActionLabelMode {
+        ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact
+    }
 
     var body: some View {
         NavigationStack {
@@ -49,17 +55,27 @@ struct ContentView: View {
                             .textSelection(.enabled)
 
                         ShareLink(item: webServer.shareURL) {
-                            Label("Share Address", systemImage: "square.and.arrow.up")
+                            ActionLabel(full: "Share Address", short: "Share", systemImage: "square.and.arrow.up", mode: actionLabelMode)
                         }
                     }
 
-                    Button(webServer.isRunning ? "Stop Sharing" : "Start Sharing") {
-                        if webServer.isRunning {
-                            webServer.stop()
-                        } else {
-                            webServer.start()
+                    Button {
+                        webServer.isRunning ? webServer.stop() : webServer.start()
+                    } label: {
+                        ActionLabel(
+                            full: webServer.isRunning ? "Stop Sharing" : "Start Sharing",
+                            short: webServer.isRunning ? "Stop" : "Start",
+                            systemImage: webServer.isRunning ? "stop.fill" : "play.fill",
+                            mode: actionLabelMode
+                        )
+                    }
+
+                    Picker("Button labels", selection: $actionLabelModeRaw) {
+                        ForEach(ActionLabelMode.allCases) { mode in
+                            Text(mode.title).tag(mode.rawValue)
                         }
                     }
+                    .pickerStyle(.segmented)
 
                     Text("Keep this app open while transferring files. The computer and iPhone/iPad must be on the same local network.")
                         .font(.caption)
@@ -79,36 +95,20 @@ struct ContentView: View {
                         )
                     } else {
                         ForEach(fileStore.files) { file in
-                            Button {
-                                selectedFile = file
-                            } label: {
-                                fileRow(file)
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    filePendingDelete = file
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
+                            fileRow(file)
+                                .contentShape(Rectangle())
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        filePendingDelete = file
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
-                            }
-                            .contextMenu {
-                                Button {
-                                    selectedFile = file
-                                } label: {
-                                    Label("Preview", systemImage: "eye")
+                                .contextMenu {
+                                    Button { selectedFile = file } label: { Label("Preview", systemImage: "eye") }
+                                    ShareLink(item: file.url) { Label("Share", systemImage: "square.and.arrow.up") }
+                                    Button(role: .destructive) { filePendingDelete = file } label: { Label("Delete", systemImage: "trash") }
                                 }
-
-                                ShareLink(item: file.url) {
-                                    Label("Share", systemImage: "square.and.arrow.up")
-                                }
-
-                                Button(role: .destructive) {
-                                    filePendingDelete = file
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
                         }
                     }
                 } header: {
@@ -117,8 +117,8 @@ struct ContentView: View {
                         Spacer()
                         Text("\(fileStore.files.count)")
                             .foregroundStyle(.secondary)
-                        Button("Refresh") {
-                            fileStore.refresh()
+                        Button { fileStore.refresh() } label: {
+                            ActionLabel(full: "Refresh", short: "Refresh", systemImage: "arrow.clockwise", mode: actionLabelMode)
                         }
                         .textCase(nil)
                     }
@@ -126,9 +126,8 @@ struct ContentView: View {
             }
             .navigationTitle("Local Web Share")
             .sheet(item: $selectedFile) { file in
-                MediaPlayerView(file: file) {
-                    fileStore.delete(file)
-                    selectedFile = nil
+                MediaPlayerView(files: fileStore.files, initialFile: file) { deleted in
+                    fileStore.delete(deleted)
                 }
             }
             .confirmationDialog(
@@ -140,22 +139,15 @@ struct ContentView: View {
                 titleVisibility: .visible
             ) {
                 Button("Delete", role: .destructive) {
-                    if let filePendingDelete {
-                        fileStore.delete(filePendingDelete)
-                    }
+                    if let filePendingDelete { fileStore.delete(filePendingDelete) }
                     filePendingDelete = nil
                 }
-                Button("Cancel", role: .cancel) {
-                    filePendingDelete = nil
-                }
+                Button("Cancel", role: .cancel) { filePendingDelete = nil }
             }
             .alert("Error", isPresented: Binding(
                 get: { fileStore.lastError != nil || webServer.lastError != nil },
                 set: { isPresented in
-                    if !isPresented {
-                        fileStore.lastError = nil
-                        webServer.lastError = nil
-                    }
+                    if !isPresented { fileStore.lastError = nil; webServer.lastError = nil }
                 }
             )) {
                 Button("OK", role: .cancel) {}
@@ -166,30 +158,30 @@ struct ContentView: View {
     }
 
     private func fileRow(_ file: SharedFile) -> some View {
-        HStack(spacing: 12) {
-            ThumbnailView(file: file)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(file.name)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-
-                HStack(spacing: 6) {
-                    Text(file.mediaKind.rawValue.capitalized)
-                    Text("•")
-                    Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+        HStack(spacing: 10) {
+            Button { selectedFile = file } label: {
+                HStack(spacing: 12) {
+                    ThumbnailView(file: file)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(file.name).foregroundStyle(.primary).lineLimit(2)
+                        if file.mediaKind == .audio { AudioMetadataLine(file: file) }
+                        HStack(spacing: 6) {
+                            Text(file.mediaKind.rawValue.capitalized); Text("•"); Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                        }.font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
 
-            Spacer(minLength: 8)
+            if file.mediaKind == .audio { InlineAudioPlayButton(file: file) }
 
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.tertiary)
+            Button { selectedFile = file } label: {
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Preview \(file.name)")
         }
-        .contentShape(Rectangle())
         .padding(.vertical, 3)
     }
 
@@ -197,5 +189,78 @@ struct ContentView: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
         return "\(version) (\(build))"
+    }
+}
+
+private struct ActionLabel: View {
+    let full: String
+    let short: String
+    let systemImage: String
+    let mode: ActionLabelMode
+
+    var body: some View {
+        switch mode {
+        case .text:
+            Text(full)
+        case .icons:
+            Image(systemName: systemImage).accessibilityLabel(full)
+        case .compact:
+            Label(short, systemImage: systemImage)
+        }
+    }
+}
+
+private struct AudioMetadataLine: View {
+    let file: SharedFile
+    @State private var metadata = MediaMetadataInfo.empty
+
+    var body: some View {
+        Group {
+            if metadata.title != nil || metadata.artist != nil {
+                Text([metadata.title, metadata.artist].compactMap { $0 }.joined(separator: " — "))
+                    .lineLimit(1)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .task(id: file.id) {
+            metadata = await Task.detached(priority: .utility) { MediaMetadataReader.read(file.url) }.value
+        }
+    }
+}
+
+private struct InlineAudioPlayButton: View {
+    let file: SharedFile
+    @State private var player: AVPlayer?
+    @State private var isPlaying = false
+    @State private var observer: Any?
+
+    var body: some View {
+        Button {
+            if player == nil { player = AVPlayer(url: file.url) }
+            guard let player else { return }
+            if isPlaying { player.pause() } else { player.play() }
+            isPlaying.toggle()
+        } label: {
+            Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                .font(.title2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isPlaying ? "Pause \(file.name)" : "Play \(file.name)")
+        .onAppear {
+            if player == nil { player = AVPlayer(url: file.url) }
+            if let player {
+                observer = player.addPeriodicTimeObserver(
+                    forInterval: CMTime(seconds: 0.3, preferredTimescale: 600),
+                    queue: .main
+                ) { _ in isPlaying = player.timeControlStatus == .playing }
+            }
+        }
+        .onDisappear {
+            if let observer, let player { player.removeTimeObserver(observer) }
+            observer = nil
+            player?.pause()
+            player = nil
+        }
     }
 }
