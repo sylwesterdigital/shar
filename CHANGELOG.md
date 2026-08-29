@@ -2,6 +2,35 @@
 
 All notable changes to LocalWebShare are recorded here.
 
+## [1.4.0] - 2026-08-29
+
+### Added
+- Added the user-supplied `shar-logo.svg` as the canonical shared application logo.
+- Added generated iOS/iPadOS AppIcon asset-catalog images derived from the shared logo.
+- Added generated macOS iconset assets derived from the shared logo.
+- Added generated Android launcher icons derived from the shared logo.
+- Added a native macOS SwiftUI client with local web sharing, drag-and-drop import, native media/document previews, delete actions and Finder integration.
+- Added a native Android client with a self-contained local HTTP server, native file import/listing, image/video thumbnails, audio/video/image preview and delete actions.
+- Added Android browser drag-and-drop upload, preview/playback, download and delete using the same HTTP route contract as the Apple clients.
+- Added `scripts/build_macos.sh` for local macOS build/install/launch.
+- Added `scripts/build_android.sh` for Android debug APK build plus optional tethered-device install/launch.
+- Added `scripts/build_all.sh` to build macOS, Android and iOS/iPadOS clients in sequence.
+- Added `scripts/verify_repo.sh` to validate cross-platform release structure, versions and branding assets.
+
+### Changed
+- Promoted the project from an iOS-only prototype to a three-platform local sharing suite; version moved from 1.3.6 to 1.4.0.
+- `FileStore` now uses an app-managed Application Support shared directory on macOS rather than the user's general Documents directory.
+- `FileStore` now supports importing/copying external files into managed storage.
+- `scripts/bump-version.sh` now updates both the Xcode version/build metadata and Android `versionName`/`versionCode`.
+- `scripts/deploy.sh` now runs cross-platform repository verification before the tethered iOS installation test and Git commit/push.
+- `.gitignore` now excludes generated release output and Android build/Gradle output.
+- iOS marketing/build version bumped to 1.4.0 / 10400.
+- Android versionName/versionCode set to 1.4.0 / 10400.
+
+### Branding
+- iOS App Store icon renders use an opaque background to satisfy Apple app-icon alpha restrictions while preserving the supplied artwork.
+- macOS and Android keep transparent-capable source renditions where appropriate.
+
 ## [1.3.6] - 2026-08-29
 
 ### Added

@@ -27,6 +27,7 @@ fail() {
 [[ -f CHANGELOG.md ]] || fail "CHANGELOG.md is missing."
 [[ -f .gitignore ]] || fail ".gitignore is missing."
 [[ -x scripts/app_build.sh ]] || fail "scripts/app_build.sh is missing or not executable."
+[[ -x scripts/verify_repo.sh ]] || fail "scripts/verify_repo.sh is missing or not executable."
 
 VERSION_VALUE="$(tr -d '[:space:]' < VERSION)"
 [[ -n "$VERSION_VALUE" ]] || fail "VERSION is empty."
@@ -50,6 +51,10 @@ BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 log "Release v$VERSION_VALUE"
 log "Branch: $BRANCH"
 log "Remote: $EXPECTED_REMOTE"
+
+echo
+echo ">>> ./scripts/verify_repo.sh"
+./scripts/verify_repo.sh
 
 echo
 echo ">>> ./scripts/app_build.sh"

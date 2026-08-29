@@ -11,6 +11,7 @@ TMP="$(mktemp -d /tmp/localwebshare-package.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION" >&2; exit 1; }
+"$ROOT/scripts/verify_repo.sh"
 [[ -f "$ROOT/README.md" ]] || { echo "README.md missing" >&2; exit 1; }
 [[ -f "$ROOT/CHANGELOG.md" ]] || { echo "CHANGELOG.md missing" >&2; exit 1; }
 grep -Fq "$VERSION" "$ROOT/README.md" || { echo "README.md is not updated for $VERSION" >&2; exit 1; }
@@ -24,6 +25,9 @@ rsync \
   --exclude='archive/' \
   --exclude='.watch-state/' \
   --exclude='build/' \
+  --exclude='release/' \
+  --exclude='android/.gradle/' \
+  --exclude='android/**/build/' \
   --exclude='.git/' \
   --exclude='*.xcuserstate' \
   --exclude='xcuserdata/' \

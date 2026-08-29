@@ -10,6 +10,24 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack(spacing: 14) {
+                        Image("SharLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 58, height: 58)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Local Web Share")
+                                .font(.title3.bold())
+                            Text("Wi-Fi media sharing")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 3)
+                }
+
                 Section("Wi-Fi Sharing") {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {

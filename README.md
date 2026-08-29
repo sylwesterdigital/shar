@@ -1,6 +1,6 @@
-# LocalWebShare Prototype — 1.3.6
+# LocalWebShare — 1.4.0
 
-Local iOS Wi-Fi file sharing prototype with browser upload/download and in-app audio/video playback.
+Local-first Wi-Fi file and media sharing for **iOS/iPadOS, macOS and Android**. Each native client stores its own shared files, can run a local HTTP server on port 8080, and exposes the same browser workflow for drag-and-drop upload, download, preview and delete.
 
 ## Repository
 
@@ -16,174 +16,254 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-Repository layout:
+`VERSION` is authoritative. Current release: **1.4.0** (build/version code **10400**).
+
+## Branding
+
+The canonical logo source is:
+
+```text
+assets/shar-logo.svg
+```
+
+The repository also contains generated platform icon assets derived from that SVG:
+
+- iOS/iPadOS: `LocalWebShare/Assets.xcassets/AppIcon.appiconset/`
+- macOS: `macos/AppIcon.iconset/`
+- Android: `android/app/src/main/res/mipmap-*/ic_launcher*.png`
+
+Do not edit the generated icons independently; update `assets/shar-logo.svg` and regenerate the platform icon sets together.
+
+## Repository layout
 
 ```text
 shar/
 ├── archive/                         # downloaded release ZIPs; Git ignored
+├── assets/                          # canonical shared logo artwork
+├── LocalWebShare/                   # iOS/iPadOS SwiftUI client
+├── LocalWebShare.xcodeproj/
+├── macos/                           # native macOS SwiftUI client + iconset
+├── android/                         # native Android client
 ├── scripts/
 │   ├── build-watch.sh               # visible foreground ZIP watcher
-│   ├── deploy.sh                    # build + Git deployment workflow
-│   ├── app_build.sh                 # Xcode build/sign/install/launch
-│   ├── app_buil.sh                  # compatibility alias
-│   ├── app_buld.sh                  # compatibility alias
-│   ├── apply-release.sh             # deprecated compatibility wrapper
-│   ├── remove-legacy-launchagent.sh # one-time/idempotent cleanup
-│   ├── bump-version.sh
+│   ├── deploy.sh                    # verify + iOS build + Git commit/push
+│   ├── verify_repo.sh               # cross-platform release consistency checks
+│   ├── app_build.sh                 # iOS build/sign/install/launch
+│   ├── build_macos.sh               # macOS build/install/launch
+│   ├── build_android.sh             # Android APK build/install when attached
+│   ├── build_all.sh                 # macOS + Android + iOS
+│   ├── bump-version.sh              # bumps iOS + Android metadata together
 │   └── package-release.sh
-├── LocalWebShare/
-├── LocalWebShare.xcodeproj/
 ├── CHANGELOG.md
 ├── README.md
 ├── VERSION
 └── .gitignore
 ```
 
-`VERSION` is authoritative. This release is **1.3.6**.
+## Shared browser experience
 
-## Normal workflow
-
-Run the watcher from the repository:
-
-```zsh
-cd /Users/smielniczuk/Documents/works/shar
-./scripts/build-watch.sh
-```
-
-It stays attached to the current Terminal and prints what it is doing. Stop it with **Ctrl+C**.
-
-It watches:
+When sharing is enabled, open the displayed local URL from another device on the same LAN, for example:
 
 ```text
-/Users/smielniczuk/Documents/works/shar/archive/LocalWebSharePrototype-v*.zip
+http://192.168.1.42:8080
 ```
 
-When a higher version appears, the watcher performs this visible workflow:
+The browser UI supports:
+
+- drag files anywhere onto the upload area to upload immediately;
+- multi-file picker upload;
+- image thumbnails and full preview;
+- inline audio playback;
+- inline video preview/playback;
+- byte-range media serving for seeking;
+- download;
+- delete with confirmation;
+- file type and size metadata.
+
+The server routes are intentionally consistent across clients:
 
 ```text
-detect ZIP
-→ wait until download/write is stable
-→ unzip to a temporary directory
-→ verify VERSION, Xcode project and deployment scripts
-→ synchronise release files into the shar repository
-→ run ./scripts/deploy.sh
-→ build/sign/install/launch iOS app
-→ git commit "Release vX.Y.Z"
-→ git push origin <current branch>
-→ reload the updated watcher
-→ continue watching
+GET    /
+GET    /api/files
+POST   /upload?filename=...
+GET    /media/<filename>
+GET    /files/<filename>
+DELETE /files/<filename>
 ```
 
-The watcher follows the same foreground model as the other update watchers: no LaunchAgent, no hidden daemon and no installer/uninstaller cycle.
+## iOS / iPadOS
 
-## Watcher behaviour
+Native SwiftUI client with Files/Documents storage, media thumbnails, image/audio/video/document previews, delete/share actions and the local HTTP server.
 
-The release ZIP is authoritative for repository source files. Synchronisation uses `rsync --delete` while preserving these local paths:
-
-```text
-.git/
-archive/
-.watch-state/
-build/
-xcuserdata/
-```
-
-A package is recorded as processed before native deployment starts. Therefore a failed Xcode/device deployment does not repeat every five seconds. After fixing the build/device issue, run `./scripts/deploy.sh` directly, or use the next bumped release ZIP.
-
-## Deployment script
-
-`scripts/deploy.sh` is the deployment entry point called by the watcher.
-
-It:
-
-1. validates `VERSION`, `README.md`, `CHANGELOG.md` and `.gitignore`;
-2. ensures `origin` is `git@github.com:sylwesterdigital/shar.git`;
-3. runs `scripts/app_build.sh`;
-4. stages repository changes;
-5. commits them as `Release vX.Y.Z` when there are changes;
-6. pushes the current branch to `origin`.
-
-Run directly when required:
-
-```zsh
-cd /Users/smielniczuk/Documents/works/shar
-./scripts/deploy.sh
-```
-
-## Xcode/device build
+Build, sign, install and launch on the tethered iPhone/iPad:
 
 ```zsh
 cd /Users/smielniczuk/Documents/works/shar
 ./scripts/app_build.sh
 ```
 
-The script:
+Defaults:
 
-- detects full Xcode;
-- uses Apple Development team `5P9V78UZAC` by default (overrideable with `TEAM_ID`);
-- detects a connected physical iPhone/iPad through `devicectl`;
-- builds using automatic signing and provisioning updates;
-- verifies the app signature;
-- installs the app with `devicectl`;
-- launches without LLDB attach, avoiding the earlier `attach by pid ... no such process` path;
-- preserves app Documents/uploads unless `--fresh` is explicitly used.
+- Apple Development Team: `5P9V78UZAC`
+- automatic Xcode provisioning/signing
+- physical-device detection through `devicectl`
+- bundle ID generated from the team unless overridden
+- existing app Documents/uploads preserved unless `--fresh` is supplied
 
-## Legacy LaunchAgent cleanup
+The supplied `shar-logo.svg` is now the iOS/iPadOS app icon via `Assets.xcassets`.
 
-The background LaunchAgent design is obsolete. On watcher startup, `scripts/remove-legacy-launchagent.sh` removes, if present:
+Keep the iOS app in the foreground while serving files because iOS can suspend listener sockets when the app is backgrounded or the device locks.
+
+## macOS
+
+Native SwiftUI client using the same Swift HTTP server implementation as iOS.
+
+Features:
+
+- native file/media library;
+- local HTTP sharing on port 8080;
+- drag files directly into the Mac app to import;
+- image/audio/video/Quick Look previews;
+- delete and reveal-in-Finder actions;
+- managed shared folder at:
 
 ```text
-com.localwebshare.build-watch
-~/Library/LaunchAgents/com.localwebshare.build-watch.plist
-/Users/smielniczuk/Documents/works/shar/bin/build-watch.sh
+~/Library/Application Support/LocalWebShare/Shared
 ```
 
-Nothing installs it again.
+Build, install into `~/Applications`, and launch:
+
+```zsh
+./scripts/build_macos.sh
+```
+
+Build without launching:
+
+```zsh
+./scripts/build_macos.sh --no-launch
+```
+
+The build creates:
+
+```text
+release/LocalWebShare-v1.4.0-macOS-<arch>.zip
+```
+
+The app is ad-hoc signed for local use. Distribution/notarization can be added later without changing the application architecture.
+
+## Android
+
+Native Android client implemented with Android platform APIs and no third-party runtime libraries.
+
+Features:
+
+- local HTTP sharing on port 8080;
+- native file import;
+- native file list with image/video thumbnails;
+- tap to preview images, video and audio;
+- delete from the file list or preview;
+- browser drag-and-drop upload/download/preview/delete using the same route contract as iOS/macOS;
+- app-private shared file storage.
+
+Build the debug APK and install/launch automatically when an authorised Android device is attached:
+
+```zsh
+./scripts/build_android.sh
+```
+
+Build APK without installing:
+
+```zsh
+./scripts/build_android.sh --no-install
+```
+
+The script expects JDK 17 and Android SDK API 35/build-tools 35.0.0. It uses an existing Android Studio/Homebrew JDK and SDK, installs missing SDK packages through `sdkmanager` when available, and downloads Gradle 8.9 into local build output when needed.
+
+APK output:
+
+```text
+release/LocalWebShare-v1.4.0-android-debug.apk
+```
+
+## Build all clients
+
+With the required toolchains available:
+
+```zsh
+./scripts/build_all.sh
+```
+
+Order:
+
+```text
+macOS → Android → iOS/iPadOS
+```
+
+The Android build installs only when an authorised device is attached. The iOS build requires the tethered Apple device because `app_build.sh` is also the installation test.
+
+## Foreground release watcher
+
+Run:
+
+```zsh
+cd /Users/smielniczuk/Documents/works/shar
+./scripts/build-watch.sh
+```
+
+It stays attached to the current Terminal and stops with **Ctrl+C**. It watches:
+
+```text
+/Users/smielniczuk/Documents/works/shar/archive/LocalWebSharePrototype-v*.zip
+```
+
+A newer release is unpacked and synchronised into this repository, preserving `.git/`, `archive/`, `.watch-state/`, build output and local Xcode user data. The watcher then visibly calls `scripts/deploy.sh`.
+
+There is no LaunchAgent and no background daemon. The obsolete `com.localwebshare.build-watch` LaunchAgent is only removed if an old copy still exists.
+
+## Deployment and Git
+
+`scripts/deploy.sh` performs:
+
+```text
+verify repository/version/platform assets
+→ build/sign/install/launch iOS client
+→ git add
+→ git commit "Release vX.Y.Z"
+→ git push origin <current branch>
+```
+
+Git operations run locally on the Mac using the existing SSH configuration for:
+
+```text
+git@github.com:sylwesterdigital/shar.git
+```
+
+For explicit multi-platform local builds before deployment, run `./scripts/build_all.sh` first.
 
 ## Release policy
 
 Every update must include:
 
-- a bumped `VERSION`;
-- matching Xcode marketing/build numbers;
-- a new `CHANGELOG.md` entry;
-- an updated `README.md`;
-- a release ZIP named `LocalWebSharePrototype-vX.Y.Z.zip`;
-- a successful device build before the Git release commit is pushed.
+- bumped `VERSION`;
+- matching iOS marketing/build number;
+- matching Android `versionName`/`versionCode`;
+- updated `CHANGELOG.md`;
+- updated `README.md`;
+- platform icon assets when branding changes;
+- release ZIP named `LocalWebSharePrototype-vX.Y.Z.zip`;
+- Git commit/push through the local deployment workflow.
 
-`archive/` is intentionally not committed and is not included inside release ZIPs.
-
-Bump the next version:
+Bump a version:
 
 ```zsh
 ./scripts/bump-version.sh patch
+./scripts/bump-version.sh minor
+./scripts/bump-version.sh major
 ```
 
-Package the current version:
+Package:
 
 ```zsh
+./scripts/verify_repo.sh
 ./scripts/package-release.sh
 ```
-
-## iOS app
-
-- local HTTP sharing on port 8080;
-- browser drag-and-drop uploads that start automatically;
-- browser media cards with image/video thumbnails and file-type metadata;
-- click-to-preview images, audio and video in the browser;
-- inline audio controls in the browser file list;
-- HTTP byte-range support for audio/video seeking;
-- separate inline media and attachment-download routes;
-- browser download/delete with confirmation;
-- iOS file rows with Quick Look-generated thumbnails/type badges;
-- tap any file row to open a preview;
-- full image preview, AVPlayer video playback and custom audio controls;
-- Quick Look fallback for documents/other previewable files;
-- swipe/context-menu delete and delete from the preview screen;
-- Share sheet support from previews;
-- streamed uploads/downloads;
-- app Documents storage;
-- local-network permission configuration;
-- Files/iTunes file-sharing exposure.
-
-Keep the app in the foreground while using the web server because iOS can suspend listener sockets when the app is backgrounded.

@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 VERSION_FILE="$ROOT/VERSION"
 PBX="$ROOT/LocalWebShare.xcodeproj/project.pbxproj"
+ANDROID_GRADLE="$ROOT/android/app/build.gradle"
 MODE="${1:-patch}"
 
 [[ -f "$VERSION_FILE" ]] || { echo "VERSION not found" >&2; exit 1; }
@@ -36,14 +37,19 @@ PY
 )"
 
 printf '%s\n' "$NEW" > "$VERSION_FILE"
-python3 - "$PBX" "$NEW" "$BUILD_NUM" <<'PY'
+python3 - "$PBX" "$ANDROID_GRADLE" "$NEW" "$BUILD_NUM" <<'PY'
 from pathlib import Path
 import re, sys
-p=Path(sys.argv[1]); version=sys.argv[2]; build=sys.argv[3]
-s=p.read_text()
+pbx=Path(sys.argv[1]); gradle=Path(sys.argv[2]); version=sys.argv[3]; build=sys.argv[4]
+s=pbx.read_text()
 s=re.sub(r'MARKETING_VERSION = [^;]+;', f'MARKETING_VERSION = {version};', s)
 s=re.sub(r'CURRENT_PROJECT_VERSION = [^;]+;', f'CURRENT_PROJECT_VERSION = {build};', s)
-p.write_text(s)
+pbx.write_text(s)
+if gradle.exists():
+    g=gradle.read_text()
+    g=re.sub(r'versionCode\s+\d+', f'versionCode {build}', g)
+    g=re.sub(r"versionName\s+'[^']+'", f"versionName '{version}'", g)
+    gradle.write_text(g)
 PY
 
-echo "$OLD -> $NEW (build $BUILD_NUM)"
+echo "$OLD -> $NEW (build $BUILD_NUM; iOS/macOS/Android)"

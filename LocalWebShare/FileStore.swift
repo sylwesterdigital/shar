@@ -103,7 +103,16 @@ final class FileStore: ObservableObject {
     }
 
     nonisolated static var documentsDirectory: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+#if os(macOS)
+        let fm = FileManager.default
+        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("LocalWebShare", isDirectory: true)
+            .appendingPathComponent("Shared", isDirectory: true)
+        try? fm.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
+#else
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+#endif
     }
 
     func refresh() {
@@ -129,6 +138,35 @@ final class FileStore: ObservableObject {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    func importFile(from sourceURL: URL) {
+        do {
+            let scoped = sourceURL.startAccessingSecurityScopedResource()
+            defer { if scoped { sourceURL.stopAccessingSecurityScopedResource() } }
+
+            let name = sourceURL.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return }
+            let destination = uniqueDestination(for: name)
+            try FileManager.default.copyItem(at: sourceURL, to: destination)
+            refresh()
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func uniqueDestination(for filename: String) -> URL {
+        let proposed = Self.documentsDirectory.appendingPathComponent(filename)
+        guard FileManager.default.fileExists(atPath: proposed.path) else { return proposed }
+        let ext = proposed.pathExtension
+        let base = proposed.deletingPathExtension().lastPathComponent
+        var index = 2
+        while true {
+            let newName = ext.isEmpty ? "\(base) \(index)" : "\(base) \(index).\(ext)"
+            let candidate = Self.documentsDirectory.appendingPathComponent(newName)
+            if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+            index += 1
         }
     }
 

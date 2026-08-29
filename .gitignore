@@ -2,6 +2,10 @@
 /archive/
 /.watch-state/
 /build/
+/release/
 xcuserdata/
 DerivedData/
 *.xcuserstate
+android/.gradle/
+android/**/build/
+.idea/
