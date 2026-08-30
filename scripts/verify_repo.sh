@@ -118,6 +118,10 @@ grep -Fq 'MDLAsset.canImportFileExtension' LocalWebShare/ThreeDPreview.swift || 
 grep -Fq 'import SceneKit.ModelIO' LocalWebShare/ThreeDPreview.swift || fail "SceneKit/Model I/O bridge import missing"
 ! grep -Fq 'ContentUnavailableView' LocalWebShare/ThreeDPreview.swift || fail "3D preview uses macOS 14-only ContentUnavailableView despite macOS 13 target"
 grep -Fq 'let imageData: Data?' LocalWebShare/ThreeDPreview.swift || fail "3D texture loader still risks shadowing data(forURI:)"
+grep -Fq 'ThreeDLightPreset' LocalWebShare/ThreeDPreview.swift || fail "native 3D lighting presets missing"
+grep -Fq 'floorEnabled' LocalWebShare/ThreeDPreview.swift || fail "native 3D floor toggle missing"
+grep -Fq 'ThreeDBackgroundPreset' LocalWebShare/ThreeDPreview.swift || fail "native 3D background presets missing"
+grep -Fq 'Fit model' LocalWebShare/ThreeDPreview.swift || fail "native 3D camera-fit control missing"
 grep -Fq 'ThreeDPreviewView(file: file)' LocalWebShare/MediaPlayerView.swift || fail "iOS native 3D preview missing"
 grep -Fq 'ensureLoaded(file, autoplayIfNew: true)' LocalWebShare/MediaPlayerView.swift || fail "iOS audio preview does not preserve shared playback state"
 grep -Fq '@Published private(set) var currentTime' LocalWebShare/MediaSupport.swift || fail "shared audio current-time state missing"
@@ -144,6 +148,16 @@ grep -Fq 'Developer updates' LocalWebShare/LocalWebServer.swift || fail "Apple b
 grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
 grep -Fq "['threeD','3D']" LocalWebShare/LocalWebServer.swift || fail "Apple browser 3D filter missing"
 grep -Fq "['threeD','3D']" android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser 3D filter missing"
+grep -Fq 'case ("GET", "/3d-viewer.js")' LocalWebShare/LocalWebServer.swift || fail "Apple local WebGL 3D viewer endpoint missing"
+grep -Fq 'THREE_D_VIEWER_JS' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android local WebGL 3D viewer payload missing"
+grep -Fq 'function threeDPreview' LocalWebShare/LocalWebServer.swift || fail "browser 3D preview renderer missing"
+grep -Fq "canvas.getContext('webgl2'" LocalWebShare/LocalWebServer.swift || fail "browser 3D WebGL 2 renderer missing"
+grep -Fq "light.textContent='☀ Studio'" LocalWebShare/LocalWebServer.swift || fail "browser 3D lighting control missing"
+grep -Fq "floor.textContent='▱ Floor'" LocalWebShare/LocalWebServer.swift || fail "browser 3D floor control missing"
+grep -Fq "bg.textContent='◐ Dark'" LocalWebShare/LocalWebServer.swift || fail "browser 3D background control missing"
+grep -Fq "inlineIcons={previous:" LocalWebShare/LocalWebServer.swift || fail "inline Previous/Next SVG icons missing"
+grep -Fq "if(inlineIcons[name])" LocalWebShare/LocalWebServer.swift || fail "browser navigation still depends on external Previous/Next SVG files"
+! grep -Fq 'jsdelivr' LocalWebShare/LocalWebServer.swift android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "browser 3D viewer must not load a third-party CDN"
 grep -Fq 'case "glb": case "gltf"' android/app/src/main/java/com/localwebshare/app/MediaTypes.java || fail "Android 3D classification missing"
 grep -Fq 'lws-preset-v2' LocalWebShare/LocalWebServer.swift || fail "Apple browser density presets missing"
 grep -Fq 'id="thumbSize"' LocalWebShare/LocalWebServer.swift || fail "Apple browser thumbnail size control missing"
@@ -325,6 +339,9 @@ def html(text):
 if html(apple) != html(android):
     raise SystemExit('Apple and Android embedded browser UIs differ')
 Path('/tmp/shar-browser-verify.js').write_text(re.search(r'<script>(.*?)</script>', html(apple), re.S).group(1))
+three=re.search(r'private static let threeDViewerJavaScript = #"""\n(.*?)"""#', apple, re.S)
+if not three: raise SystemExit('Apple local 3D viewer JavaScript missing')
+Path('/tmp/shar-3d-viewer-verify.js').write_text(three.group(1))
 receiver=Path('homepage/receive.html').read_text()
 Path('/tmp/shar-receiver-verify.js').write_text(re.search(r'<script>(.*?)</script>', receiver, re.S).group(1))
 content=Path('LocalWebShare/ContentView.swift').read_text()
@@ -347,10 +364,13 @@ PY
 from pathlib import Path
 import re
 src=Path('android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java').read_text()
-m=re.search(r'private static final String WEB_PAGE = (\"\"\".*?\"\"\");', src, re.S)
+m=re.search(r'private static final String WEB_PAGE = (""".*?""");', src, re.S)
+t=re.search(r'private static final String THREE_D_VIEWER_JS = (""".*?""");', src, re.S)
 if not m:
     raise SystemExit('Android embedded WEB_PAGE Java text block missing')
-Path('/tmp/SharAndroidWebPageProbe.java').write_text('final class SharAndroidWebPageProbe { static final String WEB_PAGE = ' + m.group(1) + '; }\n')
+if not t:
+    raise SystemExit('Android embedded THREE_D_VIEWER_JS Java text block missing')
+Path('/tmp/SharAndroidWebPageProbe.java').write_text('final class SharAndroidWebPageProbe { static final String WEB_PAGE = ' + m.group(1) + '; static final String THREE_D_VIEWER_JS = ' + t.group(1) + '; }\n')
 PYANDROIDWEB
     rm -rf /tmp/shar-android-webpage-probe
     mkdir -p /tmp/shar-android-webpage-probe
@@ -359,6 +379,7 @@ PYANDROIDWEB
   if command -v node >/dev/null 2>&1; then
     node --check remote/server.js >/dev/null || fail "Remote signaling JavaScript syntax failed"
     node --check /tmp/shar-browser-verify.js >/dev/null || fail "Embedded browser JavaScript syntax failed"
+    node --check /tmp/shar-3d-viewer-verify.js >/dev/null || fail "Local browser 3D viewer JavaScript syntax failed"
     node --check /tmp/shar-receiver-verify.js >/dev/null || fail "Remote receiver JavaScript syntax failed"
     node --check /tmp/shar-ios-native-remote-verify.js >/dev/null || fail "Native iOS Remote Share JavaScript syntax failed"
     node --check /tmp/shar-macos-native-remote-verify.js >/dev/null || fail "Native macOS Remote Share JavaScript syntax failed"

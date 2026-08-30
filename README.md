@@ -1,4 +1,4 @@
-# Shar — 2.1.9
+# Shar — 2.2.0
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.1.9** (build/version code **20109**).
+`VERSION` is authoritative. Current release: **2.2.0** (build/version code **20200**).
 
 ## Branding
 
@@ -181,7 +181,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.9.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.2.0.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -208,7 +208,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.1.9.zip
+LocalWebSharePrototype-v2.2.0.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

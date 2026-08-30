@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0] - 2026-08-30
+
+### Polished 3D preview
+
+- Added native iOS/macOS 3D preview controls for Soft/Studio/Bright lighting, optional floor, four background presets, and a Fit Model camera reset.
+- Added a fully local WebGL 2 GLB/glTF browser preview with orbit/zoom, automatic camera fitting, base-colour textures, lighting presets, floor grid, and background presets. No third-party model viewer or CDN is contacted.
+- Replaced browser Previous/Next icon fetches with inline SVG data so `previous.svg` and `next.svg` can no longer 404.
+- Moved the browser 3D renderer to a local `/3d-viewer.js` endpoint to keep the Android Java text block below the JVM constant-size limit while preserving Apple/Android browser parity.
+- Added release verification for the local 3D renderer JavaScript, Android embedded 3D-renderer Java text block, native lighting/floor/background controls, and inline navigation icons.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.0 / 20200.
+
 ## [2.1.9] - 2026-08-30
 
 ### 3D preview build compatibility

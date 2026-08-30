@@ -18,18 +18,61 @@ private typealias SharPlatformColor = NSColor
 /// Interactive, entirely local 3D preview used by both the native iOS and macOS clients.
 /// GLB/glTF are parsed in-process. Apple Model I/O handles USD/USDZ/OBJ/STL/PLY/Alembic
 /// and any additional formats supported by the installed OS. Nothing is uploaded to a viewer service.
+private enum ThreeDLightPreset: String, CaseIterable, Identifiable {
+    case soft, studio, bright
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .soft: return "Soft"
+        case .studio: return "Studio"
+        case .bright: return "Bright"
+        }
+    }
+}
+
+private enum ThreeDBackgroundPreset: String, CaseIterable, Identifiable {
+    case black, charcoal, studio, blue
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .black: return "Black"
+        case .charcoal: return "Charcoal"
+        case .studio: return "Studio"
+        case .blue: return "Blue"
+        }
+    }
+}
+
+private struct ThreeDPreviewConfiguration: Equatable {
+    var light: ThreeDLightPreset
+    var floorEnabled: Bool
+    var background: ThreeDBackgroundPreset
+}
+
 struct ThreeDPreviewView: View {
     let file: SharedFile
 
     @State private var scene: SCNScene?
     @State private var errorMessage: String?
     @State private var isLoading = true
+    @State private var lightPreset: ThreeDLightPreset = .studio
+    @State private var backgroundPreset: ThreeDBackgroundPreset = .charcoal
+    @State private var floorEnabled = true
+    @State private var resetCameraToken = 0
+
+    private var configuration: ThreeDPreviewConfiguration {
+        .init(light: lightPreset, floorEnabled: floorEnabled, background: backgroundPreset)
+    }
 
     var body: some View {
         ZStack {
             if let scene {
-                SharSceneView(scene: scene)
+                SharSceneView(scene: scene, configuration: configuration, resetToken: resetCameraToken)
                     .ignoresSafeArea(edges: .bottom)
+                    .overlay(alignment: .topTrailing) {
+                        controls
+                            .padding(10)
+                    }
             } else if let errorMessage {
                 VStack(spacing: 12) {
                     Image(systemName: "cube.transparent")
@@ -65,41 +108,118 @@ struct ThreeDPreviewView: View {
                     try ThreeDSceneLoader.load(url: file.url)
                 }.value
                 scene = loaded
+                resetCameraToken &+= 1
             } catch {
                 errorMessage = error.localizedDescription
             }
             isLoading = false
         }
     }
+
+    private var controls: some View {
+        HStack(spacing: 7) {
+            Menu {
+                ForEach(ThreeDLightPreset.allCases) { preset in
+                    Button {
+                        lightPreset = preset
+                    } label: {
+                        if preset == lightPreset {
+                            Label(preset.title, systemImage: "checkmark")
+                        } else {
+                            Text(preset.title)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "sun.max.fill")
+            }
+            .help("Lighting: \(lightPreset.title)")
+
+            Button {
+                floorEnabled.toggle()
+            } label: {
+                Image(systemName: floorEnabled ? "square.3.layers.3d.top.filled" : "square.3.layers.3d")
+            }
+            .help(floorEnabled ? "Hide floor" : "Show floor")
+
+            Menu {
+                ForEach(ThreeDBackgroundPreset.allCases) { preset in
+                    Button {
+                        backgroundPreset = preset
+                    } label: {
+                        if preset == backgroundPreset {
+                            Label(preset.title, systemImage: "checkmark")
+                        } else {
+                            Text(preset.title)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "circle.lefthalf.filled")
+            }
+            .help("Background: \(backgroundPreset.title)")
+
+            Button {
+                resetCameraToken &+= 1
+            } label: {
+                Image(systemName: "viewfinder")
+            }
+            .help("Fit model")
+        }
+        .buttonStyle(.bordered)
+        .labelStyle(.iconOnly)
+        .padding(7)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
 }
 
 #if os(iOS)
 private struct SharSceneView: UIViewRepresentable {
     let scene: SCNScene
+    let configuration: ThreeDPreviewConfiguration
+    let resetToken: Int
+
+    final class Coordinator { var lastResetToken = Int.min }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
-        ThreeDSceneLoader.configure(view: view, scene: scene)
+        ThreeDSceneLoader.configure(view: view, scene: scene, configuration: configuration, resetCamera: true)
+        context.coordinator.lastResetToken = resetToken
         return view
     }
     func updateUIView(_ uiView: SCNView, context: Context) {
-        if uiView.scene !== scene { ThreeDSceneLoader.configure(view: uiView, scene: scene) }
+        let sceneChanged = uiView.scene !== scene
+        let reset = sceneChanged || context.coordinator.lastResetToken != resetToken
+        ThreeDSceneLoader.configure(view: uiView, scene: scene, configuration: configuration, resetCamera: reset)
+        context.coordinator.lastResetToken = resetToken
     }
 }
 #elseif os(macOS)
 private struct SharSceneView: NSViewRepresentable {
     let scene: SCNScene
+    let configuration: ThreeDPreviewConfiguration
+    let resetToken: Int
+
+    final class Coordinator { var lastResetToken = Int.min }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
-        ThreeDSceneLoader.configure(view: view, scene: scene)
+        ThreeDSceneLoader.configure(view: view, scene: scene, configuration: configuration, resetCamera: true)
+        context.coordinator.lastResetToken = resetToken
         return view
     }
     func updateNSView(_ nsView: SCNView, context: Context) {
-        if nsView.scene !== scene { ThreeDSceneLoader.configure(view: nsView, scene: scene) }
+        let sceneChanged = nsView.scene !== scene
+        let reset = sceneChanged || context.coordinator.lastResetToken != resetToken
+        ThreeDSceneLoader.configure(view: nsView, scene: scene, configuration: configuration, resetCamera: reset)
+        context.coordinator.lastResetToken = resetToken
     }
 }
 #endif
 
-enum ThreeDSceneLoader {
+private enum ThreeDSceneLoader {
     enum PreviewError: LocalizedError {
         case malformedGLB(String)
         case unsupported(String)
@@ -131,23 +251,91 @@ enum ThreeDSceneLoader {
         throw PreviewError.unsupported("Interactive preview for .\(ext) is not available on this device yet. The file remains shareable and downloadable.")
     }
 
-    static func configure(view: SCNView, scene: SCNScene) {
+    static func configure(view: SCNView, scene: SCNScene, configuration: ThreeDPreviewConfiguration, resetCamera: Bool) {
         view.scene = scene
         view.allowsCameraControl = true
-        view.autoenablesDefaultLighting = true
+        view.autoenablesDefaultLighting = false
         view.antialiasingMode = .multisampling4X
-        view.backgroundColor = SharPlatformColor(white: 0.08, alpha: 1)
         view.rendersContinuously = false
-        ensureCamera(in: scene, view: view)
+        configureEnvironment(in: scene, view: view, configuration: configuration)
+        ensureCamera(in: scene, view: view, forceReset: resetCamera)
+        view.setNeedsDisplay(view.bounds)
     }
 
-    private static func ensureCamera(in scene: SCNScene, view: SCNView) {
-        if let existing = scene.rootNode.childNodes(passingTest: { node, _ in node.camera != nil }).first {
-            view.pointOfView = existing
-            return
+    private static func configureEnvironment(in scene: SCNScene, view: SCNView, configuration: ThreeDPreviewConfiguration) {
+        for node in scene.rootNode.childNodes where node.name?.hasPrefix("SharPreviewEnvironment") == true {
+            node.removeFromParentNode()
         }
 
+        let bg = backgroundColor(configuration.background)
+        view.backgroundColor = bg
+        scene.background.contents = bg
+
         let (minV, maxV) = scene.rootNode.boundingBox
+        let center = SCNVector3((minV.x + maxV.x) * 0.5, (minV.y + maxV.y) * 0.5, (minV.z + maxV.z) * 0.5)
+        let dx = maxV.x - minV.x, dy = maxV.y - minV.y, dz = maxV.z - minV.z
+        let diameter = max(0.1, max(dx, max(dy, dz)))
+
+        let ambient = SCNLight()
+        ambient.type = .ambient
+        ambient.color = platformColor(red: 1, green: 1, blue: 1)
+        ambient.intensity = configuration.light == .soft ? 360 : configuration.light == .studio ? 560 : 820
+        let ambientNode = SCNNode()
+        ambientNode.name = "SharPreviewEnvironmentAmbient"
+        ambientNode.light = ambient
+        scene.rootNode.addChildNode(ambientNode)
+
+        let key = SCNLight()
+        key.type = .directional
+        key.color = platformColor(red: 1, green: 0.96, blue: 0.9)
+        key.intensity = configuration.light == .soft ? 650 : configuration.light == .studio ? 1150 : 1800
+        key.castsShadow = configuration.floorEnabled
+        key.shadowRadius = 7
+        key.shadowColor = platformColor(red: 0, green: 0, blue: 0, alpha: 0.45)
+        let keyNode = SCNNode()
+        keyNode.name = "SharPreviewEnvironmentKey"
+        keyNode.light = key
+        keyNode.eulerAngles = SCNVector3(-0.75, -0.65, 0)
+        scene.rootNode.addChildNode(keyNode)
+
+        let fill = SCNLight()
+        fill.type = .omni
+        fill.color = platformColor(red: 0.72, green: 0.82, blue: 1)
+        fill.intensity = configuration.light == .soft ? 220 : configuration.light == .studio ? 420 : 720
+        fill.attenuationStartDistance = CGFloat(diameter * 0.3)
+        fill.attenuationEndDistance = CGFloat(diameter * 7)
+        let fillNode = SCNNode()
+        fillNode.name = "SharPreviewEnvironmentFill"
+        fillNode.light = fill
+        fillNode.position = SCNVector3(center.x - diameter * 1.5, center.y + diameter, center.z + diameter * 1.4)
+        scene.rootNode.addChildNode(fillNode)
+
+        if configuration.floorEnabled {
+            let plane = SCNPlane(width: CGFloat(diameter * 4), height: CGFloat(diameter * 4))
+            let material = SCNMaterial()
+            material.lightingModel = .physicallyBased
+            material.diffuse.contents = floorColor(configuration.background)
+            material.roughness.contents = 0.92
+            material.metalness.contents = 0.02
+            plane.materials = [material]
+            let floor = SCNNode(geometry: plane)
+            floor.name = "SharPreviewEnvironmentFloor"
+            floor.eulerAngles.x = -.pi / 2
+            floor.position = SCNVector3(center.x, minV.y - diameter * 0.015, center.z)
+            scene.rootNode.addChildNode(floor)
+        }
+    }
+
+    private static func ensureCamera(in scene: SCNScene, view: SCNView, forceReset: Bool) {
+        if !forceReset, view.pointOfView != nil { return }
+        scene.rootNode.childNodes.filter { $0.name == "SharPreviewCamera" }.forEach { $0.removeFromParentNode() }
+
+        // Environment helper nodes are added after the model and should not affect framing.
+        let helperNodes = scene.rootNode.childNodes.filter { $0.name?.hasPrefix("SharPreviewEnvironment") == true }
+        helperNodes.forEach { $0.isHidden = true }
+        let (minV, maxV) = scene.rootNode.boundingBox
+        helperNodes.forEach { $0.isHidden = false }
+
         let center = SCNVector3(
             (minV.x + maxV.x) * 0.5,
             (minV.y + maxV.y) * 0.5,
@@ -164,10 +352,36 @@ enum ThreeDSceneLoader {
         let node = SCNNode()
         node.name = "SharPreviewCamera"
         node.camera = camera
-        node.position = SCNVector3(center.x, center.y + diameter * 0.12, center.z + diameter * 2.4)
+        node.position = SCNVector3(center.x, center.y + diameter * 0.16, center.z + diameter * 2.55)
         node.look(at: center)
         scene.rootNode.addChildNode(node)
         view.pointOfView = node
+    }
+
+    private static func backgroundColor(_ preset: ThreeDBackgroundPreset) -> SharPlatformColor {
+        switch preset {
+        case .black: return platformColor(red: 0.008, green: 0.008, blue: 0.012)
+        case .charcoal: return platformColor(red: 0.055, green: 0.06, blue: 0.075)
+        case .studio: return platformColor(red: 0.36, green: 0.37, blue: 0.39)
+        case .blue: return platformColor(red: 0.045, green: 0.09, blue: 0.16)
+        }
+    }
+
+    private static func floorColor(_ preset: ThreeDBackgroundPreset) -> SharPlatformColor {
+        switch preset {
+        case .black: return platformColor(red: 0.045, green: 0.045, blue: 0.055)
+        case .charcoal: return platformColor(red: 0.12, green: 0.125, blue: 0.14)
+        case .studio: return platformColor(red: 0.52, green: 0.52, blue: 0.54)
+        case .blue: return platformColor(red: 0.08, green: 0.16, blue: 0.24)
+        }
+    }
+
+    private static func platformColor(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat = 1) -> SharPlatformColor {
+        #if os(iOS)
+        return UIColor(red: red, green: green, blue: blue, alpha: alpha)
+        #else
+        return NSColor(srgbRed: red, green: green, blue: blue, alpha: alpha)
+        #endif
     }
 }
 
