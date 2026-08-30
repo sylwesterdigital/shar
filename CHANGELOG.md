@@ -2,6 +2,21 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.1.2] - 2026-08-30
+
+### Fixed
+- Replaced the macOS Remote Share action that started the local `:8080` LAN server and opened a browser with a fully native SwiftUI Secure Remote Share sheet.
+- macOS now creates the secure Internet session directly from the selected native file, independently of the Wi-Fi Sharing switch.
+
+### Native macOS Remote Share
+- Added native PIN, locally generated QR code, secure URL, Copy link, macOS sharing-service picker, sender approval, transfer progress, retry/cancel and verified completion UI.
+- Added an off-screen macOS WebKit WebRTC/Web Crypto engine using the same v2.1 AES-256-GCM, PBKDF2 PIN, approval and SHA-256 protocol as the native iOS sender. File bytes are supplied from the native file through the bounded chunk bridge; the localhost browser UI is not loaded.
+
+### Release safety
+- Added repository guards preventing macOS Remote Share from calling `webServer.start()` or opening `127.0.0.1:8080`.
+- Added extraction and `node --check` validation for the JavaScript embedded in the native macOS Remote Share engine.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.2 / 20102.
+
 ## [2.1.1] - 2026-08-30
 
 ### Fixed

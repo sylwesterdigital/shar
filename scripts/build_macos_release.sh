@@ -43,7 +43,7 @@ for arch in arm64 x86_64; do
   log "Compiling macOS $arch"
   xcrun --sdk macosx swiftc -parse-as-library -sdk "$SDK" -target "${arch}-apple-macos13.0" \
     -o "$BUILD_ROOT/bin/$arch/LocalWebShare" "${SOURCES[@]}" \
-    -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit -framework QuickLookUI -framework Network -framework Combine
+    -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers
  done
 lipo -create "$BUILD_ROOT/bin/arm64/LocalWebShare" "$BUILD_ROOT/bin/x86_64/LocalWebShare" -output "$MACOS/LocalWebShare"
 lipo -info "$MACOS/LocalWebShare"

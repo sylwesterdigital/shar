@@ -141,6 +141,24 @@ if not m: raise SystemExit('iOS openRemoteShare function missing')
 if 'webServer.start' in m.group(1): raise SystemExit('iOS Remote Share still starts the LAN HTTP server')
 PYREMOTEIOS
 grep -Fq 'openRemoteShare' macos/LocalWebShareMacApp.swift || fail "macOS remote share action missing"
+grep -Fq 'MacRemoteShareSheet' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share sheet missing"
+grep -Fq 'MacNativeRemoteShareCoordinator' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share coordinator missing"
+grep -Fq 'MacNativeRemoteShareQR' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share QR generator missing"
+grep -Fq 'NSSharingServicePicker(items: [url])' macos/LocalWebShareMacApp.swift || fail "macOS native link sharing picker missing"
+grep -Fq "pc=new RTCPeerConnection" macos/LocalWebShareMacApp.swift || fail "macOS internal WebRTC engine missing"
+grep -Fq "type:'chunk'" macos/LocalWebShareMacApp.swift || fail "macOS native file-to-WebRTC bridge missing"
+grep -Fq 'approvalRequired:true' macos/LocalWebShareMacApp.swift || fail "macOS sender approval requirement missing"
+grep -Fq "name:'AES-GCM'" macos/LocalWebShareMacApp.swift || fail "macOS AES-256-GCM Remote Share encryption missing"
+python3 - <<'PYREMOTEMAC'
+from pathlib import Path
+import re
+s=Path('macos/LocalWebShareMacApp.swift').read_text()
+m=re.search(r'private func openRemoteShare\(_ file: SharedFile\) \{(.*?)\n    \}', s, re.S)
+if not m: raise SystemExit('macOS openRemoteShare function missing')
+body=m.group(1)
+if 'webServer.start' in body: raise SystemExit('macOS Remote Share still starts the LAN HTTP server')
+if '127.0.0.1:8080' in body or 'NSWorkspace.shared.open' in body: raise SystemExit('macOS Remote Share still opens localhost/browser')
+PYREMOTEMAC
 grep -Fq 'RemoteShareActivity' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android remote share action missing"
 grep -Fq '<activity android:name=".RemoteShareActivity"' android/app/src/main/AndroidManifest.xml || fail "Android RemoteShareActivity is not registered"
 grep -Fq 'const TURN_SECRET = process.env.SHAR_TURN_SECRET' remote/server.js || fail "Remote server TURN secret must come from environment"
@@ -232,6 +250,13 @@ engine_script=re.search(r'<script>(.*?)</script>', engine.group(1), re.S)
 if not engine_script: raise SystemExit('Native iOS Remote Share engine JavaScript missing')
 ios_js=engine_script.group(1).replace(r'const FILE=\(json);', 'const FILE={"name":"verify","path":"verify","size":1,"mime":"application/octet-stream"};')
 Path('/tmp/shar-ios-native-remote-verify.js').write_text(ios_js)
+mac=Path('macos/LocalWebShareMacApp.swift').read_text()
+mac_engine=re.search(r'private var engineHTML: String \{.*?return """(.*?)"""', mac, re.S)
+if not mac_engine: raise SystemExit('Native macOS Remote Share engine HTML missing')
+mac_script=re.search(r'<script>(.*?)</script>', mac_engine.group(1), re.S)
+if not mac_script: raise SystemExit('Native macOS Remote Share engine JavaScript missing')
+mac_js=mac_script.group(1).replace(r'const FILE=\(json);', 'const FILE={"name":"verify","path":"verify","size":1,"mime":"application/octet-stream"};')
+Path('/tmp/shar-macos-native-remote-verify.js').write_text(mac_js)
 PY
   if command -v javac >/dev/null 2>&1; then
     python3 - <<'PYANDROIDWEB'
@@ -252,6 +277,7 @@ PYANDROIDWEB
     node --check /tmp/shar-browser-verify.js >/dev/null || fail "Embedded browser JavaScript syntax failed"
     node --check /tmp/shar-receiver-verify.js >/dev/null || fail "Remote receiver JavaScript syntax failed"
     node --check /tmp/shar-ios-native-remote-verify.js >/dev/null || fail "Native iOS Remote Share JavaScript syntax failed"
+    node --check /tmp/shar-macos-native-remote-verify.js >/dev/null || fail "Native macOS Remote Share JavaScript syntax failed"
   fi
 fi
 

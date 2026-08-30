@@ -52,7 +52,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
+        String message="v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
+                "v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
                 "v2.1.0  Secure Remote Share\nAdded AES-256-GCM encryption, separate PIN verification, sender approval, SHA-256 integrity checks, and hardened TURN/API privacy.\n\n"+
                 "v2.0.8  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
                 "v2.0.7  Remote completion handshake\nSuccessful remote downloads stay complete and explicitly confirm receipt back to the sender.\n\n"+
