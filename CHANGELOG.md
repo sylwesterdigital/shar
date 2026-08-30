@@ -2,6 +2,25 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.0.7] - 2026-08-30
+
+### Fixed
+- Fixed a completed Remote Share being overwritten by **Connection failed / Share not found or expired** after the file had already arrived. Receiver success is now a terminal state: later WebRTC disconnects, one-time session cleanup, signaling polling failures and expected 404s cannot replace a verified successful transfer.
+- Added a receiver-to-sender `receiver-complete` data-channel acknowledgement after all expected bytes have been received and the final file size has been validated.
+- The sender now shows **Finalizing with receiver…** and only transitions to **Transfer complete** after receiver acknowledgement or the signaling service confirms completion.
+- Completed one-time signaling sessions remain readable for a short 60-second completion grace period so sender/receiver finalization can settle, while a second receiver is still rejected.
+
+### Polished
+- Receiver completion now shows **Transfer complete ✓**, a full progress bar, a disabled **Received ✓** action, and clear save/download guidance instead of a contradictory red error state.
+- Added final whole-transfer byte-count validation in addition to the existing per-file size checks.
+
+### Hardened
+- Extended the remote protocol smoke test to verify the completion grace state and confirm that completed one-time shares reject another receiver.
+- Added repository guards for terminal receiver success and the explicit `receiver-complete` handshake.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.7 / 20007.
+
 ## [2.0.6] - 2026-08-30
 
 ### Fixed

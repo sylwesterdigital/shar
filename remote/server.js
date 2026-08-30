@@ -89,7 +89,7 @@ function bearer(req) {
 function sessionFor(id) {
   const s=sessions.get(id);
   if (!s) return null;
-  if (s.expiresAt <= now() || s.revoked || (s.completed && s.oneTime)) { sessions.delete(id); return null; }
+  if (s.expiresAt <= now() || s.revoked || (s.completed && s.oneTime && s.completedAt && s.completedAt <= now()-60000)) { sessions.delete(id); return null; }
   return s;
 }
 function iceServers() {
@@ -103,7 +103,7 @@ function iceServers() {
   return out;
 }
 function publicSession(s) {
-  return {ok:true,id:s.id,files:s.files,totalBytes:s.totalBytes,expiresAt:new Date(s.expiresAt).toISOString(),joined:!!s.guestToken,completed:!!s.completed,oneTime:s.oneTime};
+  return {ok:true,id:s.id,files:s.files,totalBytes:s.totalBytes,expiresAt:new Date(s.expiresAt).toISOString(),joined:!!s.guestToken,completed:!!s.completed,completedAt:s.completedAt?new Date(s.completedAt).toISOString():null,oneTime:s.oneTime};
 }
 function signalTargetQueue(s, from) { return from === 'host' ? s.toGuest : s.toHost; }
 function addSignal(s, from, body) {
@@ -117,7 +117,7 @@ function routeParts(url) { return new URL(url,'http://localhost').pathname.split
 
 setInterval(() => {
   const t=now();
-  for (const [id,s] of sessions) if (s.expiresAt <= t || s.revoked || (s.completed && s.oneTime)) sessions.delete(id);
+  for (const [id,s] of sessions) if (s.expiresAt <= t || s.revoked || (s.completed && s.oneTime && s.completedAt && s.completedAt <= t-60000)) sessions.delete(id);
   for (const [ip,b] of buckets) if (t-b.start>120000) buckets.delete(ip);
   for (const [ip,b] of createBuckets) if (t-b.start>2*60*60*1000) createBuckets.delete(ip);
 },30000).unref();
@@ -126,7 +126,7 @@ const server=http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,content-type,x-shar-client','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Cache-Control':'no-store'}); return res.end(); }
   if (!rateLimit(req,res)) return;
   const parts=routeParts(req.url);
-  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.0.6',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET)});
+  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.0.7',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET)});
   if (req.method==='POST' && parts.length===1 && parts[0]==='session') {
     if (!allowSessionCreate(req,res)) return;
     let body; try { body=await readJSON(req,res); } catch { return; }
@@ -134,7 +134,7 @@ const server=http.createServer(async (req,res) => {
       const m=normalizeManifest(body.files);
       const ttl=Math.max(300,Math.min(MAX_TTL,Number(body.ttlSeconds)||DEFAULT_TTL));
       const id=token(24), hostSecret=token(32);
-      const s={id,hostSecret,guestToken:null,files:m.files,totalBytes:m.totalBytes,createdAt:now(),expiresAt:now()+ttl*1000,oneTime:body.oneTime!==false,completed:false,revoked:false,toHost:[],toGuest:[],seq:0};
+      const s={id,hostSecret,guestToken:null,files:m.files,totalBytes:m.totalBytes,createdAt:now(),expiresAt:now()+ttl*1000,oneTime:body.oneTime!==false,completed:false,completedAt:0,revoked:false,toHost:[],toGuest:[],seq:0};
       sessions.set(id,s);
       return json(res,201,{...publicSession(s),hostSecret,receiverUrl:`${RECEIVE_BASE}?share=${encodeURIComponent(id)}`,qrUrl:`${PUBLIC_API_BASE}/qr/${encodeURIComponent(id)}.svg`,iceServers:iceServers()});
     } catch(e) { return fail(res,400,e.message); }
@@ -165,7 +165,10 @@ const server=http.createServer(async (req,res) => {
     }
     if (req.method==='POST' && parts.length===3 && parts[2]==='complete') {
       if (bearer(req)!==s.guestToken) return fail(res,403,'Invalid receiver credential');
-      s.completed=true; return json(res,200,{ok:true});
+      let body; try { body=await readJSON(req,res); } catch { return; }
+      if (body.receivedBytes != null && Number(body.receivedBytes)!==s.totalBytes) return fail(res,409,'Receiver byte-count confirmation does not match the share manifest');
+      if (body.fileCount != null && Number(body.fileCount)!==s.files.length) return fail(res,409,'Receiver file-count confirmation does not match the share manifest');
+      s.completed=true; s.completedAt=now(); return json(res,200,{ok:true,completed:true,completedAt:new Date(s.completedAt).toISOString()});
     }
     if (req.method==='DELETE' && parts.length===2) {
       if (bearer(req)!==s.hostSecret) return fail(res,403,'Invalid host credential');

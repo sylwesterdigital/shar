@@ -52,7 +52,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.0.6  Native link sharing\nFixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.\n\n"+
+        String message="v2.0.7  Remote completion handshake\nSuccessful remote downloads stay complete and explicitly confirm receipt back to the sender.\n\n"+
+                "v2.0.6  Native link sharing\nFixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.\n\n"+
                 "v2.0.5  Remote service readiness\nFixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation.\n\n"+
                 "v2.0.4  Native iPhone Remote Share\nRemote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI.\n\n"+
                 "v2.0.3  Public route verification\nMade the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts.\n\n"+

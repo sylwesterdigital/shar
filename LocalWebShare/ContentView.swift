@@ -512,6 +512,7 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.0.7", title: "Remote completion handshake", summary: "Made successful remote downloads terminal, added receiver confirmation back to the sender, and prevented expected session cleanup from becoming a false failure."),
     .init(version: "2.0.6", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
     .init(version: "2.0.5", title: "Remote service readiness", summary: "Fixed the signaling-service startup race and added systemd readiness diagnostics before nginx/public-route validation."),
     .init(version: "2.0.4", title: "Native iPhone Remote Share", summary: "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
@@ -1023,13 +1024,13 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         'use strict';
         const FILE=\(json);
         const API='https://mojoworks.xyz/api/shar/remote/v1';
-        let session=null,pc=null,dc=null,signalSeq=0,pollTimer=null,pending=[],sent=0,cancelled=false;
+        let session=null,pc=null,dc=null,signalSeq=0,pollTimer=null,pending=[],sent=0,cancelled=false,finished=false,receiverAckResolve=null;
         const chunkRequests=new Map();let chunkCounter=0;
         function native(m){try{window.webkit.messageHandlers.sharRemote.postMessage(m)}catch(e){}}
         function status(value,state=''){native({type:'status',value,state})}
         async function api(path,opt={}){
           let response;
-          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.6',...(opt.headers||{})}})}
+          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.7',...(opt.headers||{})}})}
           catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}
           const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}
           if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);
@@ -1040,9 +1041,11 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
         async function waitBuffer(){if(!dc||dc.readyState!=='open')throw Error('Remote data channel closed');if(dc.bufferedAmount<4*1024*1024)return;await new Promise((resolve,reject)=>{dc.bufferedAmountLowThreshold=1024*1024;const done=()=>resolve();dc.addEventListener('bufferedamountlow',done,{once:true});setTimeout(()=>{if(dc&&dc.bufferedAmount>=4*1024*1024)reject(Error('Receiver is not consuming data'))},30000)})}
         async function signal(type,payload){if(!session)throw Error('No remote session');return api('/session/'+encodeURIComponent(session.id)+'/signal',{method:'POST',headers:{Authorization:'Bearer '+session.hostSecret},body:JSON.stringify({type,payload})})}
-        async function poll(){if(!session||cancelled)return;try{const j=await api('/session/'+encodeURIComponent(session.id)+'/signal?since='+signalSeq,{headers:{Authorization:'Bearer '+session.hostSecret}});for(const m of j.messages||[]){signalSeq=Math.max(signalSeq,m.seq);if(m.type==='answer'){await pc.setRemoteDescription(m.payload);for(const c of pending.splice(0))await pc.addIceCandidate(c)}else if(m.type==='candidate'&&m.payload){if(pc.remoteDescription)await pc.addIceCandidate(m.payload);else pending.push(m.payload)}else if(m.type==='ready'){status('Receiver joined — connecting…')}}}catch(e){native({type:'error',message:e.message});return}pollTimer=setTimeout(poll,650)}
+        async function poll(){if(!session||cancelled)return;try{const j=await api('/session/'+encodeURIComponent(session.id)+'/signal?since='+signalSeq,{headers:{Authorization:'Bearer '+session.hostSecret}});for(const m of j.messages||[]){signalSeq=Math.max(signalSeq,m.seq);if(m.type==='answer'){await pc.setRemoteDescription(m.payload);for(const c of pending.splice(0))await pc.addIceCandidate(c)}else if(m.type==='candidate'&&m.payload){if(pc.remoteDescription)await pc.addIceCandidate(m.payload);else pending.push(m.payload)}else if(m.type==='ready'){status('Receiver joined — connecting…')}}}catch(e){if(finished||cancelled)return;native({type:'error',message:e.message});return}if(!finished&&!cancelled)pollTimer=setTimeout(poll,650)}
         async function connectionLabel(){try{const stats=await pc.getStats();let pair=null;stats.forEach(x=>{if(x.type==='transport'&&x.selectedCandidatePairId)pair=stats.get(x.selectedCandidatePairId);if(x.type==='candidate-pair'&&x.selected)pair=x});if(pair){const l=stats.get(pair.localCandidateId),r=stats.get(pair.remoteCandidateId);if(l?.candidateType==='relay'||r?.candidateType==='relay')return 'Connected through TURN relay';return 'Connected peer-to-peer'}}catch{}return 'Connected'}
-        async function sendFile(){sent=0;native({type:'transfer',active:true});dc.send(JSON.stringify({t:'manifest',files:[FILE]}));dc.send(JSON.stringify({t:'file-start',i:0,path:FILE.path,name:FILE.name,size:FILE.size,mime:FILE.mime}));for(let offset=0;offset<FILE.size;){if(cancelled)throw Error('Share cancelled');const length=Math.min(65536,FILE.size-offset);const bytes=await chunk(offset,length);if(!bytes.length&&length)throw Error('Unexpected end of file');await waitBuffer();dc.send(bytes);offset+=bytes.byteLength;sent=offset;native({type:'progress',sent,total:FILE.size})}dc.send(JSON.stringify({t:'file-end',i:0}));dc.send(JSON.stringify({t:'complete'}));native({type:'complete'});status('Transfer sent successfully','live')}
+        function receiverAck(timeout=10000){return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;receiverAckResolve=null;resolve(value)};receiverAckResolve=()=>finish(true);setTimeout(()=>finish(false),timeout)})}
+        async function serverCompletion(){for(let i=0;i<8&&!cancelled;i++){try{const s=await api('/session/'+encodeURIComponent(session.id));if(s.completed)return true}catch{}await new Promise(r=>setTimeout(r,500))}return false}
+        async function sendFile(){sent=0;native({type:'transfer',active:true});dc.send(JSON.stringify({t:'manifest',files:[FILE]}));dc.send(JSON.stringify({t:'file-start',i:0,path:FILE.path,name:FILE.name,size:FILE.size,mime:FILE.mime}));for(let offset=0;offset<FILE.size;){if(cancelled)throw Error('Share cancelled');const length=Math.min(65536,FILE.size-offset);const bytes=await chunk(offset,length);if(!bytes.length&&length)throw Error('Unexpected end of file');await waitBuffer();dc.send(bytes);offset+=bytes.byteLength;sent=offset;native({type:'progress',sent,total:FILE.size})}dc.send(JSON.stringify({t:'file-end',i:0}));const ack=receiverAck();dc.send(JSON.stringify({t:'complete'}));status('Finalizing with receiver…','live');const confirmed=(await ack)||(await serverCompletion());finished=true;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;native({type:'complete',confirmed});status(confirmed?'Transfer complete':'Transfer sent — receiver confirmation unavailable','live')}
         async function start(){
           if(!window.RTCPeerConnection){native({type:'error',message:'WebRTC is unavailable in this iOS WebView.'});return}
           try{
@@ -1051,14 +1054,15 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
             status('Waiting for receiver…');
             pc=new RTCPeerConnection({iceServers:session.iceServers});
             dc=pc.createDataChannel('shar-file',{ordered:true});dc.binaryType='arraybuffer';
-            dc.onopen=async()=>{status(await connectionLabel(),'live');sendFile().catch(e=>native({type:'error',message:e.message}))};
-            dc.onerror=()=>native({type:'error',message:'WebRTC data channel error.'});
+            dc.onopen=async()=>{status(await connectionLabel(),'live');sendFile().catch(e=>{if(!finished)native({type:'error',message:e.message})})};
+            dc.onmessage=e=>{if(typeof e.data!=='string')return;try{const m=JSON.parse(e.data);if(m.t==='receiver-complete'){status('Receiver verified the file ✓','live');receiverAckResolve?.()}}catch{}};
+            dc.onerror=()=>{if(!finished)native({type:'error',message:'WebRTC data channel error.')};
             pc.onicecandidate=e=>{if(e.candidate)signal('candidate',e.candidate.toJSON()).catch(()=>{})};
-            pc.onconnectionstatechange=async()=>{if(pc.connectionState==='connected')status(await connectionLabel(),'live');else if(pc.connectionState==='failed')native({type:'error',message:'Could not establish a direct or TURN WebRTC connection.'});else if(pc.connectionState==='disconnected')status('Receiver disconnected')};
+            pc.onconnectionstatechange=async()=>{if(finished)return;if(pc.connectionState==='connected')status(await connectionLabel(),'live');else if(pc.connectionState==='failed')native({type:'error',message:'Could not establish a direct or TURN WebRTC connection.'});else if(pc.connectionState==='disconnected')status('Receiver disconnected')};
             const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signal('offer',pc.localDescription);poll();
           }catch(e){native({type:'error',message:e.message||String(e)})}
         }
-        window.sharNativeCancel=async()=>{cancelled=true;if(pollTimer)clearTimeout(pollTimer);try{dc&&dc.close()}catch{}try{pc&&pc.close()}catch{}if(session?.id&&session?.hostSecret)await api('/session/'+encodeURIComponent(session.id),{method:'DELETE',headers:{Authorization:'Bearer '+session.hostSecret}}).catch(()=>{});session=null};
+        window.sharNativeCancel=async()=>{cancelled=true;finished=true;if(pollTimer)clearTimeout(pollTimer);try{dc&&dc.close()}catch{}try{pc&&pc.close()}catch{}if(session?.id&&session?.hostSecret)await api('/session/'+encodeURIComponent(session.id),{method:'DELETE',headers:{Authorization:'Bearer '+session.hostSecret}}).catch(()=>{});session=null};
         setTimeout(start,0);
         </script>
         """
@@ -1094,7 +1098,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
             progress = 1
             isTransferring = false
             isWorking = false
-            status = "Transfer complete"
+            status = ((body["confirmed"] as? Bool) ?? true) ? "Transfer complete ✓" : "Transfer sent"
         case "error":
             fail((body["message"] as? String) ?? "Remote share failed")
         case "chunk":

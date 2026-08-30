@@ -1,4 +1,4 @@
-# Shar — 2.0.6
+# Shar — 2.0.7
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.0.6** (build/version code **20006**).
+`VERSION` is authoritative. Current release: **2.0.7** (build/version code **20007**).
 
 ## Branding
 
@@ -106,7 +106,7 @@ Folder sharing uses a file manifest containing relative paths. Desktop browsers 
 
 ### Remote infrastructure and first-time bootstrap
 
-v2.0.6 fixes the native iOS Remote Share link action: **Share link** now presents `UIActivityViewController` with the receiver HTTPS URL as the activity item, so the link can be sent directly through Messages, Mail, AirDrop and installed messaging/share apps. **Copy link** remains clipboard-only. v2.0.5 keeps the native iOS Remote Share architecture from v2.0.4 and hardens signaling-service deployment readiness. The bootstrap stops the source path watcher before replacing `server.js`, validates the installed Node source/environment, restarts the service, and waits through bounded localhost health retries before nginx/public-route validation. If startup genuinely fails it prints `systemctl status`, recent `journalctl` output and listening-socket diagnostics before rollback. v2.0.4 separates native iOS Remote Share completely from LAN browser sharing. v2.0.3 hardens nginx routing using nginx's own effective configuration rather than directory-order guesses. Every loaded TLS server block whose `server_name` contains the exact apex token `mojoworks.xyz` receives the Shar include, while stale includes are removed from non-target blocks. This covers duplicate/legacy apex vhosts safely. The bootstrap no longer treats a forced `127.0.0.1` SNI request as authoritative, because production nginx listeners may be bound to a specific public address. It validates the signaling upstream directly, reloads nginx, then makes the real public HTTPS API (with cache-busting retries) the release gate. On failure it prints response/nginx/DNS diagnostics and restores all nginx files it changed. If the signaling service exists locally but the public endpoint is missing or stale, normal deployments automatically re-enter this repair/bootstrap path instead of incorrectly taking the fast update path.
+v2.0.7 fixes Remote Share finalization: the receiver now treats verified completion as a terminal success state, acknowledges completion back to the sender over the WebRTC data channel, and the signaling service keeps completed one-time sessions available for a short 60-second grace period while rejecting any second receiver. This prevents expected session cleanup or WebRTC disconnects from overwriting a successfully downloaded file with a false connection error. The receiver validates per-file sizes plus the total received byte count and presents a stable **Transfer complete ✓** state. v2.0.6 fixes the native iOS Remote Share link action: **Share link** now presents `UIActivityViewController` with the receiver HTTPS URL as the activity item, so the link can be sent directly through Messages, Mail, AirDrop and installed messaging/share apps. **Copy link** remains clipboard-only. v2.0.5 keeps the native iOS Remote Share architecture from v2.0.4 and hardens signaling-service deployment readiness. The bootstrap stops the source path watcher before replacing `server.js`, validates the installed Node source/environment, restarts the service, and waits through bounded localhost health retries before nginx/public-route validation. If startup genuinely fails it prints `systemctl status`, recent `journalctl` output and listening-socket diagnostics before rollback. v2.0.4 separates native iOS Remote Share completely from LAN browser sharing. v2.0.3 hardens nginx routing using nginx's own effective configuration rather than directory-order guesses. Every loaded TLS server block whose `server_name` contains the exact apex token `mojoworks.xyz` receives the Shar include, while stale includes are removed from non-target blocks. This covers duplicate/legacy apex vhosts safely. The bootstrap no longer treats a forced `127.0.0.1` SNI request as authoritative, because production nginx listeners may be bound to a specific public address. It validates the signaling upstream directly, reloads nginx, then makes the real public HTTPS API (with cache-busting retries) the release gate. On failure it prints response/nginx/DNS diagnostics and restores all nginx files it changed. If the signaling service exists locally but the public endpoint is missing or stale, normal deployments automatically re-enter this repair/bootstrap path instead of incorrectly taking the fast update path.
 
 The normal ZIP pipeline manages the remote pieces automatically. `scripts/deploy_remote_share.sh` connects using the same private Shar SSH profile as the homepage deployment. On the first v2 release it checks the Ubuntu/Debian host and, when passwordless sudo is available, installs only missing packages (`nodejs`, `qrencode`, `coturn`, `nginx`, etc.), creates a dedicated `shar-coturn.service`, installs the signaling service, safely injects an nginx API proxy, opens TURN ports in UFW when UFW is active, and verifies the public health endpoint.
 
@@ -114,7 +114,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.0.6.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.0.7.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -141,7 +141,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.0.6.zip
+LocalWebSharePrototype-v2.0.7.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

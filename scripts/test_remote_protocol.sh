@@ -51,8 +51,15 @@ PY
 BAD_CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' \
   --data '{"files":[{"path":"../secret","size":1}]}' "http://127.0.0.1:$PORT/session")"
 [[ "$BAD_CODE" == 400 ]] || { echo "ERROR: traversal manifest was not rejected (HTTP $BAD_CODE)" >&2; exit 1; }
-curl --fail --silent --show-error -X POST -H "Authorization: Bearer $GUEST" -H 'Content-Type: application/json' --data '{}' \
+BAD_COMPLETE="$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H "Authorization: Bearer $GUEST" -H 'Content-Type: application/json' --data '{"receivedBytes":4,"fileCount":1}' "http://127.0.0.1:$PORT/session/$SID/complete")"
+[[ "$BAD_COMPLETE" == 409 ]] || { echo "ERROR: mismatched completion was not rejected (HTTP $BAD_COMPLETE)" >&2; exit 1; }
+curl --fail --silent --show-error -X POST -H "Authorization: Bearer $GUEST" -H 'Content-Type: application/json' --data '{"receivedBytes":5,"fileCount":1}' \
   "http://127.0.0.1:$PORT/session/$SID/complete" >/dev/null
-DONE_CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$PORT/session/$SID")"
-[[ "$DONE_CODE" == 404 ]] || { echo "ERROR: completed one-time share remained usable (HTTP $DONE_CODE)" >&2; exit 1; }
+DONE="$(curl --fail --silent --show-error "http://127.0.0.1:$PORT/session/$SID")"
+python3 - "$DONE" <<'PY'
+import json,sys
+j=json.loads(sys.argv[1]); assert j['ok'] and j['completed'] is True and j.get('completedAt')
+PY
+REJOIN_CODE="$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' "http://127.0.0.1:$PORT/session/$SID/join")"
+[[ "$REJOIN_CODE" == 410 ]] || { echo "ERROR: completed one-time share allowed another receiver (HTTP $REJOIN_CODE)" >&2; exit 1; }
 printf 'Shar remote signaling protocol smoke test passed.\n'
