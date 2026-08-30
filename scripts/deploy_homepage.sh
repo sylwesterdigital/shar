@@ -58,28 +58,30 @@ p.write_text(text)
  'deployment_url':remote,'downloads':{k:{'name':needed[k],'url':assets[needed[k]]} for k in needed}
 },indent=2)+'\n')
 PY
-python3 - "$BUILD_DIR/support.html" "${SHAR_STRIPE_SUPPORT_URL:-}" "${SHAR_STRIPE_BUY_BUTTON_ID:-}" "${SHAR_STRIPE_PUBLISHABLE_KEY:-}" <<'PY'
+python3 - "$BUILD_DIR/index.html" "$BUILD_DIR/support.html" "${SHAR_STRIPE_SUPPORT_URL:-}" "${SHAR_STRIPE_BUY_BUTTON_ID:-}" "${SHAR_STRIPE_PUBLISHABLE_KEY:-}" <<'PY'
 from pathlib import Path
 import html, sys
-p=Path(sys.argv[1]); url=sys.argv[2].strip(); button=sys.argv[3].strip(); key=sys.argv[4].strip()
+index_path=Path(sys.argv[1]); support_path=Path(sys.argv[2]); url=sys.argv[3].strip(); button=sys.argv[4].strip(); key=sys.argv[5].strip()
 if not url.startswith('https://buy.stripe.com/'):
     raise SystemExit('SHAR_STRIPE_SUPPORT_URL must be an https://buy.stripe.com/ Payment Link')
 if not button.startswith('buy_btn_'):
     raise SystemExit('SHAR_STRIPE_BUY_BUTTON_ID must be a Stripe buy_btn_ identifier')
 if not key.startswith(('pk_live_', 'pk_test_')):
     raise SystemExit('SHAR_STRIPE_PUBLISHABLE_KEY must be a Stripe publishable key')
-text=p.read_text()
-text=text.replace('__STRIPE_SUPPORT_HREF__', html.escape(url, quote=True))
-text=text.replace('__STRIPE_BUY_BUTTON_ID__', html.escape(button, quote=True))
-text=text.replace('__STRIPE_PUBLISHABLE_KEY__', html.escape(key, quote=True))
-if '__STRIPE_' in text:
-    raise SystemExit('Unresolved Stripe placeholder remains in support page')
-p.write_text(text)
+for p in (index_path, support_path):
+    text=p.read_text()
+    text=text.replace('__STRIPE_SUPPORT_HREF__', html.escape(url, quote=True))
+    text=text.replace('__STRIPE_BUY_BUTTON_ID__', html.escape(button, quote=True))
+    text=text.replace('__STRIPE_PUBLISHABLE_KEY__', html.escape(key, quote=True))
+    if '__STRIPE_' in text:
+        raise SystemExit(f'Unresolved Stripe placeholder remains in {p.name}')
+    p.write_text(text)
 PY
 rm -f "$RELEASE_JSON"
 grep -F "$TAG" "$BUILD_DIR/index.html" >/dev/null || fail "Homepage does not contain release tag $TAG"
 grep -F 'Receive with Shar' "$BUILD_DIR/receive.html" >/dev/null || fail "Remote receiver page is invalid"
 grep -F 'Support Shar' "$BUILD_DIR/support.html" >/dev/null || fail "Support page is invalid"
+grep -F '<stripe-buy-button' "$BUILD_DIR/index.html" >/dev/null || fail "Homepage Stripe support card is invalid"
 find "$BUILD_DIR" -type f \( -name '*.html' -o -name '*.json' -o -name '*.svg' \) -print0 | while IFS= read -r -d '' f; do gzip -9 -kf "$f"; done
 
 log "Deploying homepage to $SHAR_REMOTE_HOST:$SHAR_REMOTE_DIR"
@@ -94,6 +96,7 @@ trap 'rm -f "$TMP"' EXIT
 retry 4 8 curl --fail --silent --show-error --location "${REMOTE_URL%/}/?deploy=$STAMP" -o "$TMP"
 grep -qi '<title[^>]*>Shar' "$TMP" || fail "Public page is reachable but title verification failed."
 grep -F "$TAG" "$TMP" >/dev/null || fail "Public page does not contain $TAG."
+grep -F '<stripe-buy-button' "$TMP" >/dev/null || fail "Public homepage Stripe support card verification failed."
 retry 4 8 curl --fail --silent --show-error --location "${REMOTE_URL%/}/receive.html?deploy=$STAMP" -o "$TMP"
 grep -F 'Receive with Shar' "$TMP" >/dev/null || fail "Public remote receiver page verification failed."
 retry 4 8 curl --fail --silent --show-error --location --max-redirs 0 "${REMOTE_URL%/}/support.html?deploy=$STAMP" -o "$TMP" || true

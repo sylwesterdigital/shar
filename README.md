@@ -1,4 +1,4 @@
-# Shar — 2.1.5
+# Shar — 2.1.6
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.1.5** (build/version code **20105**).
+`VERSION` is authoritative. Current release: **2.1.6** (build/version code **20106**).
 
 ## Branding
 
@@ -92,6 +92,13 @@ Image previews default to **fit**, keeping the entire image visible inside the a
 
 ## LAN and remote WebRTC sharing
 
+### v2.1.6 macOS playback, support and company identity
+
+- macOS inline audio now uses one shared `SharedAudioPlaybackController`: starting another track stops the previous track, and switching between Grid and List does not recreate or pause the active player.
+- The macOS top bar now exposes permanent **Support**, **About** and **Config** controls. Support uses a dollar-sign button and opens the centralized Shar Stripe support page. iOS also exposes a top Support button alongside its info/settings controls.
+- The public homepage now embeds the configured official Stripe Buy Button directly in its Support card, with the dedicated support page and Payment Link fallback still available.
+- Product ownership is **WORKWORK.FUN LTD**. MojoWorks is described only as a creative sub-brand. Native About screens and the website show **© 2026 Sylwester Mielniczuk, CEO of WORKWORK.FUN LTD**.
+
 ### v2.1.5 Stripe support checkout
 
 - Connected **Support Shar** to the production Stripe Payment Link supplied for Shar. The public support page embeds Stripe's official Buy Button component and keeps a direct Payment Link fallback.
@@ -108,9 +115,9 @@ Image previews default to **fit**, keeping the entire image visible inside the a
 - macOS now mirrors the iOS library structure instead of using a configuration-heavy sidebar: the main window has the import `+`, compact LAN Sharing strip, All/Images/Audio/Video/Docs/Other media filter chips, visible filtered-file count, and native Grid/List modes.
 - macOS button-label mode, layout, file-size visibility, colour theme, developer updates and sharing details moved into the **Config** drawer opened by the top-right cog.
 - iOS About now renders **Version** and **Build** as explicit visible rows instead of relying on a compact `LabeledContent` value that could disappear in the narrow settings drawer.
-- iOS and macOS About identify **MojoWorks** as the builder and link to the Shar website and source repository. Android now has a native **About Shar** dialog with the same builder/version/product information.
+- iOS and macOS About identify **WORKWORK.FUN LTD** as the company and link to the Shar website and source repository. Android now has a native **About Shar** dialog with the same builder/version/product information.
 - All native clients include **Support Shar** and open the stable `https://mojoworks.xyz/labs/shar/support.html` endpoint.
-- `scripts/release_profile.sh` retains support-payment configuration hooks; v2.1.5 supplies the production Shar Stripe Payment Link / Buy Button defaults while keeping secret Stripe API credentials out of the repository.
+- `scripts/release_profile.sh` retains support-payment configuration hooks; v2.1.6 supplies the production Shar Stripe Payment Link / Buy Button defaults while keeping secret Stripe API credentials out of the repository.
 
 ### v2.1.2 native macOS Secure Remote Share
 - macOS Remote Share now stays entirely inside the native Shar app. Pressing **Remote** no longer starts the LAN HTTP server or opens `127.0.0.1:8080` in a browser.
@@ -160,7 +167,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.5.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.6.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -187,7 +194,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.1.5.zip
+LocalWebSharePrototype-v2.1.6.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

@@ -32,10 +32,12 @@ struct MacContentView: View {
     @AppStorage("macShowFileSizes") private var showFileSizes = true
     @AppStorage("macColorTheme") private var colorThemeRaw = AppColorTheme.system.rawValue
     @AppStorage("showDeveloperInfo") private var showDeveloperInfo = false
+    @StateObject private var audioPlayback = SharedAudioPlaybackController()
     @State private var selectedFile: SharedFile?
     @State private var deleteCandidate: SharedFile?
     @State private var isDropTargeted = false
     @State private var showingDeveloperUpdates = false
+    @State private var showingAbout = false
     @State private var showingSettings = false
     @State private var remoteShareFile: SharedFile?
     @State private var copiedAddress = false
@@ -84,7 +86,10 @@ struct MacContentView: View {
         }
         .tint(colorTheme.accent)
         .sheet(item: $selectedFile) { file in
-            MacMediaGallery(files: filteredFiles, initialFile: file) { deleted in fileStore.delete(deleted) }
+            MacMediaGallery(files: filteredFiles, initialFile: file, audioPlayback: audioPlayback) { deleted in
+                if audioPlayback.activeFileID == deleted.id { audioPlayback.stop() }
+                fileStore.delete(deleted)
+            }
                 .frame(minWidth: 760, minHeight: 560)
         }
         .sheet(item: $remoteShareFile) { file in
@@ -95,8 +100,18 @@ struct MacContentView: View {
             MacDeveloperUpdatesView()
                 .frame(minWidth: 520, minHeight: 430)
         }
+        .sheet(isPresented: $showingAbout) {
+            MacAboutView()
+                .frame(width: 460, height: 430)
+        }
         .confirmationDialog(deleteCandidate.map { "Delete \($0.name)?" } ?? "Delete file?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } })) {
-            Button("Delete", role: .destructive) { if let f = deleteCandidate { fileStore.delete(f) }; deleteCandidate = nil }
+            Button("Delete", role: .destructive) {
+                if let f = deleteCandidate {
+                    if audioPlayback.activeFileID == f.id { audioPlayback.stop() }
+                    fileStore.delete(f)
+                }
+                deleteCandidate = nil
+            }
             Button("Cancel", role: .cancel) { deleteCandidate = nil }
         }
     }
@@ -122,9 +137,19 @@ struct MacContentView: View {
             Button { fileStore.refresh() } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.plain).help("Refresh")
             if showDeveloperInfo {
-                Button { showingDeveloperUpdates = true } label: { Image(systemName: "info.circle") }
+                Button { showingDeveloperUpdates = true } label: { Image(systemName: "clock.arrow.circlepath") }
                     .buttonStyle(.plain).help("Developer updates")
             }
+            Button { NSWorkspace.shared.open(SharProductInfo.supportURL) } label: {
+                Image(systemName: "dollarsign.circle.fill").font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help("Support Shar")
+            Button { showingAbout = true } label: {
+                Image(systemName: "info.circle.fill").font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help("About Shar")
             Button {
                 withAnimation(.easeInOut(duration: 0.18)) { showingSettings = true }
             } label: {
@@ -220,7 +245,7 @@ struct MacContentView: View {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 12)], spacing: 12) {
                         ForEach(filteredFiles) { file in
-                            MacLibraryGridCard(file: file, mode: mode, showFileSize: showFileSizes, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
+                            MacLibraryGridCard(file: file, mode: mode, showFileSize: showFileSizes, audioPlayback: audioPlayback, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
                         }
                     }
                     .padding(14)
@@ -229,7 +254,7 @@ struct MacContentView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(filteredFiles) { file in
-                            MacLibraryListRow(file: file, mode: mode, showFileSize: showFileSizes, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
+                            MacLibraryListRow(file: file, mode: mode, showFileSize: showFileSizes, audioPlayback: audioPlayback, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
                         }
                     }
                     .padding(14)
@@ -294,7 +319,8 @@ struct MacContentView: View {
                     HStack { Text("Version"); Spacer(); Text(appShortVersion).monospacedDigit() }
                     HStack { Text("Build"); Spacer(); Text(appBuild).monospacedDigit() }
                     Divider()
-                    HStack { Text("Built by"); Spacer(); Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
+                    HStack { Text("Company"); Spacer(); Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
+                    Text(SharProductInfo.copyrightLine).font(.caption).foregroundStyle(.secondary)
                     Link(destination: SharProductInfo.productURL) { Label("Shar website", systemImage: "globe") }
                     Link(destination: SharProductInfo.sourceURL) { Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right") }
                     Link(destination: SharProductInfo.supportURL) {
@@ -709,7 +735,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.5',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.6',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -823,10 +849,43 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
     deinit { webView?.configuration.userContentController.removeScriptMessageHandler(forName: "sharRemote") }
 }
 
+private struct MacAboutView: View {
+    @Environment(\.dismiss) private var dismiss
+    private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
+    private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("About Shar").font(.title2.bold())
+                    Text("Version \(version) · Build \(build)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").font(.title2) }.buttonStyle(.plain)
+            }
+            Divider()
+            LabeledContent("Company") { Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
+            Text("Shar is developed and published by WORKWORK.FUN LTD. MojoWorks is a creative sub-brand used for selected labs and experiments.")
+                .font(.callout).foregroundStyle(.secondary)
+            Text(SharProductInfo.copyrightLine).font(.callout.weight(.semibold))
+            Link(destination: SharProductInfo.productURL) { Label("Shar website", systemImage: "globe") }
+            Link(destination: SharProductInfo.sourceURL) { Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right") }
+            Spacer()
+            Link(destination: SharProductInfo.supportURL) {
+                Label("Support Shar", systemImage: "dollarsign.circle.fill").frame(maxWidth: .infinity)
+            }.buttonStyle(.borderedProminent)
+        }
+        .padding(22)
+    }
+}
+
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
-        ("2.1.5", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
+        ("2.1.6", "Playback + identity polish", "macOS now has one persistent inline audio session across Grid/List, top Support/About/Config controls, refreshed Stripe website support, and WORKWORK.FUN LTD ownership/copyright information."),
+        ("2.1.5", "Stripe support checkout", "Connected Shar Support to the production Stripe Payment Link and official Buy Button."),
+        ("2.1.4", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
         ("2.1.3", "Unified native library UI", "Added iOS-style media filters, grid/list library modes, cog-based Config, explicit version/build information and About/Support links on macOS."),
         ("2.1.2", "Native macOS Secure Remote Share", "Remote sharing now stays inside the macOS app with native PIN, QR/link, approval, encrypted-transfer progress and completion UI instead of opening the localhost browser."),
         ("2.1.1", "Secure Android build fix", "Fixed the Android embedded secure-share JavaScript escaping regression and added a javac release guard."),
@@ -872,6 +931,7 @@ private struct MacLibraryGridCard: View {
     let file: SharedFile
     let mode: ActionLabelMode
     let showFileSize: Bool
+    @ObservedObject var audioPlayback: SharedAudioPlaybackController
     let onPreview: () -> Void
     let onRemote: () -> Void
     let onDelete: () -> Void
@@ -895,7 +955,7 @@ private struct MacLibraryGridCard: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             HStack(spacing: 6) {
-                if file.mediaKind == .audio { MacInlineAudioButton(file: file) }
+                if file.mediaKind == .audio { MacInlineAudioButton(file: file, playback: audioPlayback) }
                 MacActionButton(full: "Preview", short: "View", icon: "eye", mode: mode, action: onPreview).buttonStyle(.borderless)
                 MacActionButton(full: "Remote", short: "Remote", icon: "network", mode: mode, action: onRemote).buttonStyle(.borderless)
                 Spacer(minLength: 0)
@@ -919,6 +979,7 @@ private struct MacLibraryListRow: View {
     let file: SharedFile
     let mode: ActionLabelMode
     let showFileSize: Bool
+    @ObservedObject var audioPlayback: SharedAudioPlaybackController
     let onPreview: () -> Void
     let onRemote: () -> Void
     let onDelete: () -> Void
@@ -940,7 +1001,7 @@ private struct MacLibraryListRow: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
-            if file.mediaKind == .audio { MacInlineAudioButton(file: file) }
+            if file.mediaKind == .audio { MacInlineAudioButton(file: file, playback: audioPlayback) }
             MacActionButton(full: "Preview", short: "View", icon: "eye", mode: mode, action: onPreview).buttonStyle(.borderless)
             MacActionButton(full: "Remote", short: "Remote", icon: "network", mode: mode, action: onRemote).buttonStyle(.borderless)
             MacActionButton(full: "Delete", short: "Del", icon: "trash", mode: mode, action: onDelete).buttonStyle(.borderless)
@@ -1024,24 +1085,35 @@ private struct MacAudioMetadataLine: View {
 }
 
 private struct MacInlineAudioButton: View {
-    let file:SharedFile;@State private var player:AVPlayer?;@State private var playing=false
-    var body: some View { Button{if player==nil{player=AVPlayer(url:file.url)};guard let p=player else{return};playing ? p.pause():p.play();playing.toggle()}label:{Image(systemName:playing ? "pause.circle.fill":"play.circle.fill").font(.title2)}.buttonStyle(.borderless).onDisappear{player?.pause()} }
+    let file: SharedFile
+    @ObservedObject var playback: SharedAudioPlaybackController
+    private var isThisFilePlaying: Bool { playback.activeFileID == file.id && playback.isPlaying }
+
+    var body: some View {
+        Button { playback.toggle(file) } label: {
+            Image(systemName: isThisFilePlaying ? "pause.circle.fill" : "play.circle.fill")
+                .font(.title2)
+        }
+        .buttonStyle(.borderless)
+        .help(isThisFilePlaying ? "Pause \(file.name)" : "Play \(file.name)")
+    }
 }
 
 private struct MacMediaGallery: View {
     @Environment(\.dismiss) private var dismiss
     @State private var files:[SharedFile];@State private var index:Int;@State private var confirmDelete=false
+    @ObservedObject var audioPlayback: SharedAudioPlaybackController
     let onDelete:(SharedFile)->Void
-    init(files:[SharedFile],initialFile:SharedFile,onDelete:@escaping(SharedFile)->Void){_files=State(initialValue:files);_index=State(initialValue:files.firstIndex(of:initialFile) ?? 0);self.onDelete=onDelete}
+    init(files:[SharedFile],initialFile:SharedFile,audioPlayback:SharedAudioPlaybackController,onDelete:@escaping(SharedFile)->Void){_files=State(initialValue:files);_index=State(initialValue:files.firstIndex(of:initialFile) ?? 0);self.audioPlayback=audioPlayback;self.onDelete=onDelete}
     private var file:SharedFile?{files.indices.contains(index) ? files[index]:nil}
-    var body: some View { VStack(spacing:0){HStack{Button{prev()}label:{Image(systemName:"chevron.left")}.disabled(index<=0);Button{next()}label:{Image(systemName:"chevron.right")}.disabled(index>=files.count-1);Text(file?.name ?? "Preview").font(.headline).lineLimit(1);Spacer();Text(files.isEmpty ? "":"\(index+1) / \(files.count)").foregroundStyle(.secondary);if let f=file{Button("Reveal"){NSWorkspace.shared.activateFileViewerSelecting([f.url])};Button(role:.destructive){confirmDelete=true}label:{Image(systemName:"trash")}};Button("Done"){dismiss()}}.padding(14);Divider();if let f=file{MacPreviewContent(file:f).id(f.id).simultaneousGesture(DragGesture(minimumDistance:35).onEnded{v in if v.translation.width < -60 {next()} else if v.translation.width > 60 {prev()}})}else{MacEmptyStateView(title:"No Files",systemImage:"folder",message:nil)}}.confirmationDialog(file.map{"Delete \($0.name)?"} ?? "Delete file?",isPresented:$confirmDelete){Button("Delete",role:.destructive){deleteCurrent()};Button("Cancel",role:.cancel){}} }
+    var body: some View { VStack(spacing:0){HStack{Button{prev()}label:{Image(systemName:"chevron.left")}.disabled(index<=0);Button{next()}label:{Image(systemName:"chevron.right")}.disabled(index>=files.count-1);Text(file?.name ?? "Preview").font(.headline).lineLimit(1);Spacer();Text(files.isEmpty ? "":"\(index+1) / \(files.count)").foregroundStyle(.secondary);if let f=file{Button("Reveal"){NSWorkspace.shared.activateFileViewerSelecting([f.url])};Button(role:.destructive){confirmDelete=true}label:{Image(systemName:"trash")}};Button("Done"){dismiss()}}.padding(14);Divider();if let f=file{MacPreviewContent(file:f,audioPlayback:audioPlayback).id(f.id).simultaneousGesture(DragGesture(minimumDistance:35).onEnded{v in if v.translation.width < -60 {next()} else if v.translation.width > 60 {prev()}})}else{MacEmptyStateView(title:"No Files",systemImage:"folder",message:nil)}}.confirmationDialog(file.map{"Delete \($0.name)?"} ?? "Delete file?",isPresented:$confirmDelete){Button("Delete",role:.destructive){deleteCurrent()};Button("Cancel",role:.cancel){}} }
     private func prev(){if index>0{index-=1}};private func next(){if index+1<files.count{index+=1}};private func deleteCurrent(){guard let f=file else{return};onDelete(f);files.remove(at:index);if files.isEmpty{dismiss()}else if index>=files.count{index=files.count-1}}
 }
 
 private struct MacPreviewContent: View {
-    let file:SharedFile;@State private var player:AVPlayer?
-    init(file:SharedFile){self.file=file;_player=State(initialValue:file.isPlayableMedia ? AVPlayer(url:file.url):nil)}
-    var body: some View { Group { switch file.mediaKind {case .image:if let i=NSImage(contentsOf:file.url){ScrollView([.horizontal,.vertical]){Image(nsImage:i).resizable().scaledToFit().padding(16)}.background(Color.black)}else{unavailable};case .video:if let player{VideoPlayer(player:player).onAppear{player.play()}};case .audio:VStack(spacing:20){Spacer();MacThumbnail(file:file).scaleEffect(3);let m=MediaMetadataReader.read(file.url);Text(m.title ?? file.name).font(.title3.bold());if let a=m.artist{Text(a).foregroundStyle(.secondary)};if let player{MacAudioControls(player:player)};Spacer()}.padding(28);case .document,.file:MacQuickLook(url:file.url)}}.frame(maxWidth:.infinity,maxHeight:.infinity).onDisappear{player?.pause()} }
+    let file:SharedFile;@ObservedObject var audioPlayback:SharedAudioPlaybackController;@State private var player:AVPlayer?
+    init(file:SharedFile,audioPlayback:SharedAudioPlaybackController){self.file=file;self.audioPlayback=audioPlayback;_player=State(initialValue:file.isPlayableMedia ? AVPlayer(url:file.url):nil)}
+    var body: some View { Group { switch file.mediaKind {case .image:if let i=NSImage(contentsOf:file.url){ScrollView([.horizontal,.vertical]){Image(nsImage:i).resizable().scaledToFit().padding(16)}.background(Color.black)}else{unavailable};case .video:if let player{VideoPlayer(player:player).onAppear{player.play()}};case .audio:VStack(spacing:20){Spacer();MacThumbnail(file:file).scaleEffect(3);let m=MediaMetadataReader.read(file.url);Text(m.title ?? file.name).font(.title3.bold());if let a=m.artist{Text(a).foregroundStyle(.secondary)};if let player{MacAudioControls(player:player)};Spacer()}.padding(28);case .document,.file:MacQuickLook(url:file.url)}}.frame(maxWidth:.infinity,maxHeight:.infinity).onAppear{if file.mediaKind == .audio { audioPlayback.stop() }}.onDisappear{player?.pause()} }
     private var unavailable:some View{MacEmptyStateView(title:"Cannot Preview",systemImage:"doc.questionmark",message:nil)}
 }
 

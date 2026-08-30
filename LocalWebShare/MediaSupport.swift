@@ -124,11 +124,12 @@ enum AppColorTheme: String, CaseIterable, Identifiable {
 }
 
 enum SharProductInfo {
-    static let builderName = "MojoWorks"
-    static let builderURL = URL(string: "https://mojoworks.xyz/")!
+    static let builderName = "WORKWORK.FUN LTD"
+    static let builderURL = URL(string: "https://workwork.fun/")!
     static let productURL = URL(string: "https://mojoworks.xyz/labs/shar/")!
     static let sourceURL = URL(string: "https://github.com/sylwesterdigital/shar")!
     static let supportURL = URL(string: "https://mojoworks.xyz/labs/shar/support.html")!
+    static let copyrightLine = "© 2026 Sylwester Mielniczuk, CEO of WORKWORK.FUN LTD"
 }
 
 enum NetworkConnectionKind: String {

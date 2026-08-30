@@ -31,7 +31,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     private static final String PRODUCT_URL = "https://mojoworks.xyz/labs/shar/";
     private static final String SOURCE_URL = "https://github.com/sylwesterdigital/shar";
     private static final String SUPPORT_URL = "https://mojoworks.xyz/labs/shar/support.html";
-    private static final String BUILDER_NAME = "MojoWorks";
+    private static final String BUILDER_NAME = "WORKWORK.FUN LTD";
+    private static final String COPYRIGHT = "© 2026 Sylwester Mielniczuk, CEO of WORKWORK.FUN LTD";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -57,7 +58,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.1.5  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
+        String message="v2.1.6  Playback + company polish\nmacOS keeps a single audio session across Grid/List, adds top Support/About/Config controls, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright.\n\n"+
+                "v2.1.5  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
                 "v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
                 "v2.1.3  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+
                 "v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
@@ -85,7 +87,7 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
         String version=appVersionLabel();
         new AlertDialog.Builder(this)
                 .setTitle("About Shar")
-                .setMessage(version+"\n\nBuilt by "+BUILDER_NAME+"\n"+PRODUCT_URL+"\n\nSource: "+SOURCE_URL)
+                .setMessage(version+"\n\nCompany: "+BUILDER_NAME+"\n"+COPYRIGHT+"\nMojoWorks is a creative sub-brand of WORKWORK.FUN LTD.\n\n"+PRODUCT_URL+"\n\nSource: "+SOURCE_URL)
                 .setPositiveButton("Support Shar",(d,w)->openExternal(SUPPORT_URL))
                 .setNeutralButton("Website",(d,w)->openExternal(PRODUCT_URL))
                 .setNegativeButton("Close",null)

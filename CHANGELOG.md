@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.1.6] - 2026-08-30
+
+### macOS audio playback
+- Replaced per-card macOS `AVPlayer` instances with the shared audio playback controller so only one inline audio file can play at a time.
+- Grid/List changes no longer interrupt the active inline audio session because the player is owned by the parent macOS library view instead of disposable card rows.
+- Deleting the active audio file stops the shared player cleanly.
+
+### Support and About
+- Added a permanent dollar-sign **Support Shar** control to the macOS top bar beside About and Config; iOS now also exposes Support in its top toolbar.
+- Added a dedicated native macOS About sheet with explicit Version/Build, company, source, website, support and copyright information.
+- Updated company identity across native About surfaces and the website to **WORKWORK.FUN LTD**; MojoWorks is described only as a creative sub-brand.
+- Added **© 2026 Sylwester Mielniczuk, CEO of WORKWORK.FUN LTD** to native About/support surfaces and the public site.
+
+### Stripe website support
+- Embedded the configured official Stripe Buy Button directly on the Shar homepage in addition to `support.html`, using the supplied production Payment Link, Buy Button ID and publishable key at deploy time.
+- Extended homepage deployment verification to require the rendered Stripe card on the public homepage.
+
+### Release safety
+- Added repository guards for shared macOS audio ownership, non-interrupting Grid/List rendering, top Support controls, WORKWORK.FUN LTD identity/copyright, and homepage Stripe rendering.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.6 / 20106.
+
 All notable changes to Shar are recorded here.
 
 ## [2.1.5] - 2026-08-30
@@ -34,7 +55,7 @@ All notable changes to Shar are recorded here.
 
 ### About and support
 - Replaced the iOS About `LabeledContent` version row with explicit **Version** and **Build** rows so both values remain visible in the narrow Settings drawer.
-- Added builder identity (**MojoWorks**), Shar website, source-code and **Support Shar** actions to iOS and macOS.
+- Added initial builder/About identity, Shar website, source-code and **Support Shar** actions to iOS and macOS; v2.1.6 later corrected the legal company identity to WORKWORK.FUN LTD.
 - Added an Android **About Shar** dialog and **Support Shar** button with version/build and builder information.
 - Added `homepage/support.html` as the stable client support endpoint. Deployment validates `SHAR_STRIPE_SUPPORT_URL` as a `https://buy.stripe.com/...` Payment Link and renders the support page to forward to Stripe without hard-coding payment identifiers throughout the native clients.
 - Extended the private Shar release profile to persist the Stripe support URL and import compatible Rantlist support URL variables when available.
