@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.1.9] - 2026-08-30
+
+### 3D preview build compatibility
+- Replaced the macOS 14-only `ContentUnavailableView` error state with a macOS 13-compatible SwiftUI fallback, preserving Shar's current macOS 13 deployment target.
+- Imported the SceneKit/Model I/O bridge explicitly so `SCNScene(mdlAsset:)` is available when converting locally imported Model I/O assets.
+- Fixed a local `data` variable shadowing the glTF `data(forURI:)` helper in texture loading.
+- Added release guards for the macOS 13-compatible error UI, explicit `SceneKit.ModelIO` bridge, and non-shadowing texture-data path.
+
+### Release metadata
+- Added v2.1.9 to native developer-update feeds and updated remote client/server version identifiers.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.9 / 20109.
+
+## [2.1.8] - 2026-08-30
+
+### 3D library and preview
+- Added a dedicated **3D** media kind/filter across the native Apple clients and the shared browser/Android file classification. Recognized formats include GLB, glTF, USD/USDA/USDC/USDZ, OBJ, STL, PLY, Alembic, DAE, FBX, 3DS, 3MF, Blender, STEP and IGES families.
+- Added a local interactive native 3D preview for iOS and macOS with orbit/pan/zoom controls. Shar parses GLB/glTF in-process and uses Apple Model I/O/SceneKit importers for USD/USDZ, OBJ, STL, PLY, Alembic and any extra formats supported by the installed OS. Files are never uploaded to a third-party viewer.
+- Added local glTF 2.0 support for common static GLB/glTF meshes, hierarchy/transforms, base-colour PBR material properties and embedded/external texture images. Unsupported compressed/accessor variants fail cleanly without affecting sharing/downloading.
+
+### Persistent audio playback
+- Extended `SharedAudioPlaybackController` with persistent current-time/duration state and seeking so one player instance is shared by Grid, List and the full Preview.
+- Opening the thumbnail of an audio file that is already playing or paused now keeps the exact playback position and play/pause state instead of stopping the inline player and restarting from zero.
+- Switching Grid/List continues to preserve playback, and starting another audio file still stops the previous one.
+
+### Release safety
+- Added 3D source/build inclusion and release guards for the 3D filter, GLB loader, local-only renderer and shared-preview audio path.
+- Added v2.1.8 to native developer-update feeds and updated remote client/server version identifiers.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.8 / 20108.
+
 ## [2.1.7] - 2026-08-30
 
 ### macOS identity and navigation

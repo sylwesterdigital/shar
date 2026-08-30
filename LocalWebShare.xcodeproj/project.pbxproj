@@ -16,6 +16,7 @@
 		A10000000000000000000008 /* ThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ThumbnailView.swift */; };
 		A10000000000000000000010 /* MediaSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* MediaSupport.swift */; };
 		A10000000000000000000011 /* GeneratedUIIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* GeneratedUIIcons.swift */; };
+		A10000000000000000000012 /* ThreeDPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ThreeDPreview.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		A20000000000000000000008 /* ThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailView.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* MediaSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSupport.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* GeneratedUIIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedUIIcons.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* ThreeDPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreeDPreview.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +64,7 @@
 				A20000000000000000000008 /* ThumbnailView.swift */,
 				A20000000000000000000010 /* MediaSupport.swift */,
 				A20000000000000000000011 /* GeneratedUIIcons.swift */,
+				A20000000000000000000012 /* ThreeDPreview.swift */,
 				A20000000000000000000006 /* Info.plist */,
 				A20000000000000000000009 /* Assets.xcassets */,
 			);
@@ -153,6 +156,7 @@
 				A10000000000000000000008 /* ThumbnailView.swift in Sources */,
 				A10000000000000000000010 /* MediaSupport.swift in Sources */,
 				A10000000000000000000011 /* GeneratedUIIcons.swift in Sources */,
+				A10000000000000000000012 /* ThreeDPreview.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,12 +209,12 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20107;
+				CURRENT_PROJECT_VERSION = 20109;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.1.7;
+				MARKETING_VERSION = 2.1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -225,12 +229,12 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20107;
+				CURRENT_PROJECT_VERSION = 20109;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.1.7;
+				MARKETING_VERSION = 2.1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

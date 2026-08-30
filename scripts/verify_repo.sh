@@ -23,7 +23,7 @@ for p in \
   README.md CHANGELOG.md .gitignore \
   assets/shar-logo.svg assets/shar-logo-1024.png \
   LocalWebShare.xcodeproj/project.pbxproj LocalWebShare/Info.plist \
-  LocalWebShare/MediaSupport.swift LocalWebShare/GeneratedUIIcons.swift \
+  LocalWebShare/MediaSupport.swift LocalWebShare/ThreeDPreview.swift LocalWebShare/GeneratedUIIcons.swift \
   LocalWebShare/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
   macos/LocalWebShareMacApp.swift macos/AppIcon.iconset/icon_512x512@2x.png \
   android/settings.gradle android/build.gradle android/app/build.gradle \
@@ -109,6 +109,19 @@ grep -Fq 'SFSafariViewController' LocalWebShare/ContentView.swift || fail "iOS i
 grep -Fq 'SharProductInfo.builderName' LocalWebShare/ContentView.swift || fail "iOS builder About identity missing"
 grep -Fq 'builderName = "WORKWORK.FUN LTD"' LocalWebShare/MediaSupport.swift || fail "WORKWORK.FUN LTD product identity missing"
 grep -Fq '© 2026 Sylwester Mielniczuk, CEO of WORKWORK.FUN LTD' LocalWebShare/MediaSupport.swift || fail "Apple copyright/CEO identity missing"
+grep -Fq 'case threeD' LocalWebShare/FileStore.swift || fail "3D media kind missing"
+grep -Fq 'case threeD' LocalWebShare/MediaSupport.swift || fail "3D media filter missing"
+grep -Fq 'case "3D"' LocalWebShare/MediaSupport.swift >/dev/null 2>&1 || true
+grep -Fq '"glb", "gltf"' LocalWebShare/FileStore.swift || fail "GLB/glTF file classification missing"
+grep -Fq 'SharGLTFLoader' LocalWebShare/ThreeDPreview.swift || fail "native GLB/glTF loader missing"
+grep -Fq 'MDLAsset.canImportFileExtension' LocalWebShare/ThreeDPreview.swift || fail "native Model I/O 3D fallback missing"
+grep -Fq 'import SceneKit.ModelIO' LocalWebShare/ThreeDPreview.swift || fail "SceneKit/Model I/O bridge import missing"
+! grep -Fq 'ContentUnavailableView' LocalWebShare/ThreeDPreview.swift || fail "3D preview uses macOS 14-only ContentUnavailableView despite macOS 13 target"
+grep -Fq 'let imageData: Data?' LocalWebShare/ThreeDPreview.swift || fail "3D texture loader still risks shadowing data(forURI:)"
+grep -Fq 'ThreeDPreviewView(file: file)' LocalWebShare/MediaPlayerView.swift || fail "iOS native 3D preview missing"
+grep -Fq 'ensureLoaded(file, autoplayIfNew: true)' LocalWebShare/MediaPlayerView.swift || fail "iOS audio preview does not preserve shared playback state"
+grep -Fq '@Published private(set) var currentTime' LocalWebShare/MediaSupport.swift || fail "shared audio current-time state missing"
+grep -Fq '@Published private(set) var duration' LocalWebShare/MediaSupport.swift || fail "shared audio duration state missing"
 grep -Fq 'dollarsign.circle.fill' LocalWebShare/ContentView.swift || fail "iOS top Support icon missing"
 ! grep -A110 -F 'private var settingsPanel' LocalWebShare/ContentView.swift | grep -Fq '.ignoresSafeArea()' || fail "iOS Settings panel ignores safe area"
 grep -Fq 'android:label="Shar"' android/app/src/main/AndroidManifest.xml || fail "Android display name is not Shar"
@@ -129,6 +142,9 @@ grep -Fq 'id="infoButton"' LocalWebShare/LocalWebServer.swift || fail "Apple bro
 grep -Fq 'lws-show-developer-info' LocalWebShare/LocalWebServer.swift || fail "Apple browser developer-info preference missing"
 grep -Fq 'Developer updates' LocalWebShare/LocalWebServer.swift || fail "Apple browser developer updates panel missing"
 grep -Fq 'currentFilter' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser media filters missing"
+grep -Fq "['threeD','3D']" LocalWebShare/LocalWebServer.swift || fail "Apple browser 3D filter missing"
+grep -Fq "['threeD','3D']" android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser 3D filter missing"
+grep -Fq 'case "glb": case "gltf"' android/app/src/main/java/com/localwebshare/app/MediaTypes.java || fail "Android 3D classification missing"
 grep -Fq 'lws-preset-v2' LocalWebShare/LocalWebServer.swift || fail "Apple browser density presets missing"
 grep -Fq 'id="thumbSize"' LocalWebShare/LocalWebServer.swift || fail "Apple browser thumbnail size control missing"
 grep -Fq 'fallback-icon.missing' LocalWebShare/LocalWebServer.swift || fail "Apple browser icon fallback fix missing"
@@ -186,6 +202,8 @@ grep -Fq '<key>CFBundleName</key><string>Shar</string>' scripts/build_macos_rele
 ! grep -Fq '<key>CFBundleName</key><string>LocalWebShare</string>' scripts/build_macos.sh scripts/build_macos_release.sh || fail "macOS visible bundle name regressed to LocalWebShare"
 grep -Fq '@StateObject private var audioPlayback = SharedAudioPlaybackController()' macos/LocalWebShareMacApp.swift || fail "macOS shared audio controller missing"
 grep -Fq 'MacInlineAudioButton(file: file, playback: audioPlayback)' macos/LocalWebShareMacApp.swift || fail "macOS library cards do not use shared audio playback"
+grep -Fq 'ThreeDPreviewView(file: file)' macos/LocalWebShareMacApp.swift || fail "macOS native 3D preview missing"
+grep -Fq 'audioPlayback.ensureLoaded(file, autoplayIfNew: true)' macos/LocalWebShareMacApp.swift || fail "macOS audio preview does not preserve shared playback state"
 ! grep -A20 -F 'private struct MacInlineAudioButton' macos/LocalWebShareMacApp.swift | grep -Fq '@State private var player' || fail "macOS inline audio still owns disposable per-card players"
 ! grep -A20 -F 'private struct MacInlineAudioButton' macos/LocalWebShareMacApp.swift | grep -Fq '.onDisappear' || fail "macOS inline audio still stops on Grid/List disappearance"
 grep -Fq 'SharProductInfo.builderName' macos/LocalWebShareMacApp.swift || fail "macOS builder About identity missing"

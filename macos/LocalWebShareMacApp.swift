@@ -735,7 +735,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.7',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.9',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -916,6 +916,8 @@ private struct MacAboutView: View {
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
+        ("2.1.9", "3D preview build compatibility", "Fixed the macOS 13 3D-preview compile blockers and hardened the SceneKit/Model I/O compatibility checks."),
+        ("2.1.8", "3D previews + persistent playback", "Added a 3D media filter and local interactive GLB/glTF plus Apple-native model previews. Audio keeps the same player, position and play/pause state when switching Grid/List or opening Preview."),
         ("2.1.7", "Native Mac identity + About routing", "The macOS ⓘ toolbar control now opens Developer updates like iOS, About Shar is owned by the application menu, and the visible macOS application name is Shar instead of LocalWebShare."),
         ("2.1.6", "Playback + identity polish", "macOS now has one persistent inline audio session across Grid/List, top Support/About/Config controls, refreshed Stripe website support, and WORKWORK.FUN LTD ownership/copyright information."),
         ("2.1.5", "Stripe support checkout", "Connected Shar Support to the production Stripe Payment Link and official Buy Button."),
@@ -1145,16 +1147,96 @@ private struct MacMediaGallery: View {
 }
 
 private struct MacPreviewContent: View {
-    let file:SharedFile;@ObservedObject var audioPlayback:SharedAudioPlaybackController;@State private var player:AVPlayer?
-    init(file:SharedFile,audioPlayback:SharedAudioPlaybackController){self.file=file;self.audioPlayback=audioPlayback;_player=State(initialValue:file.isPlayableMedia ? AVPlayer(url:file.url):nil)}
-    var body: some View { Group { switch file.mediaKind {case .image:if let i=NSImage(contentsOf:file.url){ScrollView([.horizontal,.vertical]){Image(nsImage:i).resizable().scaledToFit().padding(16)}.background(Color.black)}else{unavailable};case .video:if let player{VideoPlayer(player:player).onAppear{player.play()}};case .audio:VStack(spacing:20){Spacer();MacThumbnail(file:file).scaleEffect(3);let m=MediaMetadataReader.read(file.url);Text(m.title ?? file.name).font(.title3.bold());if let a=m.artist{Text(a).foregroundStyle(.secondary)};if let player{MacAudioControls(player:player)};Spacer()}.padding(28);case .document,.file:MacQuickLook(url:file.url)}}.frame(maxWidth:.infinity,maxHeight:.infinity).onAppear{if file.mediaKind == .audio { audioPlayback.stop() }}.onDisappear{player?.pause()} }
-    private var unavailable:some View{MacEmptyStateView(title:"Cannot Preview",systemImage:"doc.questionmark",message:nil)}
+    let file: SharedFile
+    @ObservedObject var audioPlayback: SharedAudioPlaybackController
+    @State private var videoPlayer: AVPlayer?
+
+    init(file: SharedFile, audioPlayback: SharedAudioPlaybackController) {
+        self.file = file
+        self.audioPlayback = audioPlayback
+        _videoPlayer = State(initialValue: file.mediaKind == .video ? AVPlayer(url: file.url) : nil)
+    }
+
+    var body: some View {
+        Group {
+            switch file.mediaKind {
+            case .image:
+                if let image = NSImage(contentsOf: file.url) {
+                    ScrollView([.horizontal, .vertical]) {
+                        Image(nsImage: image).resizable().scaledToFit().padding(16)
+                    }
+                    .background(Color.black)
+                } else { unavailable }
+            case .video:
+                if let videoPlayer {
+                    VideoPlayer(player: videoPlayer)
+                        .onAppear { videoPlayer.play() }
+                }
+            case .audio:
+                VStack(spacing: 20) {
+                    Spacer()
+                    MacThumbnail(file: file).scaleEffect(3)
+                    let metadata = MediaMetadataReader.read(file.url)
+                    Text(metadata.title ?? file.name).font(.title3.bold())
+                    if let artist = metadata.artist { Text(artist).foregroundStyle(.secondary) }
+                    MacSharedAudioControls(file: file, playback: audioPlayback)
+                    Spacer()
+                }
+                .padding(28)
+                .onAppear {
+                    // Reuse the exact inline AVPlayer. Opening Preview must not reset a track
+                    // that has already been playing or paused in Grid/List.
+                    audioPlayback.ensureLoaded(file, autoplayIfNew: true)
+                }
+            case .threeD:
+                ThreeDPreviewView(file: file)
+            case .document, .file:
+                MacQuickLook(url: file.url)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onDisappear { videoPlayer?.pause() }
+    }
+
+    private var unavailable: some View {
+        MacEmptyStateView(title: "Cannot Preview", systemImage: "doc.questionmark", message: nil)
+    }
 }
 
-private struct MacAudioControls: View {
-    let player:AVPlayer;@State private var isPlaying=false;@State private var current=0.0;@State private var duration=0.0;@State private var observer:Any?
-    var body: some View { VStack(spacing:12){Slider(value:Binding(get:{min(current,max(duration,0.01))},set:{current=$0;player.seek(to:CMTime(seconds:$0,preferredTimescale:600))}),in:0...max(duration,0.01));HStack{Text(time(current));Spacer();Button{isPlaying ? player.pause():player.play();isPlaying.toggle()}label:{Image(systemName:isPlaying ? "pause.circle.fill":"play.circle.fill").font(.system(size:48))}.buttonStyle(.plain);Spacer();Text(time(duration))}.font(.caption.monospacedDigit())}.frame(maxWidth:520).onAppear{Task{if let item=player.currentItem,let d=try? await item.asset.load(.duration),d.seconds.isFinite{duration=d.seconds}};observer=player.addPeriodicTimeObserver(forInterval:CMTime(seconds:0.25,preferredTimescale:600),queue:.main){t in current=max(0,t.seconds);isPlaying=player.timeControlStatus == .playing};player.play();isPlaying=true}.onDisappear{if let o=observer{player.removeTimeObserver(o);observer=nil};player.pause()} }
-    private func time(_ s:Double)->String{guard s.isFinite&&s>=0 else{return"0:00"};let v=Int(s);return String(format:"%d:%02d",v/60,v%60)}
+private struct MacSharedAudioControls: View {
+    let file: SharedFile
+    @ObservedObject var playback: SharedAudioPlaybackController
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Slider(
+                value: Binding(
+                    get: { playback.isActive(file) ? min(playback.currentTime, max(playback.duration, 0.01)) : 0 },
+                    set: { playback.seek(to: $0) }
+                ),
+                in: 0...max(playback.duration, 0.01)
+            )
+            HStack {
+                Text(time(playback.isActive(file) ? playback.currentTime : 0))
+                Spacer()
+                Button { playback.toggle(file) } label: {
+                    Image(systemName: playback.isPlaying(file) ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 48))
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                Text(time(playback.isActive(file) ? playback.duration : 0))
+            }
+            .font(.caption.monospacedDigit())
+        }
+        .frame(maxWidth: 520)
+    }
+
+    private func time(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
+        let value = Int(seconds)
+        return String(format: "%d:%02d", value / 60, value % 60)
+    }
 }
 
 private struct MacQuickLook:NSViewRepresentable{let url:URL;func makeNSView(context:Context)->QLPreviewView{let v=QLPreviewView(frame:.zero,style:.normal)!;v.autostarts=true;v.previewItem=url as NSURL;return v};func updateNSView(_ nsView:QLPreviewView,context:Context){nsView.previewItem=url as NSURL}}

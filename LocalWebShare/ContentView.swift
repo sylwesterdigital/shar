@@ -144,7 +144,7 @@ struct ContentView: View {
             }
         }
         .sheet(item: $selectedFile) { file in
-            MediaPlayerView(files: filteredFiles, initialFile: file) { deleted in
+            MediaPlayerView(files: filteredFiles, initialFile: file, audioPlayback: audioPlayback) { deleted in
                 fileStore.delete(deleted)
             }
             .tint(colorTheme.accent)
@@ -560,6 +560,8 @@ struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.1.9", title: "3D preview build compatibility", summary: "Fixed macOS 13 compilation for the 3D preview, imported the SceneKit/Model I/O bridge explicitly, and hardened release checks for these compatibility issues."),
+    .init(version: "2.1.8", title: "3D previews + persistent playback", summary: "Added a 3D media category and local interactive previews for GLB/glTF plus Apple-supported model formats; audio keeps its exact position and play/pause state when moving between Grid, List and Preview."),
     .init(version: "2.1.7", title: "Native Mac identity + About routing", summary: "macOS now uses the ⓘ toolbar action for Developer updates like iOS, routes About Shar through the application menu, and presents the visible app name as Shar."),
     .init(version: "2.1.6", title: "Playback + company polish", summary: "macOS keeps one audio session across Grid/List, adds a top Support action, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright."),
     .init(version: "2.1.5", title: "Stripe support checkout", summary: "Connected Support Shar to the production Stripe Payment Link and official Buy Button."),
@@ -1196,7 +1198,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.7',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.9',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}

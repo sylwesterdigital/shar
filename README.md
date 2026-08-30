@@ -1,4 +1,4 @@
-# Shar — 2.1.7
+# Shar — 2.1.9
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.1.7** (build/version code **20107**).
+`VERSION` is authoritative. Current release: **2.1.9** (build/version code **20109**).
 
 ## Branding
 
@@ -90,6 +90,14 @@ Background audio is for media playback only; it is not used as a workaround to g
 
 Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
 
+## 3D files and persistent media preview
+
+Shar groups common model/scene formats under a dedicated **3D** filter. The recognized family includes `.glb`, `.gltf`, `.usd`, `.usda`, `.usdc`, `.usdz`, `.obj`, `.stl`, `.ply`, `.abc`, `.dae`, `.fbx`, `.3ds`, `.3mf`, `.blend`, `.step`/`.stp` and `.iges`/`.igs`.
+
+The native iOS and macOS preview is local and interactive. Shar directly parses common glTF 2.0 / GLB meshes and uses Apple Model I/O/SceneKit importers for USD/USDZ, OBJ, STL, PLY, Alembic and any additional formats supported by the installed OS. Orbit, pan and zoom stay inside the app; model bytes are not uploaded to an online preview service. Formats/encodings the local renderer cannot decode remain fully shareable/downloadable and show a clear preview-unavailable message instead of silently contacting an external converter.
+
+Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
+
 ## LAN and remote WebRTC sharing
 
 ### v2.1.7 macOS application identity and About routing
@@ -118,7 +126,7 @@ Image previews default to **fit**, keeping the entire image visible inside the a
 - Actual build, signing and installation failures remain fatal. This prevents an already-installed iPhone app from blocking macOS/Android artifacts, remote-service deployment, GitHub publication and homepage deployment.
 
 ### v2.1.3 unified native library UI and About/Support
-- macOS now mirrors the iOS library structure instead of using a configuration-heavy sidebar: the main window has the import `+`, compact LAN Sharing strip, All/Images/Audio/Video/Docs/Other media filter chips, visible filtered-file count, and native Grid/List modes.
+- macOS now mirrors the iOS library structure instead of using a configuration-heavy sidebar: the main window has the import `+`, compact LAN Sharing strip, All/Images/Audio/Video/3D/Docs/Other media filter chips, visible filtered-file count, and native Grid/List modes.
 - macOS button-label mode, layout, file-size visibility, colour theme, developer updates and sharing details moved into the **Config** drawer opened by the top-right cog.
 - iOS About now renders **Version** and **Build** as explicit visible rows instead of relying on a compact `LabeledContent` value that could disappear in the narrow settings drawer.
 - iOS and macOS About identify **WORKWORK.FUN LTD** as the company and link to the Shar website and source repository. Android now has a native **About Shar** dialog with the same builder/version/product information.
@@ -173,7 +181,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.7.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.9.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -200,7 +208,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.1.7.zip
+LocalWebSharePrototype-v2.1.9.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

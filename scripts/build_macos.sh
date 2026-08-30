@@ -52,9 +52,10 @@ xcrun --sdk macosx swiftc \
   "$ROOT/LocalWebShare/MediaSupport.swift" \
   "$ROOT/LocalWebShare/GeneratedUIIcons.swift" \
   "$ROOT/LocalWebShare/LocalWebServer.swift" \
+  "$ROOT/LocalWebShare/ThreeDPreview.swift" \
   "$ROOT/macos/LocalWebShareMacApp.swift" \
   -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit \
-  -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers
+  -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers -framework SceneKit -framework ModelIO
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

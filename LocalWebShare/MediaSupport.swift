@@ -64,6 +64,7 @@ enum MediaFilter: String, CaseIterable, Identifiable {
     case image
     case audio
     case video
+    case threeD
     case document
     case file
 
@@ -74,6 +75,7 @@ enum MediaFilter: String, CaseIterable, Identifiable {
         case .image: return "Images"
         case .audio: return "Audio"
         case .video: return "Video"
+        case .threeD: return "3D"
         case .document: return "Docs"
         case .file: return "Other"
         }
@@ -85,6 +87,7 @@ enum MediaFilter: String, CaseIterable, Identifiable {
         case .image: return "photo"
         case .audio: return "waveform"
         case .video: return "film"
+        case .threeD: return "cube.transparent"
         case .document: return "doc.text"
         case .file: return "doc"
         }
@@ -96,6 +99,7 @@ enum MediaFilter: String, CaseIterable, Identifiable {
         case .image: return file.mediaKind == .image
         case .audio: return file.mediaKind == .audio
         case .video: return file.mediaKind == .video
+        case .threeD: return file.mediaKind == .threeD
         case .document: return file.mediaKind == .document
         case .file: return file.mediaKind == .file
         }
@@ -225,10 +229,14 @@ enum BackgroundAudioSession {
 final class SharedAudioPlaybackController: ObservableObject {
     @Published private(set) var activeFileID: String?
     @Published private(set) var isPlaying = false
+    @Published private(set) var currentTime: Double = 0
+    @Published private(set) var duration: Double = 0
 
     private var player: AVPlayer?
     private var statusObserver: NSKeyValueObservation?
+    private var timeObserver: Any?
     private var interruptionObserver: NSObjectProtocol?
+    private var endObserver: NSObjectProtocol?
     private var shouldResumeAfterInterruption = false
 
     init() {
@@ -245,40 +253,111 @@ final class SharedAudioPlaybackController: ObservableObject {
 
     deinit {
         if let interruptionObserver { NotificationCenter.default.removeObserver(interruptionObserver) }
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
+    }
+
+    /// Keeps the same AVPlayer alive when a card changes between Grid/List or opens in Preview.
+    /// If this file is already active, playback position and play/pause state are untouched.
+    func ensureLoaded(_ file: SharedFile, autoplayIfNew: Bool) {
+        guard file.mediaKind == .audio else { return }
+        if activeFileID == file.id, player != nil { return }
+        load(file, autoplay: autoplayIfNew)
     }
 
     func toggle(_ file: SharedFile) {
         BackgroundAudioSession.activatePlayback()
-        if activeFileID == file.id, let player {
-            if player.timeControlStatus == .playing {
-                player.pause()
-                isPlaying = false
-            } else {
-                player.play()
-                isPlaying = true
-            }
+        if activeFileID != file.id || player == nil {
+            load(file, autoplay: true)
             return
         }
+        guard let player else { return }
+        if player.timeControlStatus == .playing {
+            player.pause()
+            isPlaying = false
+        } else {
+            if duration > 0, currentTime >= duration - 0.15 { seek(to: 0) }
+            player.play()
+            isPlaying = true
+        }
+    }
 
-        stop()
-        let player = AVPlayer(url: file.url)
+    func pause() {
+        player?.pause()
+        isPlaying = false
+    }
+
+    func seek(to seconds: Double) {
+        guard let player else { return }
+        let target = min(max(0, seconds), max(duration, seconds))
+        currentTime = target
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+    }
+
+    func stop() {
+        cleanupPlayer()
+        activeFileID = nil
+        isPlaying = false
+        currentTime = 0
+        duration = 0
+    }
+
+    func isPlaying(_ file: SharedFile) -> Bool { activeFileID == file.id && isPlaying }
+    func isActive(_ file: SharedFile) -> Bool { activeFileID == file.id }
+
+    private func load(_ file: SharedFile, autoplay: Bool) {
+        cleanupPlayer()
+        BackgroundAudioSession.activatePlayback()
+        let item = AVPlayerItem(url: file.url)
+        let player = AVPlayer(playerItem: item)
         self.player = player
         activeFileID = file.id
+        currentTime = 0
+        duration = 0
+
         statusObserver = player.observe(\.timeControlStatus, options: [.new, .initial]) { [weak self] player, _ in
             Task { @MainActor [weak self] in
                 self?.isPlaying = player.timeControlStatus == .playing
             }
         }
-        player.play()
-        isPlaying = true
+        timeObserver = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
+            queue: .main
+        ) { [weak self] time in
+            Task { @MainActor [weak self] in
+                let seconds = time.seconds
+                if seconds.isFinite { self?.currentTime = max(0, seconds) }
+            }
+        }
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isPlaying = false
+                if self.duration > 0 { self.currentTime = self.duration }
+            }
+        }
+        Task { [weak self, weak item] in
+            guard let item, let value = try? await item.asset.load(.duration) else { return }
+            let seconds = value.seconds
+            guard seconds.isFinite else { return }
+            await MainActor.run { [weak self] in self?.duration = max(0, seconds) }
+        }
+        if autoplay {
+            player.play()
+            isPlaying = true
+        }
     }
 
-    func stop() {
+    private func cleanupPlayer() {
         player?.pause()
-        player = nil
+        if let timeObserver, let player { player.removeTimeObserver(timeObserver) }
+        timeObserver = nil
         statusObserver = nil
-        activeFileID = nil
-        isPlaying = false
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        endObserver = nil
+        player = nil
     }
 
 #if os(iOS)
@@ -308,8 +387,5 @@ final class SharedAudioPlaybackController: ObservableObject {
         }
     }
 #endif
-
-    func isPlaying(_ file: SharedFile) -> Bool {
-        activeFileID == file.id && isPlaying
-    }
 }
+

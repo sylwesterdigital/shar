@@ -13,8 +13,8 @@ android {
         applicationId 'com.localwebshare.app'
         minSdk 26
         targetSdk 35
-        versionCode 20107
-        versionName '2.1.7'
+        versionCode 20109
+        versionName '2.1.9'
     }
 
     signingConfigs {

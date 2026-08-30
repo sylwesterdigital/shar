@@ -6,6 +6,7 @@ struct SharedFile: Identifiable, Hashable {
         case image
         case audio
         case video
+        case threeD
         case document
         case file
     }
@@ -22,6 +23,7 @@ struct SharedFile: Identifiable, Hashable {
         if Self.imageExtensions.contains(fileExtension) { return .image }
         if Self.audioExtensions.contains(fileExtension) { return .audio }
         if Self.videoExtensions.contains(fileExtension) { return .video }
+        if Self.threeDExtensions.contains(fileExtension) { return .threeD }
         if Self.documentExtensions.contains(fileExtension) { return .document }
         return .file
     }
@@ -39,6 +41,7 @@ struct SharedFile: Identifiable, Hashable {
         case .image: return "photo"
         case .audio: return "waveform"
         case .video: return "film"
+        case .threeD: return "cube.transparent"
         case .document: return "doc.text"
         case .file: return "doc"
         }
@@ -61,6 +64,14 @@ struct SharedFile: Identifiable, Hashable {
         "mp4", "mov", "m4v", "avi", "mpeg", "mpg"
     ]
 
+    static let threeDExtensions: Set<String> = [
+        "glb", "gltf",
+        "usd", "usda", "usdc", "usdz",
+        "obj", "stl", "ply", "abc", "dae",
+        "fbx", "3ds", "3mf", "blend",
+        "step", "stp", "iges", "igs"
+    ]
+
     private static let documentExtensions: Set<String> = [
         "pdf", "txt", "rtf", "html", "htm", "json", "xml", "md", "csv"
     ]
@@ -68,6 +79,7 @@ struct SharedFile: Identifiable, Hashable {
     private static let quickLookFriendlyExtensions = imageExtensions
         .union(audioExtensions)
         .union(videoExtensions)
+        .union(threeDExtensions)
         .union(documentExtensions)
         .union(["zip"])
 }

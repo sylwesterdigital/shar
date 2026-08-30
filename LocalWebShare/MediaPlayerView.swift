@@ -10,12 +10,19 @@ struct MediaPlayerView: View {
     @State private var index: Int
     @State private var showDeleteConfirmation = false
 
+    let audioPlayback: SharedAudioPlaybackController
     let onDelete: ((SharedFile) -> Void)?
 
-    init(files: [SharedFile], initialFile: SharedFile, onDelete: ((SharedFile) -> Void)? = nil) {
+    init(
+        files: [SharedFile],
+        initialFile: SharedFile,
+        audioPlayback: SharedAudioPlaybackController,
+        onDelete: ((SharedFile) -> Void)? = nil
+    ) {
         let start = files.firstIndex(of: initialFile) ?? 0
         _files = State(initialValue: files)
         _index = State(initialValue: min(max(0, start), max(0, files.count - 1)))
+        self.audioPlayback = audioPlayback
         self.onDelete = onDelete
     }
 
@@ -28,7 +35,7 @@ struct MediaPlayerView: View {
         NavigationStack {
             Group {
                 if let file {
-                    MediaPreviewContent(file: file)
+                    MediaPreviewContent(file: file, audioPlayback: audioPlayback)
                         .id(file.id)
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 35)
@@ -72,9 +79,7 @@ struct MediaPlayerView: View {
                             .minimumScaleFactor(0.75)
                     }
                     Spacer(minLength: 8)
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         Image(systemName: "xmark")
                             .font(.headline.weight(.bold))
                             .frame(width: 36, height: 36)
@@ -98,36 +103,29 @@ struct MediaPlayerView: View {
         }
     }
 
-    private func previous() {
-        guard index > 0 else { return }
-        index -= 1
-    }
-
-    private func next() {
-        guard index + 1 < files.count else { return }
-        index += 1
-    }
+    private func previous() { if index > 0 { index -= 1 } }
+    private func next() { if index + 1 < files.count { index += 1 } }
 
     private func deleteCurrent() {
         guard let current = file else { return }
+        if audioPlayback.activeFileID == current.id { audioPlayback.stop() }
         onDelete?(current)
         files.remove(at: index)
-        if files.isEmpty {
-            dismiss()
-        } else if index >= files.count {
-            index = files.count - 1
-        }
+        if files.isEmpty { dismiss() }
+        else if index >= files.count { index = files.count - 1 }
     }
 }
 
 private struct MediaPreviewContent: View {
     @Environment(\.scenePhase) private var scenePhase
     let file: SharedFile
-    @State private var player: AVPlayer?
+    @ObservedObject var audioPlayback: SharedAudioPlaybackController
+    @State private var videoPlayer: AVPlayer?
 
-    init(file: SharedFile) {
+    init(file: SharedFile, audioPlayback: SharedAudioPlaybackController) {
         self.file = file
-        _player = State(initialValue: file.isPlayableMedia ? AVPlayer(url: file.url) : nil)
+        self.audioPlayback = audioPlayback
+        _videoPlayer = State(initialValue: file.mediaKind == .video ? AVPlayer(url: file.url) : nil)
     }
 
     var body: some View {
@@ -139,15 +137,15 @@ private struct MediaPreviewContent: View {
                 audioPreview
             case .video:
                 videoPreview
+            case .threeD:
+                ThreeDPreviewView(file: file)
             case .document, .file:
                 QuickLookPreview(url: file.url)
             }
         }
-        .onDisappear { player?.pause() }
+        .onDisappear { videoPlayer?.pause() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active && file.mediaKind == .video {
-                player?.pause()
-            }
+            if phase != .active && file.mediaKind == .video { videoPlayer?.pause() }
         }
     }
 
@@ -171,10 +169,10 @@ private struct MediaPreviewContent: View {
 
     private var videoPreview: some View {
         VStack(spacing: 16) {
-            if let player {
-                VideoPlayer(player: player)
+            if let videoPlayer {
+                VideoPlayer(player: videoPlayer)
                     .background(Color.black)
-                    .onAppear { player.play() }
+                    .onAppear { videoPlayer.play() }
             }
             fileMetadata
         }
@@ -185,10 +183,15 @@ private struct MediaPreviewContent: View {
             Spacer()
             ThumbnailView(file: file, size: CGSize(width: 200, height: 200))
             AudioMetadataBlock(file: file)
-            if let player { AudioControls(player: player) }
+            SharedAudioControls(file: file, playback: audioPlayback)
             Spacer()
         }
         .padding()
+        .onAppear {
+            // If the card was already playing/paused, preserve its exact player and position.
+            // Only a previously inactive file begins from the start when first opened.
+            audioPlayback.ensureLoaded(file, autoplayIfNew: true)
+        }
     }
 
     private var fileMetadata: some View {
@@ -212,9 +215,7 @@ private struct AudioMetadataBlock: View {
             Text(metadata.title ?? file.name)
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            if let artist = metadata.artist, !artist.isEmpty {
-                Text(artist).foregroundStyle(.secondary)
-            }
+            if let artist = metadata.artist, !artist.isEmpty { Text(artist).foregroundStyle(.secondary) }
             Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -226,68 +227,31 @@ private struct AudioMetadataBlock: View {
     }
 }
 
-private struct AudioControls: View {
-    let player: AVPlayer
-    @State private var isPlaying = false
-    @State private var currentTime: Double = 0
-    @State private var duration: Double = 0
-    @State private var observer: Any?
+private struct SharedAudioControls: View {
+    let file: SharedFile
+    @ObservedObject var playback: SharedAudioPlaybackController
 
     var body: some View {
         VStack(spacing: 12) {
             Slider(
                 value: Binding(
-                    get: { min(max(currentTime, 0), max(duration, 0.01)) },
-                    set: { newValue in
-                        currentTime = newValue
-                        player.seek(to: CMTime(seconds: newValue, preferredTimescale: 600))
-                    }
+                    get: { playback.isActive(file) ? min(max(playback.currentTime, 0), max(playback.duration, 0.01)) : 0 },
+                    set: { playback.seek(to: $0) }
                 ),
-                in: 0...max(duration, 0.01)
+                in: 0...max(playback.duration, 0.01)
             )
             HStack {
-                Text(format(currentTime))
+                Text(format(playback.isActive(file) ? playback.currentTime : 0))
                 Spacer()
-                Button {
-                    if isPlaying {
-                        player.pause()
-                    } else {
-                        BackgroundAudioSession.activatePlayback()
-                        player.play()
-                    }
-                    isPlaying.toggle()
-                } label: {
-                    Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Button { playback.toggle(file) } label: {
+                    Image(systemName: playback.isPlaying(file) ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 56))
                 }
                 .buttonStyle(.plain)
                 Spacer()
-                Text(format(duration))
+                Text(format(playback.isActive(file) ? playback.duration : 0))
             }
             .font(.caption.monospacedDigit())
-        }
-        .onAppear {
-            BackgroundAudioSession.activatePlayback()
-            Task {
-                if let item = player.currentItem,
-                   let loadedDuration = try? await item.asset.load(.duration),
-                   loadedDuration.seconds.isFinite {
-                    duration = loadedDuration.seconds
-                }
-            }
-            observer = player.addPeriodicTimeObserver(
-                forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
-                queue: .main
-            ) { time in
-                currentTime = max(0, time.seconds)
-                isPlaying = player.timeControlStatus == .playing
-            }
-            player.play()
-            isPlaying = true
-        }
-        .onDisappear {
-            if let observer { player.removeTimeObserver(observer); self.observer = nil }
-            player.pause()
         }
     }
 
