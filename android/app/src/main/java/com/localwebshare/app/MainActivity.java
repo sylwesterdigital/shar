@@ -58,7 +58,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.1.6  Playback + company polish\nmacOS keeps a single audio session across Grid/List, adds top Support/About/Config controls, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright.\n\n"+
+        String message="v2.1.7  Native Mac identity + About routing\nmacOS now maps the info toolbar button to Developer updates, routes About Shar through the app menu, and uses Shar as the visible macOS application name.\n\n"+
+                "v2.1.6  Playback + company polish\nmacOS keeps a single audio session across Grid/List, adds top Support/About/Config controls, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright.\n\n"+
                 "v2.1.5  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
                 "v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
                 "v2.1.3  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+

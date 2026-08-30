@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.7] - 2026-08-30
+
+### macOS identity and navigation
+- Changed the optional macOS **ⓘ** toolbar action to open **Developer updates**, matching the iOS behavior.
+- Moved the full product/company About experience to the application menu **Shar → About Shar**, backed by the dedicated native About panel.
+- Set the generated macOS bundle `CFBundleName` to **Shar** in both development and notarized release builders, removing the user-visible `LocalWebShare` application-menu name while retaining internal target/executable compatibility.
+- Added release guards for the macOS info-button routing, application-menu About command and visible bundle name.
+
+### Release metadata
+- Added v2.1.7 to native developer-update feeds and updated runtime client identifiers/signaling health version.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.7 / 20107.
+
 ## [2.1.6] - 2026-08-30
 
 ### macOS audio playback

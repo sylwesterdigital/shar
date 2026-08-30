@@ -164,6 +164,26 @@ grep -Fq 'Label("Config", systemImage: "gearshape.fill")' macos/LocalWebShareMac
 grep -Fq 'MacLibraryListRow' macos/LocalWebShareMacApp.swift || fail "macOS list library missing"
 grep -Fq 'Support Shar' macos/LocalWebShareMacApp.swift || fail "macOS Support Shar action missing"
 grep -Fq 'dollarsign.circle.fill' macos/LocalWebShareMacApp.swift || fail "macOS top Support icon missing"
+grep -Fq 'CommandGroup(replacing: .appInfo)' macos/LocalWebShareMacApp.swift || fail "macOS application-menu About override missing"
+grep -Fq 'MacAboutPanelController.shared.show()' macos/LocalWebShareMacApp.swift || fail "macOS About Shar menu does not open the native About panel"
+python3 - <<'PYMACTOOLBAR'
+from pathlib import Path
+s=Path('macos/LocalWebShareMacApp.swift').read_text()
+a=s.find('    private var topBar: some View {')
+b=s.find('    private var sharingStrip:', a)
+if a < 0 or b < 0: raise SystemExit('macOS topBar block missing')
+bar=s[a:b]
+if 'Image(systemName: "info.circle.fill")' not in bar or 'showingDeveloperUpdates = true' not in bar:
+    raise SystemExit('macOS info toolbar button must open Developer updates like iOS')
+if 'showingAbout' in bar or '.help("About Shar")' in bar:
+    raise SystemExit('macOS toolbar info button still routes to About instead of Developer updates')
+PYMACTOOLBAR
+grep -Fq '<key>CFBundleName</key><string>Shar</string>' scripts/build_macos.sh || fail "macOS development bundle name is not Shar"
+grep -Fq 'APP="$BUILD_ROOT/Shar.app"' scripts/build_macos.sh || fail "macOS development app bundle is not named Shar.app"
+grep -Fq 'INSTALL_APP="$INSTALL_DIR/Shar.app"' scripts/build_macos.sh || fail "macOS installed development app is not named Shar.app"
+grep -Fq 'LEGACY_INSTALL_APP="$INSTALL_DIR/LocalWebShare.app"' scripts/build_macos.sh || fail "macOS legacy LocalWebShare.app cleanup target missing"
+grep -Fq '<key>CFBundleName</key><string>Shar</string>' scripts/build_macos_release.sh || fail "macOS release bundle name is not Shar"
+! grep -Fq '<key>CFBundleName</key><string>LocalWebShare</string>' scripts/build_macos.sh scripts/build_macos_release.sh || fail "macOS visible bundle name regressed to LocalWebShare"
 grep -Fq '@StateObject private var audioPlayback = SharedAudioPlaybackController()' macos/LocalWebShareMacApp.swift || fail "macOS shared audio controller missing"
 grep -Fq 'MacInlineAudioButton(file: file, playback: audioPlayback)' macos/LocalWebShareMacApp.swift || fail "macOS library cards do not use shared audio playback"
 ! grep -A20 -F 'private struct MacInlineAudioButton' macos/LocalWebShareMacApp.swift | grep -Fq '@State private var player' || fail "macOS inline audio still owns disposable per-card players"

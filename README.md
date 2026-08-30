@@ -1,4 +1,4 @@
-# Shar — 2.1.6
+# Shar — 2.1.7
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.1.6** (build/version code **20106**).
+`VERSION` is authoritative. Current release: **2.1.7** (build/version code **20107**).
 
 ## Branding
 
@@ -91,6 +91,12 @@ Background audio is for media playback only; it is not used as a workaround to g
 Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
 
 ## LAN and remote WebRTC sharing
+
+### v2.1.7 macOS application identity and About routing
+
+- The optional macOS **ⓘ** toolbar button now matches iOS: when enabled in Config it opens the **Developer updates** release log.
+- Product/About information is no longer assigned to the toolbar info icon. The macOS application menu **Shar → About Shar** opens the dedicated native About panel with Version/Build, WORKWORK.FUN LTD, Sylwester Mielniczuk copyright/CEO information, website, source and Support.
+- macOS generated bundles now set both `CFBundleDisplayName` and `CFBundleName` to **Shar**, so the application menu reads **Shar** instead of the internal project/executable name `LocalWebShare`. Internal source/target names remain unchanged for build compatibility.
 
 ### v2.1.6 macOS playback, support and company identity
 
@@ -167,7 +173,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.6.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.7.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -194,7 +200,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.1.6.zip
+LocalWebSharePrototype-v2.1.7.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

@@ -169,7 +169,7 @@ const server=http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,content-type,x-shar-client','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Cache-Control':'no-store'}); return res.end(); }
   if (!rateLimit(req,res)) return;
   const parts=routeParts(req.url);
-  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.1.6',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET),security:'e2ee-pin-approval'});
+  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.1.7',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET),security:'e2ee-pin-approval'});
   if (req.method==='POST' && parts.length===1 && parts[0]==='session') {
     if (!allowSessionCreate(req,res)) return;
     let body; try { body=await readJSON(req,res); } catch { return; }

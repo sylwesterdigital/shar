@@ -16,12 +16,13 @@ print(a*10000+b*100+c)
 PY
 )"
 BUILD_ROOT="$ROOT/build/macos"
-APP="$BUILD_ROOT/LocalWebShare.app"
+APP="$BUILD_ROOT/Shar.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RES="$CONTENTS/Resources"
 INSTALL_DIR="${MAC_INSTALL_DIR:-$HOME/Applications}"
-INSTALL_APP="$INSTALL_DIR/LocalWebShare.app"
+INSTALL_APP="$INSTALL_DIR/Shar.app"
+LEGACY_INSTALL_APP="$INSTALL_DIR/LocalWebShare.app"
 NO_LAUNCH=0
 [[ "${1:-}" == "--no-launch" ]] && NO_LAUNCH=1
 
@@ -31,7 +32,7 @@ fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 [[ "$(uname -s)" == Darwin ]] || fail "macOS build must run on macOS."
 for t in xcrun swiftc iconutil codesign ditto plutil open; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 
-say "Building macOS LocalWebShare v$VERSION"
+say "Building macOS Shar v$VERSION"
 rm -rf "$BUILD_ROOT"
 mkdir -p "$MACOS" "$RES" "$ROOT/release"
 
@@ -60,7 +61,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Shar</string>
-<key>CFBundleName</key><string>LocalWebShare</string>
+<key>CFBundleName</key><string>Shar</string>
 <key>CFBundleExecutable</key><string>LocalWebShare</string>
 <key>CFBundleIdentifier</key><string>com.localwebshare.macos</string>
 <key>CFBundlePackageType</key><string>APPL</string>
@@ -81,7 +82,7 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 
 say "Installing into $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-rm -rf "$INSTALL_APP"
+rm -rf "$INSTALL_APP" "$LEGACY_INSTALL_APP"
 ditto "$APP" "$INSTALL_APP"
 
 if (( ! NO_LAUNCH )); then

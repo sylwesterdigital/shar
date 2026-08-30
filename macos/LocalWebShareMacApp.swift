@@ -20,6 +20,13 @@ struct LocalWebShareMacApp: App {
                 .frame(minWidth: 860, minHeight: 620)
         }
         .windowStyle(.titleBar)
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Shar") {
+                    MacAboutPanelController.shared.show()
+                }
+            }
+        }
     }
 }
 
@@ -37,7 +44,6 @@ struct MacContentView: View {
     @State private var deleteCandidate: SharedFile?
     @State private var isDropTargeted = false
     @State private var showingDeveloperUpdates = false
-    @State private var showingAbout = false
     @State private var showingSettings = false
     @State private var remoteShareFile: SharedFile?
     @State private var copiedAddress = false
@@ -100,10 +106,6 @@ struct MacContentView: View {
             MacDeveloperUpdatesView()
                 .frame(minWidth: 520, minHeight: 430)
         }
-        .sheet(isPresented: $showingAbout) {
-            MacAboutView()
-                .frame(width: 460, height: 430)
-        }
         .confirmationDialog(deleteCandidate.map { "Delete \($0.name)?" } ?? "Delete file?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } })) {
             Button("Delete", role: .destructive) {
                 if let f = deleteCandidate {
@@ -137,19 +139,17 @@ struct MacContentView: View {
             Button { fileStore.refresh() } label: { Image(systemName: "arrow.clockwise") }
                 .buttonStyle(.plain).help("Refresh")
             if showDeveloperInfo {
-                Button { showingDeveloperUpdates = true } label: { Image(systemName: "clock.arrow.circlepath") }
-                    .buttonStyle(.plain).help("Developer updates")
+                Button { showingDeveloperUpdates = true } label: {
+                    Image(systemName: "info.circle.fill").font(.title3)
+                }
+                .buttonStyle(.plain)
+                .help("Developer updates")
             }
             Button { NSWorkspace.shared.open(SharProductInfo.supportURL) } label: {
                 Image(systemName: "dollarsign.circle.fill").font(.title3)
             }
             .buttonStyle(.plain)
             .help("Support Shar")
-            Button { showingAbout = true } label: {
-                Image(systemName: "info.circle.fill").font(.title3)
-            }
-            .buttonStyle(.plain)
-            .help("About Shar")
             Button {
                 withAnimation(.easeInOut(duration: 0.18)) { showingSettings = true }
             } label: {
@@ -735,7 +735,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.6',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.7',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -849,8 +849,41 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
     deinit { webView?.configuration.userContentController.removeScriptMessageHandler(forName: "sharRemote") }
 }
 
+private final class MacAboutPanelController {
+    static let shared = MacAboutPanelController()
+    private var panel: NSPanel?
+
+    private init() {}
+
+    func show() {
+        if let panel {
+            NSApp.activate(ignoringOtherApps: true)
+            panel.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 430),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        let host = NSHostingController(rootView: MacAboutView(onClose: { [weak panel] in
+            panel?.close()
+        }))
+        panel.title = "About Shar"
+        panel.contentViewController = host
+        panel.isReleasedWhenClosed = false
+        panel.center()
+        self.panel = panel
+
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+}
+
 private struct MacAboutView: View {
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
     private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
 
@@ -862,7 +895,7 @@ private struct MacAboutView: View {
                     Text("Version \(version) · Build \(build)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").font(.title2) }.buttonStyle(.plain)
+                Button(action: onClose) { Image(systemName: "xmark.circle.fill").font(.title2) }.buttonStyle(.plain)
             }
             Divider()
             LabeledContent("Company") { Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
@@ -883,6 +916,7 @@ private struct MacAboutView: View {
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
+        ("2.1.7", "Native Mac identity + About routing", "The macOS ⓘ toolbar control now opens Developer updates like iOS, About Shar is owned by the application menu, and the visible macOS application name is Shar instead of LocalWebShare."),
         ("2.1.6", "Playback + identity polish", "macOS now has one persistent inline audio session across Grid/List, top Support/About/Config controls, refreshed Stripe website support, and WORKWORK.FUN LTD ownership/copyright information."),
         ("2.1.5", "Stripe support checkout", "Connected Shar Support to the production Stripe Payment Link and official Buy Button."),
         ("2.1.4", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),

@@ -53,7 +53,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Shar</string>
-<key>CFBundleName</key><string>LocalWebShare</string>
+<key>CFBundleName</key><string>Shar</string>
 <key>CFBundleExecutable</key><string>LocalWebShare</string>
 <key>CFBundleIdentifier</key><string>xyz.mojoworks.shar</string>
 <key>CFBundlePackageType</key><string>APPL</string>
