@@ -2,6 +2,41 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.1.1] - 2026-08-30
+
+### Fixed
+- Fixed the Android release compilation failure in `LocalHttpServer.java`: the v2.1 Base64URL helper used Java-illegal backslash escapes inside the embedded HTML text block. The shared browser implementation now avoids those escape-sensitive regular expressions entirely.
+- Kept the Apple and Android embedded browser HTML byte-for-byte aligned after the fix.
+
+### Release safety
+- Repository verification now extracts the actual Android `WEB_PAGE` Java text block and compiles it in a minimal Java probe when `javac` is available. This catches illegal text-block escapes before Gradle, notarization, or deployment work is attempted.
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.1.1 / 20101.
+
+## [2.1.0] - 2026-08-30
+
+### Security
+- Added application-level **AES-256-GCM end-to-end encryption** for Remote Share file contents and file metadata. The sender generates a random 256-bit content key locally and places it only in the receiver URL fragment (`#share=…&key=…`); URL fragments are not sent in the HTTP request, and the signaling/TURN service never receives the content key.
+- Added a separate mandatory 6-digit receiver PIN. The sender and receiver derive a PBKDF2-SHA256 proof locally; the signaling service compares only the derived verifier and applies per-share failure lockouts after repeated incorrect attempts.
+- Added mandatory sender approval for secure Remote Share. A receiver that entered the correct PIN remains pending until the sender explicitly approves the device; receiver TURN credentials and WebRTC signaling credentials are not released before approval.
+- Added streaming SHA-256 integrity verification for every transferred file. Completion is accepted only after the receiver decrypts the complete file, verifies its SHA-256 digest, and returns an encrypted completion acknowledgement containing the verified digest(s).
+- Added private-metadata sessions: the signaling service sees item count and byte sizes needed for limits/completion, but secure v2.1 sessions do not publish the original file/folder names or MIME types before the encrypted data channel is established.
+- Secure receiver links now keep both the share capability and content key in the URL fragment. New v2.1 QR codes are generated locally on the native sender so the key is never sent to the QR/signaling service.
+- Added explicit rejection of plaintext/unprotected WebRTC data-channel payloads in the v2.1 receiver.
+
+### Infrastructure hardening
+- Disabled nginx access logging for `/api/shar/remote/v1/` so temporary share IDs are not written to the normal API access log.
+- Hardened the dedicated Shar coturn service with loopback/private/link-local peer blocking plus per-user and total allocation quotas, reducing TURN abuse and SSRF-style relay targets.
+- Kept runtime ICE fully on Shar-controlled STUN/TURN; Google STUN remains prohibited by repository verification.
+
+### Release safety
+- Added `scripts/test_remote_crypto.sh`, which validates the receiver SHA-256 implementation against known vectors, performs an AES-GCM round-trip, requires fragment-based key handling, and rejects any Google STUN runtime dependency.
+- Expanded the signaling protocol smoke test to cover incorrect PIN rejection, PBKDF2 verifier authentication, pending receiver approval, host approval, delayed guest credential release, signaling, completion validation, and one-time rejoin rejection.
+- The release pipeline now runs both signaling/auth and cryptographic Remote Share tests before native builds or server deployment.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.1.0 / 20100.
+- Secure Remote Share uses 48 KiB plaintext chunks before AES-GCM framing to keep WebRTC data-channel messages comfortably bounded after authentication-tag overhead.
+
 ## [2.0.8] - 2026-08-30
 
 ### Fixed

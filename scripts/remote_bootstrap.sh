@@ -60,6 +60,8 @@ SHAR_SESSION_TTL=1800
 SHAR_SESSION_MAX_TTL=3600
 SHAR_MAX_ACTIVE_SESSIONS=1000
 SHAR_MAX_CREATES_PER_HOUR=30
+SHAR_PIN_MAX_FAILURES=5
+SHAR_PIN_LOCK_SECONDS=300
 ENV
 sudo install -m 0600 -o root -g root "$TMP_ENV" /etc/shar-remote.env
 
@@ -74,7 +76,15 @@ use-auth-secret
 static-auth-secret=$TURN_SECRET
 realm=$TURN_HOST
 stale-nonce
+user-quota=8
+total-quota=200
 no-multicast-peers
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
 no-cli
 no-tls
 no-dtls
@@ -186,7 +196,9 @@ location ^~ /api/shar/remote/v1/ {
     client_max_body_size 512k;
     proxy_connect_timeout 5s;
     proxy_read_timeout 35s;
+    access_log off;
     add_header Cache-Control "no-store" always;
+    add_header Referrer-Policy "no-referrer" always;
 }
 NGINX
 sudo install -m 0644 /tmp/shar-remote-nginx.conf /etc/nginx/snippets/shar-remote.conf

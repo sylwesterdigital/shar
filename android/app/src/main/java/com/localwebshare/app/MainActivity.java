@@ -52,7 +52,9 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.0.8  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
+        String message="v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
+                "v2.1.0  Secure Remote Share\nAdded AES-256-GCM encryption, separate PIN verification, sender approval, SHA-256 integrity checks, and hardened TURN/API privacy.\n\n"+
+                "v2.0.8  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
                 "v2.0.7  Remote completion handshake\nSuccessful remote downloads stay complete and explicitly confirm receipt back to the sender.\n\n"+
                 "v2.0.6  Native link sharing\nFixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.\n\n"+
                 "v2.0.5  Remote service readiness\nFixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation.\n\n"+

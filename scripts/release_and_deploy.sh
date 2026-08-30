@@ -26,6 +26,7 @@ log "Repository verification"
 ./scripts/verify_repo.sh
 log "Remote signaling protocol smoke test"
 ./scripts/test_remote_protocol.sh
+./scripts/test_remote_crypto.sh
 log "Release/deployment credentials"
 ./scripts/check_macos_release_credentials.sh
 ./scripts/setup_android_release.sh

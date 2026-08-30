@@ -36,7 +36,7 @@ for p in \
   scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh \
   scripts/build_macos_release.sh scripts/build_android_release.sh scripts/build_ios_check.sh \
   scripts/release_and_deploy.sh scripts/publish_github_release.sh scripts/deploy_homepage.sh \
-  scripts/check_remote_share.sh scripts/deploy_remote_share.sh scripts/remote_bootstrap.sh scripts/test_remote_protocol.sh \
+  scripts/check_remote_share.sh scripts/deploy_remote_share.sh scripts/remote_bootstrap.sh scripts/test_remote_protocol.sh scripts/test_remote_crypto.sh \
   scripts/release_profile.sh scripts/setup_android_release.sh scripts/check_android_release_credentials.sh \
   scripts/check_macos_release_credentials.sh scripts/check_ios_release_credentials.sh scripts/android_env.sh \
   remote/server.js homepage/index.html homepage/receive.html; do
@@ -157,8 +157,25 @@ grep -Fq "t:'receiver-complete'" homepage/receive.html || fail "Receiver complet
 grep -Fq 'transferTerminal' homepage/receive.html || fail "Receiver terminal-success guard missing"
 grep -Fq "Transfer complete ✓" homepage/receive.html || fail "Receiver polished completion state missing"
 grep -Fq "m.t==='receiver-complete'" LocalWebShare/ContentView.swift || fail "iOS sender receiver-complete handshake missing"
-grep -Fq 'completedAt <= now()-60000' remote/server.js || fail "Remote completion grace period missing"
+grep -Fq 'COMPLETION_GRACE_MS' remote/server.js || fail "Remote completion grace period missing"
 grep -Fq 'Receiver byte-count confirmation does not match' remote/server.js || fail "Remote completion byte-count server validation missing"
+grep -Fq "name:'AES-GCM'" LocalWebShare/ContentView.swift || fail "iOS AES-256-GCM Remote Share encryption missing"
+grep -Fq "#share=" LocalWebShare/ContentView.swift || fail "iOS secure receiver URL fragment missing"
+grep -Fq 'pinVerifier' remote/server.js || fail "Remote PIN verifier support missing"
+grep -Fq 'PIN_MAX_FAILURES' remote/server.js || fail "Remote PIN brute-force lockout missing"
+grep -Fq "parts[2]==='approve'" remote/server.js || fail "Sender receiver-approval endpoint missing"
+grep -Fq "parts[2]==='approval'" remote/server.js || fail "Receiver approval polling endpoint missing"
+grep -Fq 'approvalRequired:true' LocalWebShare/ContentView.swift || fail "Native iOS sender approval requirement missing"
+grep -Fq 'pinIterations:PIN_ITERATIONS' LocalWebShare/ContentView.swift || fail "Native iOS PBKDF2 PIN proof missing"
+grep -Fq 'privateMetadata:true' LocalWebShare/ContentView.swift || fail "Native iOS metadata privacy mode missing"
+grep -Fq 'SHA-256 verification failed' homepage/receive.html || fail "Receiver SHA-256 verification missing"
+grep -Fq 'Unencrypted WebRTC payload rejected' homepage/receive.html || fail "Receiver plaintext data-channel rejection missing"
+grep -Fq 'location.hash' homepage/receive.html || fail "Receiver encryption capability is not read from URL fragment"
+grep -Fq 'The 256-bit content key is stored only in the URL fragment' homepage/receive.html || fail "Receiver E2EE security disclosure missing"
+grep -Fq 'access_log off;' scripts/remote_bootstrap.sh || fail "Remote API access-log suppression missing"
+grep -Fq 'denied-peer-ip=127.0.0.0-127.255.255.255' scripts/remote_bootstrap.sh || fail "TURN loopback-peer blocking missing"
+grep -Fq 'denied-peer-ip=169.254.0.0-169.254.255.255' scripts/remote_bootstrap.sh || fail "TURN metadata/link-local blocking missing"
+grep -Fq 'user-quota=8' scripts/remote_bootstrap.sh || fail "TURN per-user quota missing"
 grep -Fq 'shar-coturn.service' scripts/remote_bootstrap.sh || fail "Dedicated TURN bootstrap missing"
 grep -Fq 'nginx -t' scripts/remote_bootstrap.sh || fail "Remote nginx safety validation missing"
 grep -Fq 'previous nginx configuration was restored automatically' scripts/remote_bootstrap.sh || fail "Remote nginx rollback missing"
@@ -177,6 +194,7 @@ grep -Fq 'public API is missing/stale' scripts/deploy_remote_share.sh || fail "R
 grep -Fq "version:'$VERSION_VALUE'" remote/server.js || fail "Remote signaling server version mismatch"
 grep -Fq './scripts/deploy_remote_share.sh' scripts/release_and_deploy.sh || fail "Release pipeline does not deploy remote sharing"
 grep -Fq './scripts/test_remote_protocol.sh' scripts/release_and_deploy.sh || fail "Release pipeline does not smoke-test remote signaling"
+grep -Fq './scripts/test_remote_crypto.sh' scripts/release_and_deploy.sh || fail "Release pipeline does not test Remote Share crypto primitives"
 grep -Fq 'Retrying deployment for current v' scripts/build-watch.sh || fail "Watcher same-version deployment retry support missing"
 
 grep -Fq 'https://mojoworks.xyz/labs/shar/' README.md || fail "README does not document the Shar homepage"
@@ -215,6 +233,20 @@ if not engine_script: raise SystemExit('Native iOS Remote Share engine JavaScrip
 ios_js=engine_script.group(1).replace(r'const FILE=\(json);', 'const FILE={"name":"verify","path":"verify","size":1,"mime":"application/octet-stream"};')
 Path('/tmp/shar-ios-native-remote-verify.js').write_text(ios_js)
 PY
+  if command -v javac >/dev/null 2>&1; then
+    python3 - <<'PYANDROIDWEB'
+from pathlib import Path
+import re
+src=Path('android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java').read_text()
+m=re.search(r'private static final String WEB_PAGE = (\"\"\".*?\"\"\");', src, re.S)
+if not m:
+    raise SystemExit('Android embedded WEB_PAGE Java text block missing')
+Path('/tmp/SharAndroidWebPageProbe.java').write_text('final class SharAndroidWebPageProbe { static final String WEB_PAGE = ' + m.group(1) + '; }\n')
+PYANDROIDWEB
+    rm -rf /tmp/shar-android-webpage-probe
+    mkdir -p /tmp/shar-android-webpage-probe
+    javac -d /tmp/shar-android-webpage-probe /tmp/SharAndroidWebPageProbe.java >/dev/null 2>&1 || fail "Android embedded browser Java text-block compilation failed"
+  fi
   if command -v node >/dev/null 2>&1; then
     node --check remote/server.js >/dev/null || fail "Remote signaling JavaScript syntax failed"
     node --check /tmp/shar-browser-verify.js >/dev/null || fail "Embedded browser JavaScript syntax failed"

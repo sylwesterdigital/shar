@@ -1,4 +1,4 @@
-# Shar — 2.0.8
+# Shar — 2.1.1
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.0.8** (build/version code **20008**).
+`VERSION` is authoritative. Current release: **2.1.1** (build/version code **20101**).
 
 ## Branding
 
@@ -92,6 +92,26 @@ Image previews default to **fit**, keeping the entire image visible inside the a
 
 ## LAN and remote WebRTC sharing
 
+### v2.1.1 Android build fix
+- Fixed the secure Remote Share browser JavaScript embedded in the Android Java text block so Gradle/Javac no longer rejects the Base64URL helper as an illegal Java escape sequence.
+- Added a release verification probe that compiles the actual Android embedded browser text block with `javac`, catching Java-string/text-block escaping regressions before the expensive distribution build starts.
+
+### v2.1.0 secure Remote Share
+
+Shar 2.1 makes Remote Share secure-by-default. A sender creates a random 256-bit AES-GCM content key locally, and the receiver URL carries that key only in the URL fragment:
+
+```text
+https://mojoworks.xyz/labs/shar/receive.html#share=<random-session>&key=<256-bit-content-key>
+```
+
+The browser does not send the fragment in the HTTP request, so the content key is not disclosed to nginx, the signaling API or the TURN relay. The signaling service stores only temporary session state needed for WebRTC coordination and completion accounting. Secure sessions also use private metadata: original filenames, folder paths and MIME types are sent only inside the encrypted WebRTC data channel.
+
+Every v2.1 secure share additionally requires a separate six-digit PIN and explicit sender approval. The PIN itself is not sent to the signaling service: sender and receiver derive a PBKDF2-SHA256 proof locally, and the service rate-limits incorrect proof attempts. After the correct PIN, the receiver remains pending until the sender presses **Approve**; TURN/WebRTC receiver credentials are not released before approval. Send the PIN separately from the link when practical.
+
+File contents and control metadata are wrapped in AES-256-GCM before being sent through WebRTC. The receiver calculates SHA-256 while decrypting each file and refuses completion if the digest does not match the encrypted sender digest. The final completion acknowledgement is itself encrypted and includes the verified digest list. WebRTC/DTLS remains an additional transport-encryption layer, and Shar first attempts direct P2P before falling back to the dedicated Shar TURN relay.
+
+The dedicated TURN configuration blocks loopback, private, carrier-grade-NAT and link-local relay targets, applies allocation quotas, and the nginx signaling route disables normal access logging. Runtime ICE uses only Shar-controlled STUN/TURN infrastructure.
+
 ### v2.0.8 remote sender/runtime ICE fix
 
 v2.0.8 fixes a JavaScript syntax regression inside the native iOS off-screen WebRTC engine that could leave the native Remote Share sheet stuck on **Creating temporary Internet share…** without either a link or an error. Release verification now extracts that exact embedded engine from `ContentView.swift` and runs `node --check` against it before packaging.
@@ -100,13 +120,7 @@ Shar Remote Share no longer contacts Google STUN. The signaling service now retu
 
 LAN sharing remains unchanged: devices on the same reachable network can open the local Shar URL such as `http://192.168.1.42:8080`. Cellular carrier IP addresses are still not treated as inbound-routable Shar addresses.
 
-For different networks, use **Remote Share**. On iPhone/iPad, choose **Remote** directly on a native Shar file card. This path is independent of the LAN Sharing switch: Shar does not start or navigate to the local `:8080` browser server. The native SwiftUI sheet immediately creates the Internet share and shows the QR code/link, status and transfer progress. The shared browser UI still has its own ↗ Remote Share control for people intentionally using Shar from a browser. Shar creates a 30-minute, one-receiver capability URL such as:
-
-```text
-https://mojoworks.xyz/labs/shar/receive.html?share=<random-token>
-```
-
-The sender displays the link and a QR code. The receiver needs only a modern browser. Signaling is handled by `https://mojoworks.xyz/api/shar/remote/v1`; file bytes are never uploaded there. WebRTC first attempts a direct peer-to-peer connection, then automatically uses the dedicated Shar TURN relay when direct ICE connectivity fails. The receiver UI reports whether it is connected and saves files directly to disk when the browser exposes the File System Access API.
+For different networks, use **Remote Share**. On iPhone/iPad, choose **Remote** directly on a native Shar file card. This path is independent of the LAN Sharing switch: Shar does not start or navigate to the local `:8080` browser server. The native SwiftUI sheet immediately creates the Internet share and shows the QR code/link, status and transfer progress. The shared browser UI still has its own ↗ Remote Share control for people intentionally using Shar from a browser. Shar creates a 30-minute, one-receiver secure capability link whose session ID and 256-bit content key are carried in the URL fragment. Native iOS generates the QR code locally, and the sender also displays a separate six-digit PIN. The recipient must enter the PIN and then be explicitly approved by the sender before WebRTC receiver credentials are released. The receiver needs only a modern browser. Signaling is handled by `https://mojoworks.xyz/api/shar/remote/v1`; file bytes are never uploaded there. WebRTC first attempts a direct peer-to-peer connection, then automatically uses the dedicated Shar TURN relay when direct ICE connectivity fails. The receiver UI reports whether it is connected and saves files directly to disk when the browser exposes the File System Access API.
 
 Folder sharing uses a file manifest containing relative paths. Desktop browsers with directory access can recreate the folder hierarchy; browsers without direct file-system writing fall back to individual Save links and enforce a memory safety limit for large transfers. On iOS, the native Remote Share sheet uses an internal off-screen WebRTC engine and reads the selected native file through a controlled chunk bridge; the user never sees the local browser UI and the LAN server can remain disabled. Keep Shar in the foreground while an outgoing remote transfer is active because iOS does not grant arbitrary long-running background networking to a file sender.
 
@@ -120,7 +134,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.0.7.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.1.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -147,7 +161,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.0.7.zip
+LocalWebSharePrototype-v2.1.1.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

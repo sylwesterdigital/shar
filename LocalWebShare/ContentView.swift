@@ -512,6 +512,8 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.1.1", title: "Android secure-share build fix", summary: "Fixed the Android embedded browser Base64URL helper and added a Java text-block compile guard to release verification."),
+    .init(version: "2.1.0", title: "Secure Remote Share", summary: "Added AES-256-GCM content encryption, separate PIN verification, sender approval, SHA-256 integrity checks, private metadata mode, and hardened TURN/API logging."),
     .init(version: "2.0.8", title: "Remote sender startup fix", summary: "Fixed the native iOS WebRTC engine parse regression and removed Google STUN from the runtime ICE path."),
     .init(version: "2.0.7", title: "Remote completion handshake", summary: "Made successful remote downloads terminal, added receiver confirmation back to the sender, and prevented expected session cleanup from becoming a false failure."),
     .init(version: "2.0.6", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
@@ -720,7 +722,7 @@ private struct RemoteShareSheet: View {
             ScrollView {
                 VStack(spacing: 18) {
                     VStack(spacing: 5) {
-                        Image(systemName: "network")
+                        Image(systemName: "lock.shield.fill")
                             .font(.system(size: 34, weight: .semibold))
                             .foregroundStyle(.tint)
                         Text(file.name)
@@ -733,6 +735,14 @@ private struct RemoteShareSheet: View {
                     }
 
                     statusCard
+
+                    if !remote.pinCode.isEmpty {
+                        securityCard
+                    }
+
+                    if remote.approvalPending {
+                        approvalCard
+                    }
 
                     if let receiverURL = remote.receiverURL {
                         qrCard(receiverURL)
@@ -755,7 +765,7 @@ private struct RemoteShareSheet: View {
                         Button {
                             remote.retry()
                         } label: {
-                            Label("Retry remote share", systemImage: "arrow.clockwise")
+                            Label("Retry secure share", systemImage: "arrow.clockwise")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -772,7 +782,7 @@ private struct RemoteShareSheet: View {
                         .buttonStyle(.bordered)
                     }
 
-                    Text("Remote Share works independently of the local Wi-Fi Sharing switch. Keep Shar open until the transfer finishes. The file is sent through encrypted WebRTC; TURN is used only when a direct peer-to-peer path cannot be established.")
+                    Text("Remote Share is independent of the local Wi-Fi Sharing switch. Keep Shar open until the transfer finishes. Shar 2.1 encrypts file contents and metadata with a separate AES-256-GCM key stored only in the shared URL fragment; the signaling/TURN service never receives that key.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -780,7 +790,7 @@ private struct RemoteShareSheet: View {
                 .padding(20)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Remote Share")
+            .navigationTitle("Secure Remote Share")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -837,6 +847,72 @@ private struct RemoteShareSheet: View {
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    private var securityCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Security", systemImage: "checkmark.shield.fill")
+                .font(.subheadline.weight(.semibold))
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Receiver PIN")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(remote.formattedPIN)
+                        .font(.title2.monospacedDigit().weight(.bold))
+                        .textSelection(.enabled)
+                }
+                Spacer()
+                Button {
+                    UIPasteboard.general.string = remote.pinCode
+                    remote.markPinCopied()
+                } label: {
+                    Label(remote.didCopyPIN ? "Copied" : "Copy PIN", systemImage: remote.didCopyPIN ? "checkmark" : "doc.on.doc")
+                }
+                .buttonStyle(.bordered)
+            }
+            Divider()
+            Label("AES-256-GCM end-to-end content encryption", systemImage: "lock.fill")
+            Label("Encryption key never sent to Shar servers", systemImage: "key.fill")
+            Label("Sender approval required before transfer", systemImage: "person.badge.shield.checkmark")
+            Label("SHA-256 verified before completion", systemImage: "checkmark.seal.fill")
+            Label("One receiver · 30 minute expiry", systemImage: "timer")
+            Text("Send the PIN separately from the link when practical.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var approvalCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Receiver requests access", systemImage: "person.crop.circle.badge.questionmark")
+                .font(.subheadline.weight(.semibold))
+            Text("A device entered the correct PIN. Approve it before Shar releases the WebRTC/TURN connection credentials.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Button(role: .destructive) {
+                    remote.resolveApproval(approved: false)
+                } label: {
+                    Label("Reject", systemImage: "xmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    remote.resolveApproval(approved: true)
+                } label: {
+                    Label("Approve", systemImage: "checkmark.shield")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(14)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     @ViewBuilder
     private func qrCard(_ url: URL) -> some View {
         VStack(spacing: 13) {
@@ -873,8 +949,12 @@ private struct RemoteShareSheet: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .accessibilityLabel("Share remote link with another app")
+                .accessibilityLabel("Share secure remote link with another app")
             }
+            Text("The link contains the 256-bit encryption key in its URL fragment. Shar's web server never receives that fragment. The separate PIN is not included in the link.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -923,6 +1003,9 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
     @Published private(set) var isWorking = true
     @Published private(set) var errorMessage: String?
     @Published private(set) var didCopy = false
+    @Published private(set) var didCopyPIN = false
+    @Published private(set) var pinCode = ""
+    @Published private(set) var approvalPending = false
 
     private let file: SharedFile
     private weak var webView: WKWebView?
@@ -937,8 +1020,14 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
     var statusSymbol: String {
         if errorMessage != nil { return "exclamationmark.triangle.fill" }
         if progress >= 1 { return "checkmark.circle.fill" }
-        if receiverURL != nil { return "network" }
+        if approvalPending { return "person.badge.shield.checkmark" }
+        if receiverURL != nil { return "lock.shield.fill" }
         return "hourglass"
+    }
+
+    var formattedPIN: String {
+        guard pinCode.count == 6 else { return pinCode }
+        return "\(pinCode.prefix(3)) \(pinCode.suffix(3))"
     }
 
     var progressLabel: String {
@@ -975,7 +1064,11 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         progress = 0
         transferred = 0
         isTransferring = false
-        status = "Creating temporary Internet share…"
+        didCopy = false
+        didCopyPIN = false
+        pinCode = ""
+        approvalPending = false
+        status = "Creating end-to-end encrypted share…"
         loadEngine()
     }
 
@@ -985,19 +1078,34 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.start() }
     }
 
-    func cancel() {
-        cancel(deleteRemoteSession: true)
-    }
+    func cancel() { cancel(deleteRemoteSession: true) }
 
     func markCopied() {
         didCopy = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.didCopy = false }
     }
 
+    func markPinCopied() {
+        didCopyPIN = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.didCopyPIN = false }
+    }
+
+    func resolveApproval(approved: Bool) {
+        approvalPending = false
+        webView?.callAsyncJavaScript(
+            "window.sharNativeApprove && window.sharNativeApprove(approved)",
+            arguments: ["approved": approved],
+            in: nil,
+            in: .page,
+            completionHandler: { _ in }
+        )
+    }
+
     private func cancel(deleteRemoteSession: Bool) {
         cancelled = true
         isWorking = false
         isTransferring = false
+        approvalPending = false
         if deleteRemoteSession {
             webView?.evaluateJavaScript("window.sharNativeCancel && window.sharNativeCancel()", completionHandler: nil)
         }
@@ -1025,44 +1133,34 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         'use strict';
         const FILE=\(json);
         const API='https://mojoworks.xyz/api/shar/remote/v1';
-        let session=null,pc=null,dc=null,signalSeq=0,pollTimer=null,pending=[],sent=0,cancelled=false,finished=false,receiverAckResolve=null;
+        const RECEIVE='https://mojoworks.xyz/labs/shar/receive.html';
+        const PIN_ITERATIONS=150000;
+        let session=null,pc=null,dc=null,signalSeq=0,pollTimer=null,pending=[],sent=0,cancelled=false,finished=false,receiverAckResolve=null,aesKey=null,approvalRequestId='',sentHash='';
         const chunkRequests=new Map();let chunkCounter=0;
         function native(m){try{window.webkit.messageHandlers.sharRemote.postMessage(m)}catch(e){}}
         function status(value,state=''){native({type:'status',value,state})}
-        async function api(path,opt={}){
-          let response;
-          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.8',...(opt.headers||{})}})}
-          catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}
-          const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}
-          if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);
-          return body;
-        }
+        function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
+        function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
+        async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.1',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
         async function waitBuffer(){if(!dc||dc.readyState!=='open')throw Error('Remote data channel closed');if(dc.bufferedAmount<4*1024*1024)return;await new Promise((resolve,reject)=>{dc.bufferedAmountLowThreshold=1024*1024;const done=()=>resolve();dc.addEventListener('bufferedamountlow',done,{once:true});setTimeout(()=>{if(dc&&dc.bufferedAmount>=4*1024*1024)reject(Error('Receiver is not consuming data'))},30000)})}
+        async function seal(type,payload){const body=payload instanceof Uint8Array?payload:new Uint8Array(payload);const plain=new Uint8Array(1+body.byteLength);plain[0]=type;plain.set(body,1);const iv=crypto.getRandomValues(new Uint8Array(12));const cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aesKey,plain));const out=new Uint8Array(12+cipher.byteLength);out.set(iv);out.set(cipher,12);return out.buffer}
+        async function openPacket(data){const u=data instanceof ArrayBuffer?new Uint8Array(data):new Uint8Array(await data.arrayBuffer());if(u.byteLength<29)throw Error('Invalid encrypted acknowledgement');const iv=u.subarray(0,12),cipher=u.subarray(12);const plain=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv},aesKey,cipher));return{type:plain[0],payload:plain.subarray(1)}}
+        async function sendControl(obj){await waitBuffer();dc.send(await seal(1,new TextEncoder().encode(JSON.stringify(obj))))}
+        async function sendData(bytes){await waitBuffer();dc.send(await seal(2,bytes))}
         async function signal(type,payload){if(!session)throw Error('No remote session');return api('/session/'+encodeURIComponent(session.id)+'/signal',{method:'POST',headers:{Authorization:'Bearer '+session.hostSecret},body:JSON.stringify({type,payload})})}
-        async function poll(){if(!session||cancelled)return;try{const j=await api('/session/'+encodeURIComponent(session.id)+'/signal?since='+signalSeq,{headers:{Authorization:'Bearer '+session.hostSecret}});for(const m of j.messages||[]){signalSeq=Math.max(signalSeq,m.seq);if(m.type==='answer'){await pc.setRemoteDescription(m.payload);for(const c of pending.splice(0))await pc.addIceCandidate(c)}else if(m.type==='candidate'&&m.payload){if(pc.remoteDescription)await pc.addIceCandidate(m.payload);else pending.push(m.payload)}else if(m.type==='ready'){status('Receiver joined — connecting…')}}}catch(e){if(finished||cancelled)return;native({type:'error',message:e.message});return}if(!finished&&!cancelled)pollTimer=setTimeout(poll,650)}
-        async function connectionLabel(){try{const stats=await pc.getStats();let pair=null;stats.forEach(x=>{if(x.type==='transport'&&x.selectedCandidatePairId)pair=stats.get(x.selectedCandidatePairId);if(x.type==='candidate-pair'&&x.selected)pair=x});if(pair){const l=stats.get(pair.localCandidateId),r=stats.get(pair.remoteCandidateId);if(l?.candidateType==='relay'||r?.candidateType==='relay')return 'Connected through TURN relay';return 'Connected peer-to-peer'}}catch{}return 'Connected'}
-        function receiverAck(timeout=10000){return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;receiverAckResolve=null;resolve(value)};receiverAckResolve=()=>finish(true);setTimeout(()=>finish(false),timeout)})}
+        async function poll(){if(!session||cancelled)return;try{const j=await api('/session/'+encodeURIComponent(session.id)+'/signal?since='+signalSeq,{headers:{Authorization:'Bearer '+session.hostSecret}});for(const m of j.messages||[]){signalSeq=Math.max(signalSeq,m.seq);if(m.type==='answer'){await pc.setRemoteDescription(m.payload);for(const c of pending.splice(0))await pc.addIceCandidate(c)}else if(m.type==='candidate'&&m.payload){if(pc.remoteDescription)await pc.addIceCandidate(m.payload);else pending.push(m.payload)}else if(m.type==='join-request'){approvalRequestId=m.payload?.requestId||'';status('Receiver entered the correct PIN — approval required');native({type:'approval',requestId:approvalRequestId})}else if(m.type==='ready'){status('Approved receiver is connecting…')}}}catch(e){if(finished||cancelled)return;native({type:'error',message:e.message});return}if(!finished&&!cancelled)pollTimer=setTimeout(poll,650)}
+        window.sharNativeApprove=async approved=>{if(!session||!approvalRequestId)return;try{await api('/session/'+encodeURIComponent(session.id)+'/approve',{method:'POST',headers:{Authorization:'Bearer '+session.hostSecret},body:JSON.stringify({requestId:approvalRequestId,approved:!!approved})});native({type:'approvalResolved',approved:!!approved});status(approved?'Receiver approved — establishing secure connection…':'Receiver rejected');if(!approved)approvalRequestId=''}catch(e){native({type:'error',message:e.message})}};
+        async function connectionLabel(){try{const stats=await pc.getStats();let pair=null;stats.forEach(x=>{if(x.type==='transport'&&x.selectedCandidatePairId)pair=stats.get(x.selectedCandidatePairId);if(x.type==='candidate-pair'&&x.selected)pair=x});if(pair){const l=stats.get(pair.localCandidateId),r=stats.get(pair.remoteCandidateId);if(l?.candidateType==='relay'||r?.candidateType==='relay')return 'Secure connection through Shar TURN relay';return 'Secure peer-to-peer connection'}}catch{}return 'Secure connection established'}
+        function receiverAck(timeout=15000){return new Promise(resolve=>{let done=false;const finish=value=>{if(done)return;done=true;receiverAckResolve=null;resolve(value)};receiverAckResolve=ok=>finish(ok===true);setTimeout(()=>finish(false),timeout)})}
         async function serverCompletion(){for(let i=0;i<8&&!cancelled;i++){try{const s=await api('/session/'+encodeURIComponent(session.id));if(s.completed)return true}catch{}await new Promise(r=>setTimeout(r,500))}return false}
-        async function sendFile(){sent=0;native({type:'transfer',active:true});dc.send(JSON.stringify({t:'manifest',files:[FILE]}));dc.send(JSON.stringify({t:'file-start',i:0,path:FILE.path,name:FILE.name,size:FILE.size,mime:FILE.mime}));for(let offset=0;offset<FILE.size;){if(cancelled)throw Error('Share cancelled');const length=Math.min(65536,FILE.size-offset);const bytes=await chunk(offset,length);if(!bytes.length&&length)throw Error('Unexpected end of file');await waitBuffer();dc.send(bytes);offset+=bytes.byteLength;sent=offset;native({type:'progress',sent,total:FILE.size})}dc.send(JSON.stringify({t:'file-end',i:0}));const ack=receiverAck();dc.send(JSON.stringify({t:'complete'}));status('Finalizing with receiver…','live');const confirmed=(await ack)||(await serverCompletion());finished=true;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;native({type:'complete',confirmed});status(confirmed?'Transfer complete':'Transfer sent — receiver confirmation unavailable','live')}
-        async function start(){
-          if(!window.RTCPeerConnection){native({type:'error',message:'WebRTC is unavailable in this iOS WebView.'});return}
-          try{
-            session=await api('/session',{method:'POST',body:JSON.stringify({files:[FILE],ttlSeconds:1800,oneTime:true})});
-            native({type:'session',receiverUrl:session.receiverUrl,expiresAt:session.expiresAt});
-            status('Waiting for receiver…');
-            pc=new RTCPeerConnection({iceServers:session.iceServers});
-            dc=pc.createDataChannel('shar-file',{ordered:true});dc.binaryType='arraybuffer';
-            dc.onopen=async()=>{status(await connectionLabel(),'live');sendFile().catch(e=>{if(!finished)native({type:'error',message:e.message})})};
-            dc.onmessage=e=>{if(typeof e.data!=='string')return;try{const m=JSON.parse(e.data);if(m.t==='receiver-complete'){status('Receiver verified the file ✓','live');receiverAckResolve?.()}}catch{}};
-            dc.onerror=()=>{if(!finished)native({type:'error',message:'WebRTC data channel error.'})};
-            pc.onicecandidate=e=>{if(e.candidate)signal('candidate',e.candidate.toJSON()).catch(()=>{})};
-            pc.onconnectionstatechange=async()=>{if(finished)return;if(pc.connectionState==='connected')status(await connectionLabel(),'live');else if(pc.connectionState==='failed')native({type:'error',message:'Could not establish a direct or TURN WebRTC connection.'});else if(pc.connectionState==='disconnected')status('Receiver disconnected')};
-            const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signal('offer',pc.localDescription);poll();
-          }catch(e){native({type:'error',message:e.message||String(e)})}
-        }
+        class Sha256{constructor(){this.h=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]);this.buf=new Uint8Array(64);this.bufLen=0;this.bytes=0;this.w=new Uint32Array(64)}static rotr(x,n){return(x>>>n)|(x<<(32-n))}_block(b,o=0){const w=this.w;for(let i=0;i<16;i++){const j=o+i*4;w[i]=((b[j]<<24)|(b[j+1]<<16)|(b[j+2]<<8)|b[j+3])>>>0}for(let i=16;i<64;i++){const x=w[i-15],y=w[i-2],s0=(Sha256.rotr(x,7)^Sha256.rotr(x,18)^(x>>>3))>>>0,s1=(Sha256.rotr(y,17)^Sha256.rotr(y,19)^(y>>>10))>>>0;w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0}let[a,b1,c,d,e,f,g,h]=this.h;for(let i=0;i<64;i++){const S1=(Sha256.rotr(e,6)^Sha256.rotr(e,11)^Sha256.rotr(e,25))>>>0,ch=((e&f)^((~e)&g))>>>0,t1=(h+S1+ch+Sha256.K[i]+w[i])>>>0,S0=(Sha256.rotr(a,2)^Sha256.rotr(a,13)^Sha256.rotr(a,22))>>>0,maj=((a&b1)^(a&c)^(b1&c))>>>0,t2=(S0+maj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b1;b1=a;a=(t1+t2)>>>0}const v=[a,b1,c,d,e,f,g,h];for(let i=0;i<8;i++)this.h[i]=(this.h[i]+v[i])>>>0}update(data){const u=data instanceof Uint8Array?data:new Uint8Array(data);this.bytes+=u.length;let o=0;if(this.bufLen){const n=Math.min(64-this.bufLen,u.length);this.buf.set(u.subarray(0,n),this.bufLen);this.bufLen+=n;o+=n;if(this.bufLen===64){this._block(this.buf);this.bufLen=0}}while(o+64<=u.length){this._block(u,o);o+=64}if(o<u.length){this.buf.set(u.subarray(o),0);this.bufLen=u.length-o}return this}hex(){const bytes=this.bytes,len=this.bufLen,padLen=len<56?56-len:120-len,pad=new Uint8Array(padLen+8);pad[0]=0x80;const bits=bytes*8,hi=Math.floor(bits/0x100000000),lo=bits>>>0,n=pad.length;pad[n-8]=(hi>>>24)&255;pad[n-7]=(hi>>>16)&255;pad[n-6]=(hi>>>8)&255;pad[n-5]=hi&255;pad[n-4]=(lo>>>24)&255;pad[n-3]=(lo>>>16)&255;pad[n-2]=(lo>>>8)&255;pad[n-1]=lo&255;this.update(pad);return Array.from(this.h,x=>x.toString(16).padStart(8,'0')).join('')}}
+        Sha256.K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+        async function sendFile(){sent=0;native({type:'transfer',active:true});const hasher=new Sha256();await sendControl({t:'manifest',files:[FILE]});await sendControl({t:'file-start',i:0,path:FILE.path,name:FILE.name,size:FILE.size,mime:FILE.mime});for(let offset=0;offset<FILE.size;){if(cancelled)throw Error('Share cancelled');const length=Math.min(49152,FILE.size-offset);const bytes=await chunk(offset,length);if(!bytes.length&&length)throw Error('Unexpected end of file');hasher.update(bytes);await sendData(bytes);offset+=bytes.byteLength;sent=offset;native({type:'progress',sent,total:FILE.size})}sentHash=hasher.hex();await sendControl({t:'file-end',i:0,sha256:sentHash});const ack=receiverAck();await sendControl({t:'complete'});status('Finalizing encrypted transfer with receiver…','live');const verified=await ack;const serverDone=verified?true:await serverCompletion();finished=true;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;native({type:'complete',confirmed:verified,serverDone});status(verified?'Transfer complete ✓':serverDone?'Receiver reported completion — secure verification ACK unavailable':'Transfer sent — receiver confirmation unavailable','live')}
+        async function start(){if(!window.RTCPeerConnection||!crypto?.subtle){native({type:'error',message:'Secure WebRTC/Web Crypto is unavailable in this iOS WebView.'});return}try{const pin=randomPin(),salt=crypto.getRandomValues(new Uint8Array(16)),verifier=await pinVerifier(pin,salt),rawKey=crypto.getRandomValues(new Uint8Array(32));aesKey=await crypto.subtle.importKey('raw',rawKey,{name:'AES-GCM'},false,['encrypt','decrypt']);session=await api('/session',{method:'POST',body:JSON.stringify({files:[{path:'Encrypted item',size:FILE.size,mime:'application/octet-stream'}],ttlSeconds:1800,oneTime:true,pinVerifier:verifier,pinSalt:b64urlEncode(salt),pinIterations:PIN_ITERATIONS,approvalRequired:true,e2ee:true,privateMetadata:true})});const receiverUrl=RECEIVE+'#share='+encodeURIComponent(session.id)+'&key='+encodeURIComponent(b64urlEncode(rawKey));native({type:'session',receiverUrl,expiresAt:session.expiresAt,pin});status('Waiting for receiver PIN…');pc=new RTCPeerConnection({iceServers:session.iceServers});dc=pc.createDataChannel('shar-file',{ordered:true});dc.binaryType='arraybuffer';dc.onopen=async()=>{status(await connectionLabel(),'live');sendFile().catch(e=>{if(!finished)native({type:'error',message:e.message})})};dc.onmessage=e=>{if(finished||typeof e.data==='string')return;(async()=>{try{const packet=await openPacket(e.data);if(packet.type!==1)return;const m=JSON.parse(new TextDecoder().decode(packet.payload));if(m.t==='receiver-complete'){const ok=m.verified===true&&Array.isArray(m.hashes)&&m.hashes[0]===sentHash;status(ok?'Receiver decrypted and SHA-256 verified the file ✓':'Receiver completion could not be cryptographically verified',ok?'live':'');receiverAckResolve?.(ok)}}catch(err){if(!finished)native({type:'error',message:'Secure receiver acknowledgement failed.'})}})()};dc.onerror=()=>{if(!finished)native({type:'error',message:'Encrypted WebRTC data channel error.'})};pc.onicecandidate=e=>{if(e.candidate)signal('candidate',e.candidate.toJSON()).catch(()=>{})};pc.onconnectionstatechange=async()=>{if(finished)return;if(pc.connectionState==='connected')status(await connectionLabel(),'live');else if(pc.connectionState==='failed')native({type:'error',message:'Could not establish a direct or Shar TURN WebRTC connection.'});else if(pc.connectionState==='disconnected')status('Receiver disconnected')};const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signal('offer',pc.localDescription);poll()}catch(e){native({type:'error',message:e.message||String(e)})}}
         window.sharNativeCancel=async()=>{cancelled=true;finished=true;if(pollTimer)clearTimeout(pollTimer);try{dc&&dc.close()}catch{}try{pc&&pc.close()}catch{}if(session?.id&&session?.hostSecret)await api('/session/'+encodeURIComponent(session.id),{method:'DELETE',headers:{Authorization:'Bearer '+session.hostSecret}}).catch(()=>{});session=null};
         setTimeout(start,0);
         </script>
@@ -1084,8 +1182,15 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         case "session":
             if let value = body["receiverUrl"] as? String { receiverURL = URL(string: value) }
             if let value = body["expiresAt"] as? String { expiresAt = ISO8601DateFormatter().date(from: value) }
+            if let value = body["pin"] as? String { pinCode = value }
             isWorking = true
             errorMessage = nil
+        case "approval":
+            approvalPending = true
+            status = "Receiver requests approval"
+        case "approvalResolved":
+            approvalPending = false
+            status = ((body["approved"] as? Bool) ?? false) ? "Receiver approved — connecting…" : "Receiver rejected"
         case "transfer":
             isTransferring = (body["active"] as? Bool) ?? true
         case "progress":
@@ -1099,7 +1204,10 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
             progress = 1
             isTransferring = false
             isWorking = false
-            status = ((body["confirmed"] as? Bool) ?? true) ? "Transfer complete ✓" : "Transfer sent"
+            approvalPending = false
+            let confirmed = (body["confirmed"] as? Bool) ?? false
+            let serverDone = (body["serverDone"] as? Bool) ?? false
+            status = confirmed ? "Transfer complete ✓" : (serverDone ? "Receiver reported completion" : "Transfer sent")
         case "error":
             fail((body["message"] as? String) ?? "Remote share failed")
         case "chunk":
@@ -1119,7 +1227,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
                 let handle = try FileHandle(forReadingFrom: fileURL)
                 defer { try? handle.close() }
                 try handle.seek(toOffset: offset)
-                let data = try handle.read(upToCount: max(1, min(length, 65536))) ?? Data()
+                let data = try handle.read(upToCount: max(1, min(length, 49152))) ?? Data()
                 let b64 = data.base64EncodedString()
                 DispatchQueue.main.async {
                     self?.webView?.callAsyncJavaScript(
@@ -1147,8 +1255,9 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
     private func fail(_ message: String) {
         isWorking = false
         isTransferring = false
+        approvalPending = false
         errorMessage = message
-        status = "Remote Share unavailable"
+        status = "Secure Remote Share unavailable"
     }
 
     deinit {
