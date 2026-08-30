@@ -1,4 +1,4 @@
-# Shar — 2.0.7
+# Shar — 2.0.8
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.0.7** (build/version code **20007**).
+`VERSION` is authoritative. Current release: **2.0.8** (build/version code **20008**).
 
 ## Branding
 
@@ -91,6 +91,12 @@ Background audio is for media playback only; it is not used as a workaround to g
 Image previews default to **fit**, keeping the entire image visible inside the available viewer area rather than cropping or starting zoomed in. The iOS/iPadOS preview also provides a persistent bottom-right **X** close control in addition to gesture dismissal. Browser image/video previews use `object-fit: contain` for the same fit-first behavior.
 
 ## LAN and remote WebRTC sharing
+
+### v2.0.8 remote sender/runtime ICE fix
+
+v2.0.8 fixes a JavaScript syntax regression inside the native iOS off-screen WebRTC engine that could leave the native Remote Share sheet stuck on **Creating temporary Internet share…** without either a link or an error. Release verification now extracts that exact embedded engine from `ContentView.swift` and runs `node --check` against it before packaging.
+
+Shar Remote Share no longer contacts Google STUN. The signaling service now returns only the dedicated Shar coturn host for STUN/TURN ICE discovery, so runtime WebRTC connectivity uses Shar-controlled infrastructure. Android's Gradle `google()` repository remains a build-time dependency source and is unrelated to the running Remote Share network path.
 
 LAN sharing remains unchanged: devices on the same reachable network can open the local Shar URL such as `http://192.168.1.42:8080`. Cellular carrier IP addresses are still not treated as inbound-routable Shar addresses.
 

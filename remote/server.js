@@ -93,8 +93,9 @@ function sessionFor(id) {
   return s;
 }
 function iceServers() {
-  const out=[{urls:['stun:stun.l.google.com:19302']}];
+  const out=[];
   if (TURN_HOST && TURN_SECRET) {
+    out.push({urls:[`stun:${TURN_HOST}:${TURN_PORT}`]});
     const expiry=Math.floor(Date.now()/1000)+3600;
     const username=`${expiry}:${token(8)}`;
     const credential=crypto.createHmac('sha1',TURN_SECRET).update(username).digest('base64');
@@ -126,7 +127,7 @@ const server=http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,content-type,x-shar-client','Access-Control-Allow-Methods':'GET,POST,DELETE,OPTIONS','Cache-Control':'no-store'}); return res.end(); }
   if (!rateLimit(req,res)) return;
   const parts=routeParts(req.url);
-  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.0.7',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET)});
+  if (req.method==='GET' && parts.length===1 && parts[0]==='health') return json(res,200,{ok:true,service:'shar-remote',version:'2.0.8',sessions:sessions.size,turn:!!(TURN_HOST&&TURN_SECRET)});
   if (req.method==='POST' && parts.length===1 && parts[0]==='session') {
     if (!allowSessionCreate(req,res)) return;
     let body; try { body=await readJSON(req,res); } catch { return; }

@@ -30,7 +30,10 @@ $(python3 - "$CREATE" <<'PY'
 import json,sys
 j=json.loads(sys.argv[1])
 assert j['ok'] and j['files'][0]['path']=='folder/a.txt'
-assert any(str(u).startswith('turn:turn.example.invalid:3479') for x in j['iceServers'] for u in x.get('urls',[]))
+urls=[str(u) for x in j['iceServers'] for u in x.get('urls',[])]
+assert 'stun:turn.example.invalid:3479' in urls
+assert any(u.startswith('turn:turn.example.invalid:3479') for u in urls)
+assert not any('google' in u.lower() for u in urls)
 print(j['id'],j['hostSecret'])
 PY
 )

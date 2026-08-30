@@ -2,6 +2,22 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.0.8] - 2026-08-30
+
+### Fixed
+- Fixed the native iOS Remote Share sheet hanging indefinitely on **Creating temporary Internet share…**. The embedded WebRTC engine had a JavaScript syntax error in its `dc.onerror` callback, so the hidden engine failed to parse before it could create a session or report an error.
+- Corrected the data-channel error callback and kept the v2.0.7 receiver-completion handshake unchanged.
+
+### Privacy / infrastructure
+- Removed `stun:stun.l.google.com:19302` from Shar's runtime ICE configuration. Shar now advertises its own coturn endpoint for STUN as well as TURN, so Remote Share does not contact Google STUN.
+
+### Hardened
+- Repository verification now extracts the actual JavaScript embedded in the native iOS `NativeRemoteShareCoordinator` and runs `node --check` on it, in addition to the browser sender, public receiver and signaling server syntax checks.
+- The remote protocol smoke test now requires a Shar-hosted STUN URL and fails if any Google STUN URL reappears.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.8 / 20008.
+
 ## [2.0.7] - 2026-08-30
 
 ### Fixed

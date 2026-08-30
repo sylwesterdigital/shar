@@ -512,6 +512,7 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.0.8", title: "Remote sender startup fix", summary: "Fixed the native iOS WebRTC engine parse regression and removed Google STUN from the runtime ICE path."),
     .init(version: "2.0.7", title: "Remote completion handshake", summary: "Made successful remote downloads terminal, added receiver confirmation back to the sender, and prevented expected session cleanup from becoming a false failure."),
     .init(version: "2.0.6", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
     .init(version: "2.0.5", title: "Remote service readiness", summary: "Fixed the signaling-service startup race and added systemd readiness diagnostics before nginx/public-route validation."),
@@ -1030,7 +1031,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function status(value,state=''){native({type:'status',value,state})}
         async function api(path,opt={}){
           let response;
-          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.7',...(opt.headers||{})}})}
+          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.8',...(opt.headers||{})}})}
           catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}
           const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}
           if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);
@@ -1056,7 +1057,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
             dc=pc.createDataChannel('shar-file',{ordered:true});dc.binaryType='arraybuffer';
             dc.onopen=async()=>{status(await connectionLabel(),'live');sendFile().catch(e=>{if(!finished)native({type:'error',message:e.message})})};
             dc.onmessage=e=>{if(typeof e.data!=='string')return;try{const m=JSON.parse(e.data);if(m.t==='receiver-complete'){status('Receiver verified the file ✓','live');receiverAckResolve?.()}}catch{}};
-            dc.onerror=()=>{if(!finished)native({type:'error',message:'WebRTC data channel error.')};
+            dc.onerror=()=>{if(!finished)native({type:'error',message:'WebRTC data channel error.'})};
             pc.onicecandidate=e=>{if(e.candidate)signal('candidate',e.candidate.toJSON()).catch(()=>{})};
             pc.onconnectionstatechange=async()=>{if(finished)return;if(pc.connectionState==='connected')status(await connectionLabel(),'live');else if(pc.connectionState==='failed')native({type:'error',message:'Could not establish a direct or TURN WebRTC connection.'});else if(pc.connectionState==='disconnected')status('Receiver disconnected')};
             const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signal('offer',pc.localDescription);poll();

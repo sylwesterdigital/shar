@@ -317,6 +317,7 @@ final class LocalHttpServer {
           <dialog id="developerInfo">
             <div class="modal-head"><div class="modal-title">Developer updates</div><button id="developerInfoClose" class="action-button" type="button"></button></div>
             <div class="updates">
+              <div class="update"><div class="update-head"><span class="update-version">v2.0.8</span><span class="update-title">Remote sender startup fix</span></div><p>Fixed native iOS Remote Share startup and removed Google STUN from runtime ICE; Shar now uses its own STUN/TURN service.</p></div>
               <div class="update"><div class="update-head"><span class="update-version">v2.0.7</span><span class="update-title">Remote completion handshake</span></div><p>Successful remote downloads now remain complete, acknowledge receipt back to the sender, and ignore expected post-transfer cleanup errors.</p></div>
               <div class="update"><div class="update-head"><span class="update-version">v2.0.6</span><span class="update-title">Native link sharing</span></div><p>Fixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.</p></div>
               

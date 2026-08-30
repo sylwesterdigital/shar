@@ -145,6 +145,8 @@ grep -Fq 'RemoteShareActivity' android/app/src/main/java/com/localwebshare/app/M
 grep -Fq '<activity android:name=".RemoteShareActivity"' android/app/src/main/AndroidManifest.xml || fail "Android RemoteShareActivity is not registered"
 grep -Fq 'const TURN_SECRET = process.env.SHAR_TURN_SECRET' remote/server.js || fail "Remote server TURN secret must come from environment"
 grep -Fq 'crypto.createHmac' remote/server.js || fail "Short-lived TURN credential generation missing"
+grep -Fq 'stun:${TURN_HOST}:${TURN_PORT}' remote/server.js || fail "Shar-hosted STUN configuration missing"
+! grep -RFiq 'stun.l.google.com' LocalWebShare remote homepage android/app/src/main/java || fail "Runtime Remote Share must not use Google STUN"
 grep -Fq 'MAX_SIGNALS' remote/server.js || fail "Remote signaling bounds missing"
 grep -Fq 'MAX_ACTIVE_SESSIONS' remote/server.js || fail "Remote active-session cap missing"
 grep -Fq 'MAX_CREATES_PER_HOUR' remote/server.js || fail "Remote share-creation rate limit missing"
@@ -205,11 +207,19 @@ if html(apple) != html(android):
 Path('/tmp/shar-browser-verify.js').write_text(re.search(r'<script>(.*?)</script>', html(apple), re.S).group(1))
 receiver=Path('homepage/receive.html').read_text()
 Path('/tmp/shar-receiver-verify.js').write_text(re.search(r'<script>(.*?)</script>', receiver, re.S).group(1))
+content=Path('LocalWebShare/ContentView.swift').read_text()
+engine=re.search(r'private var engineHTML: String \{.*?return \"\"\"(.*?)\"\"\"', content, re.S)
+if not engine: raise SystemExit('Native iOS Remote Share engine HTML missing')
+engine_script=re.search(r'<script>(.*?)</script>', engine.group(1), re.S)
+if not engine_script: raise SystemExit('Native iOS Remote Share engine JavaScript missing')
+ios_js=engine_script.group(1).replace(r'const FILE=\(json);', 'const FILE={"name":"verify","path":"verify","size":1,"mime":"application/octet-stream"};')
+Path('/tmp/shar-ios-native-remote-verify.js').write_text(ios_js)
 PY
   if command -v node >/dev/null 2>&1; then
     node --check remote/server.js >/dev/null || fail "Remote signaling JavaScript syntax failed"
     node --check /tmp/shar-browser-verify.js >/dev/null || fail "Embedded browser JavaScript syntax failed"
     node --check /tmp/shar-receiver-verify.js >/dev/null || fail "Remote receiver JavaScript syntax failed"
+    node --check /tmp/shar-ios-native-remote-verify.js >/dev/null || fail "Native iOS Remote Share JavaScript syntax failed"
   fi
 fi
 
