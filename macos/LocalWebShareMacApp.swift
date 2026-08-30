@@ -152,6 +152,7 @@ struct MacContentView: View {
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
+        ("2.0.6", "Native link sharing", "Fixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps."),
         ("2.0.5", "Remote service readiness", "Fixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation."),
         ("2.0.4", "Native iPhone Remote Share", "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
         ("2.0.3", "Public route verification", "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts."),

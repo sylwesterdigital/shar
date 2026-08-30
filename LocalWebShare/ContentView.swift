@@ -512,6 +512,7 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.0.6", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
     .init(version: "2.0.5", title: "Remote service readiness", summary: "Fixed the signaling-service startup race and added systemd readiness diagnostics before nginx/public-route validation."),
     .init(version: "2.0.4", title: "Native iPhone Remote Share", summary: "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
     .init(version: "2.0.3", title: "Public route verification", summary: "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate or address-bound apex vhosts."),
@@ -705,6 +706,7 @@ private struct RemoteShareSheet: View {
     @Environment(\.dismiss) private var dismiss
     let file: SharedFile
     @StateObject private var remote: NativeRemoteShareCoordinator
+    @State private var showingSystemShareSheet = false
 
     init(file: SharedFile) {
         self.file = file
@@ -797,6 +799,13 @@ private struct RemoteShareSheet: View {
                     .accessibilityHidden(true)
             }
             .task { remote.start() }
+            .sheet(isPresented: $showingSystemShareSheet) {
+                if let receiverURL = remote.receiverURL {
+                    NativeSystemShareSheet(activityItems: [receiverURL])
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                }
+            }
         }
     }
 
@@ -855,16 +864,29 @@ private struct RemoteShareSheet: View {
                 }
                 .buttonStyle(.bordered)
 
-                ShareLink(item: url, subject: Text("Shar Remote Share"), message: Text("Download \(file.name) from Shar")) {
+                Button {
+                    showingSystemShareSheet = true
+                } label: {
                     Label("Share link", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityLabel("Share remote link with another app")
             }
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
+}
+
+private struct NativeSystemShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 private enum NativeRemoteShareQR {
@@ -1007,7 +1029,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function status(value,state=''){native({type:'status',value,state})}
         async function api(path,opt={}){
           let response;
-          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.5',...(opt.headers||{})}})}
+          try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.0.6',...(opt.headers||{})}})}
           catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}
           const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}
           if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);

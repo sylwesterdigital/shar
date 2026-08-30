@@ -2,6 +2,20 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.0.6] - 2026-08-30
+
+### Fixed
+- Fixed the native iOS **Share link** button in Remote Share. It now explicitly presents Apple's `UIActivityViewController` with the generated HTTPS receiver URL instead of relying on SwiftUI `ShareLink`, which was not presenting an activity sheet in the live nested Remote Share presentation.
+- The receiver link can now be sent directly through Messages, Mail, AirDrop and installed third-party messaging/share apps exposed by iOS.
+- **Copy link** remains a separate clipboard-only action.
+
+### Hardened
+- Added repository guards requiring the native iOS activity-controller share path and preventing a regression back to `ShareLink` inside `RemoteShareSheet`.
+
+### Changed
+- Bumped iOS marketing/build version and Android versionName/versionCode to 2.0.6 / 20006.
+- Remote signaling, TURN, receiver protocol and native WebRTC transfer engine remain unchanged from v2.0.5.
+
 ## [2.0.5] - 2026-08-30
 
 ### Fixed
