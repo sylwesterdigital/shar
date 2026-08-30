@@ -1,4 +1,4 @@
-# Shar — 2.2.0
+# Shar — 2.2.2
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.0** (build/version code **20200**).
+`VERSION` is authoritative. Current release: **2.2.2** (build/version code **20202**).
 
 ## Branding
 
@@ -100,6 +100,13 @@ Audio playback is owned by one persistent `SharedAudioPlaybackController` per na
 
 ## LAN and remote WebRTC sharing
 
+### v2.2.2 iOS grid controls and release resilience
+
+- iOS/iPadOS Grid mode now uses fixed 34 × 34 icon controls for Preview, Share, Remote and Delete when **Icons** button mode is selected. This prevents the bordered-button layout regression that could stretch these controls into tall vertical pills inside two-column file cards.
+- Compact/Text grid actions are constrained to their intrinsic vertical size as an additional guard against the same stretching behavior.
+- A tethered iPhone/iPad that runs out of storage during the optional install step no longer blocks macOS/Android artifacts, remote-service deployment, GitHub publication or homepage deployment after the iOS app has already built and signed successfully. The device install remains visibly failed and `app_build.sh` returns a dedicated status; `build_all.sh` treats only this recognized storage condition as non-blocking.
+- Other iOS build, signing and installation failures remain fatal.
+
 ### v2.1.7 macOS application identity and About routing
 
 - The optional macOS **ⓘ** toolbar button now matches iOS: when enabled in Config it opens the **Developer updates** release log.
@@ -123,7 +130,7 @@ Audio playback is owned by one persistent `SharedAudioPlaybackController` per na
 
 ### v2.1.4 release pipeline resilience
 - A successful tethered iOS install is now authoritative for distribution validation. If the device locks before the optional automatic launch, Shar prints a warning and continues the remaining release/deployment stages.
-- Actual build, signing and installation failures remain fatal. This prevents an already-installed iPhone app from blocking macOS/Android artifacts, remote-service deployment, GitHub publication and homepage deployment.
+- Build and signing failures remain fatal, as do normal installation failures. Since v2.2.2, the specifically detected external condition of an attached device having no free storage is reported but does not block macOS/Android artifacts, remote-service deployment, GitHub publication or homepage deployment.
 
 ### v2.1.3 unified native library UI and About/Support
 - macOS now mirrors the iOS library structure instead of using a configuration-heavy sidebar: the main window has the import `+`, compact LAN Sharing strip, All/Images/Audio/Video/3D/Docs/Other media filter chips, visible filtered-file count, and native Grid/List modes.
@@ -181,7 +188,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.2.0.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.2.2.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -208,7 +215,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.2.0.zip
+LocalWebSharePrototype-v2.2.2.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

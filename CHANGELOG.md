@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.2.2] - 2026-08-31
+
+### iOS grid controls
+
+- Replaced the stretch-prone bordered icon action row in iOS/iPadOS Grid cards with fixed 34 × 34 circular controls for Preview, Share, Remote Share, and Delete when **Icons** mode is selected.
+- Constrained Compact/Text action labels to their intrinsic vertical size so SwiftUI cannot expand the action row into tall variable-height pills.
+- Added repository verification guards for the fixed-size grid controls.
+
+### Release pipeline resilience
+
+- Added explicit detection for `devicectl` installation failures caused by an attached iPhone/iPad having insufficient storage (`No space left on device` / error 28).
+- `app_build.sh` now returns dedicated status 21 only for that recognized external storage condition after the app has already built and passed signature validation.
+- `build_all.sh` treats status 21 as a visible warning and continues the distribution release, while all other connected-device build/sign/install failures remain fatal.
+- This allows remote signaling/TURN deployment, Git commit/push, GitHub Release publication, and homepage deployment to proceed even when a test device is temporarily full.
+
+### Release metadata
+
+- Updated native/browser remote-share client identifiers and signaling health version to 2.2.2.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.2 / 20202.
+
+## [2.2.1] - 2026-08-30
+
+### macOS presentation polish
+
+- Fixed the native **About Shar** panel to open at a stable readable 560 × 420 layout instead of collapsing into an unusably narrow window.
+- Changed macOS image preview startup to fit the whole image inside the preview viewport rather than initially presenting it at approximately 1:1/native size.
+- Reworked native macOS **Secure Remote Share** into a compact non-scrolling layout: larger PIN, concise security summary, smaller QR/link block, and a persistent bottom action bar.
+- Made **Copy link**, **Share link**, and **Cancel share** larger and always visible at the bottom of the Remote Share sheet.
+- Removed the redundant five-line security feature list from the PIN card while retaining AES-256-GCM, SHA-256, sender approval, one-receiver, and expiry information in a concise summary.
+- Added release guards for fixed About sizing, fit-to-window image preview, compact Remote Share dimensions, and persistent large action buttons.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.1 / 20201.
+
 ## [2.2.0] - 2026-08-30
 
 ### Polished 3D preview

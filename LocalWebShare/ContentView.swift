@@ -560,6 +560,8 @@ struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.2.2", title: "iOS grid controls + release resilience", summary: "Restored compact fixed-size iOS grid action controls and made device-storage exhaustion a visible non-blocking warning after successful build/sign validation, so distribution publishing can continue."),
+    .init(version: "2.2.1", title: "macOS presentation polish", summary: "Fixed the macOS About window size, made newly opened images fit the preview window, and compacted Secure Remote Share so larger primary actions remain visible without scrolling."),
     .init(version: "2.2.0", title: "Polished 3D preview", summary: "Added lighting, floor, background and fit controls to native 3D previews; browser 3D now renders locally with WebGL and Previous/Next icons are bundled inline."),
     .init(version: "2.1.9", title: "3D preview build compatibility", summary: "Fixed macOS 13 compilation for the 3D preview, imported the SceneKit/Model I/O bridge explicitly, and hardened release checks for these compatibility issues."),
     .init(version: "2.1.8", title: "3D previews + persistent playback", summary: "Added a 3D media category and local interactive previews for GLB/glTF plus Apple-supported model formats; audio keeps its exact position and play/pause state when moving between Grid, List and Preview."),
@@ -673,23 +675,7 @@ private struct MediaGridCard: View {
                 .controlSize(.small)
             }
 
-            HStack(spacing: 6) {
-                Button(action: onPreview) {
-                    ActionLabel(full: "Preview", short: "View", systemImage: "eye", mode: actionLabelMode)
-                }
-                ShareLink(item: file.url) {
-                    ActionLabel(full: "Share", short: "Share", systemImage: "square.and.arrow.up", mode: actionLabelMode)
-                }
-                Button(action: onRemoteShare) {
-                    ActionLabel(full: "Remote", short: "Remote", systemImage: "network", mode: actionLabelMode)
-                }
-                Button(role: .destructive, action: onDelete) {
-                    ActionLabel(full: "Delete", short: "Del", systemImage: "trash", mode: actionLabelMode)
-                }
-            }
-            .font(.caption2)
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            gridActions
         }
         .padding(9)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -700,6 +686,65 @@ private struct MediaGridCard: View {
             Button(role: .destructive, action: onDelete) { Label("Delete", systemImage: "trash") }
         }
     }
+
+    @ViewBuilder
+    private var gridActions: some View {
+        switch actionLabelMode {
+        case .icons:
+            HStack(spacing: 6) {
+                Button(action: onPreview) {
+                    Image(systemName: "eye")
+                        .accessibilityLabel("Preview")
+                }
+                .buttonStyle(GridCardIconButtonStyle())
+
+                ShareLink(item: file.url) {
+                    Image(systemName: "square.and.arrow.up")
+                        .accessibilityLabel("Share")
+                }
+                .buttonStyle(GridCardIconButtonStyle())
+
+                Button(action: onRemoteShare) {
+                    Image(systemName: "network")
+                        .accessibilityLabel("Remote share")
+                }
+                .buttonStyle(GridCardIconButtonStyle())
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                        .accessibilityLabel("Delete")
+                }
+                .buttonStyle(GridCardIconButtonStyle(isDestructive: true))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+
+        case .compact, .text:
+            HStack(spacing: 6) {
+                Button(action: onPreview) {
+                    ActionLabel(full: "Preview", short: "View", systemImage: "eye", mode: actionLabelMode)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+                ShareLink(item: file.url) {
+                    ActionLabel(full: "Share", short: "Share", systemImage: "square.and.arrow.up", mode: actionLabelMode)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+                Button(action: onRemoteShare) {
+                    ActionLabel(full: "Remote", short: "Remote", systemImage: "network", mode: actionLabelMode)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+                Button(role: .destructive, action: onDelete) {
+                    ActionLabel(full: "Delete", short: "Del", systemImage: "trash", mode: actionLabelMode)
+                        .fixedSize(horizontal: true, vertical: true)
+                }
+            }
+            .font(.caption2)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
 }
 
 private struct MediaListRow: View {
@@ -1199,7 +1244,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.0',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -1319,6 +1364,23 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
 
     deinit {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: "sharRemote")
+    }
+}
+
+
+private struct GridCardIconButtonStyle: ButtonStyle {
+    var isDestructive = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(isDestructive ? Color.red : Color.accentColor)
+            .frame(width: 34, height: 34)
+            .background(Color(uiColor: .tertiarySystemFill), in: Circle())
+            .contentShape(Circle())
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

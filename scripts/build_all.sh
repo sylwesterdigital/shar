@@ -21,6 +21,8 @@ IOS_STATUS=$?
 set -e
 if (( IOS_STATUS == 20 )); then
   printf 'No tethered iPhone/iPad detected; generic iOS compile already passed, continuing.\n'
+elif (( IOS_STATUS == 21 )); then
+  printf 'Connected iPhone/iPad is out of storage; the signed device build passed but the optional install could not be staged. Continuing the distribution release. Free device storage before the next manual install.\n'
 elif (( IOS_STATUS != 0 )); then
   exit "$IOS_STATUS"
 fi

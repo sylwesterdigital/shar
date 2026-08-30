@@ -33,6 +33,7 @@ CONFIGURATION="Debug"
 DERIVED_DATA="$REPO_DIR/build/DerivedData"
 LOG_DIR="$REPO_DIR/build/logs"
 BUILD_LOG="$LOG_DIR/app_build.log"
+INSTALL_LOG="$LOG_DIR/app_install.log"
 APP_PATH="$DERIVED_DATA/Build/Products/Debug-iphoneos/LocalWebShare.app"
 
 FRESH=0
@@ -249,7 +250,21 @@ if ((FRESH)); then
 fi
 
 say "Installing on $DEVICE_NAME"
-xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
+: > "$INSTALL_LOG"
+set +e
+xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH" > "$INSTALL_LOG" 2>&1
+INSTALL_STATUS=$?
+set -e
+cat "$INSTALL_LOG"
+if (( INSTALL_STATUS != 0 )); then
+  if grep -Eiq 'not enough storage|No space left on device|NSPOSIXErrorDomain error 28' "$INSTALL_LOG"; then
+    printf '\nWARNING: The connected iOS device does not have enough free storage to install Shar. The app built and signed successfully; returning status 21 so the distribution release can continue while preserving this as a visible device-install warning.\n' >&2
+    printf 'Install log: %s\n' "$INSTALL_LOG" >&2
+    exit 21
+  fi
+  printf '\nInstall log: %s\n' "$INSTALL_LOG" >&2
+  fail "devicectl could not install the signed app on $DEVICE_NAME."
+fi
 
 if ((LAUNCH)); then
   say "Launching without LLDB attach"

@@ -58,7 +58,9 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.2.0  Polished 3D preview\nAdded local WebGL 3D rendering with lighting/floor/background controls and fixed missing Previous/Next icons.\n\n"+
+        String message="v2.2.2  iOS grid controls + release resilience\nRestored fixed-size iOS grid action controls and made attached-device storage exhaustion non-blocking for distribution publishing after successful build/sign validation.\n\n"+
+            "v2.2.1  macOS presentation polish\nFixed About sizing, image fit-on-open behavior, and compacted Secure Remote Share with larger always-visible actions.\n\n"+
+            "v2.2.0  Polished 3D preview\nAdded local WebGL 3D rendering with lighting/floor/background controls and fixed missing Previous/Next icons.\n\n"+
             "v2.1.9  3D preview build compatibility\nFixed the macOS 13 3D-preview compile blockers and added release guards for the actual Model I/O/SceneKit bridge.\n\n"+
             "v2.1.8  3D previews + persistent playback\nAdded a 3D media category and interactive Apple-client previews; audio playback keeps its position when moving between library layouts and Preview.\n\n"+
             "v2.1.7  Native Mac identity + About routing\nmacOS now maps the info toolbar button to Developer updates, routes About Shar through the app menu, and uses Shar as the visible macOS application name.\n\n"+

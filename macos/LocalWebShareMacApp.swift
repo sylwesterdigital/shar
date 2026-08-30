@@ -100,7 +100,7 @@ struct MacContentView: View {
         }
         .sheet(item: $remoteShareFile) { file in
             MacRemoteShareSheet(file: file)
-                .frame(minWidth: 620, idealWidth: 680, minHeight: 720, idealHeight: 820)
+                .frame(width: 700, height: 670)
         }
         .sheet(isPresented: $showingDeveloperUpdates) {
             MacDeveloperUpdatesView()
@@ -373,7 +373,7 @@ private struct MacRemoteShareSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Secure Remote Share").font(.title2.bold())
                     Text("End-to-end encrypted Internet sharing").font(.caption).foregroundStyle(.secondary)
@@ -388,67 +388,49 @@ private struct MacRemoteShareSheet: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Close remote share")
             }
-            .padding(18)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 13)
             Divider()
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    VStack(spacing: 5) {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundStyle(.tint)
-                        Text(file.name).font(.headline).multilineTextAlignment(.center).lineLimit(3)
-                        Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
+            VStack(spacing: 11) {
+                fileAndStatus
+                if !remote.pinCode.isEmpty { securityCard }
+                if remote.approvalPending { approvalCard }
+                if let receiverURL = remote.receiverURL { qrCard(receiverURL) }
 
-                    statusCard
-                    if !remote.pinCode.isEmpty { securityCard }
-                    if remote.approvalPending { approvalCard }
-                    if let receiverURL = remote.receiverURL { qrCard(receiverURL) }
-
-                    if remote.progress > 0 || remote.isTransferring {
-                        VStack(alignment: .leading, spacing: 7) {
-                            ProgressView(value: remote.progress)
-                            HStack {
-                                Text(remote.progressLabel)
-                                Spacer()
-                                Text("\(Int((remote.progress * 100).rounded()))%")
-                            }
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                if remote.progress > 0 || remote.isTransferring {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(value: remote.progress)
+                        HStack {
+                            Text(remote.progressLabel)
+                            Spacer()
+                            Text("\(Int((remote.progress * 100).rounded()))%")
                         }
-                        .padding(14)
-                        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                     }
-
-                    if remote.errorMessage != nil {
-                        Button {
-                            remote.retry()
-                        } label: {
-                            Label("Retry secure share", systemImage: "arrow.clockwise")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-
-                    if remote.receiverURL != nil || remote.isWorking {
-                        Button(role: .destructive) {
-                            remote.cancel()
-                            dismiss()
-                        } label: {
-                            Label("Cancel share", systemImage: "xmark.circle")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-
-                    Text("Remote Share is independent of the local Wi-Fi Sharing switch. Keep Shar open until the transfer finishes. File contents and metadata are AES-256-GCM encrypted before WebRTC; the content key remains only in the receiver URL fragment.")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
                 }
-                .padding(20)
+
+                if remote.errorMessage != nil {
+                    Button { remote.retry() } label: {
+                        Label("Retry secure share", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity, minHeight: 28)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(Color(nsColor: .windowBackgroundColor))
+
+            Divider()
+            actionBar
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color(nsColor: .windowBackgroundColor))
         }
         .background {
             MacNativeRemoteEngineView(coordinator: remote)
@@ -461,121 +443,169 @@ private struct MacRemoteShareSheet: View {
         .onDisappear { remote.cancel() }
     }
 
-    private var statusCard: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: remote.statusSymbol)
-                .foregroundStyle(remote.errorMessage == nil ? Color.accentColor : Color.red)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(remote.status).font(.subheadline.weight(.semibold))
-                if let detail = remote.errorMessage {
-                    Text(detail).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
-                } else if let expires = remote.expiresAt {
-                    Text("Link expires \(expires, style: .relative).").font(.caption).foregroundStyle(.secondary)
+    private var fileAndStatus: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 38)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.name).font(.headline).lineLimit(1)
+                Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 12)
+            HStack(spacing: 7) {
+                Image(systemName: remote.statusSymbol)
+                    .foregroundStyle(remote.errorMessage == nil ? Color.accentColor : Color.red)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(remote.status).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    if let detail = remote.errorMessage {
+                        Text(detail).font(.caption).foregroundStyle(.red).lineLimit(2)
+                    } else if let expires = remote.expiresAt {
+                        Text("Expires \(expires, style: .relative)").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
-            Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var securityCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Security", systemImage: "checkmark.shield.fill").font(.subheadline.weight(.semibold))
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Receiver PIN").font(.caption).foregroundStyle(.secondary)
-                    Text(remote.formattedPIN).font(.title2.monospacedDigit().weight(.bold)).textSelection(.enabled)
-                }
-                Spacer()
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Receiver PIN").font(.caption).foregroundStyle(.secondary)
+                Text(remote.formattedPIN)
+                    .font(.system(size: 34, weight: .bold, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 7) {
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(remote.pinCode, forType: .string)
                     remote.markPinCopied()
                 } label: {
                     Label(remote.didCopyPIN ? "Copied" : "Copy PIN", systemImage: remote.didCopyPIN ? "checkmark" : "doc.on.doc")
+                        .frame(minWidth: 104, minHeight: 26)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
+                Text("AES-256-GCM · SHA-256 · approval · 1 receiver · 30 min")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            Divider()
-            Label("AES-256-GCM end-to-end content encryption", systemImage: "lock.fill")
-            Label("Encryption key never sent to Shar servers", systemImage: "key.fill")
-            Label("Sender approval required before transfer", systemImage: "person.badge.shield.checkmark")
-            Label("SHA-256 verified before completion", systemImage: "checkmark.seal.fill")
-            Label("One receiver · 30 minute expiry", systemImage: "timer")
-            Text("Send the PIN separately from the link when practical.").font(.caption).foregroundStyle(.secondary)
         }
-        .font(.caption)
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 13)
+        .padding(.vertical, 9)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var approvalCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Receiver requests access", systemImage: "person.crop.circle.badge.questionmark")
+        HStack(spacing: 12) {
+            Label("Receiver entered the PIN", systemImage: "person.crop.circle.badge.questionmark")
                 .font(.subheadline.weight(.semibold))
-            Text("A device entered the correct PIN. Approve it before Shar releases the WebRTC/TURN connection credentials.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack(spacing: 10) {
-                Button(role: .destructive) { remote.resolveApproval(approved: false) } label: {
-                    Label("Reject", systemImage: "xmark").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                Button { remote.resolveApproval(approved: true) } label: {
-                    Label("Approve", systemImage: "checkmark.shield").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
+            Spacer()
+            Button(role: .destructive) { remote.resolveApproval(approved: false) } label: {
+                Label("Reject", systemImage: "xmark").frame(minWidth: 80, minHeight: 24)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            Button { remote.resolveApproval(approved: true) } label: {
+                Label("Approve", systemImage: "checkmark.shield").frame(minWidth: 92, minHeight: 24)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func qrCard(_ url: URL) -> some View {
-        VStack(spacing: 13) {
+        HStack(spacing: 18) {
             if let image = MacNativeRemoteShareQR.image(for: url.absoluteString) {
                 image
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 240, height: 240)
-                    .padding(10)
-                    .background(.white, in: RoundedRectangle(cornerRadius: 14))
+                    .frame(width: 214, height: 214)
+                    .padding(8)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
             }
-            Text(url.absoluteString)
-                .font(.caption.monospaced())
-                .textSelection(.enabled)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: 540)
-            HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 9) {
+                Label("Scan or send the link", systemImage: "qrcode")
+                    .font(.headline)
+                Text(url.absoluteString)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(7)
+                Spacer(minLength: 0)
+                Text("The encryption key stays in the URL fragment and is never sent to Shar's server. Send the PIN separately when practical.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, maxHeight: 214, alignment: .topLeading)
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var actionBar: some View {
+        if let url = remote.receiverURL {
+            HStack(spacing: 12) {
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(url.absoluteString, forType: .string)
                     remote.markCopied()
                 } label: {
                     Label(remote.didCopy ? "Copied" : "Copy link", systemImage: remote.didCopy ? "checkmark" : "doc.on.doc")
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 32)
                 }
                 .buttonStyle(.bordered)
-                Button {
-                    MacNativeSharing.present(url: url)
-                } label: {
+                .controlSize(.large)
+
+                Button { MacNativeSharing.present(url: url) } label: {
                     Label("Share link", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 32)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button(role: .destructive) {
+                    remote.cancel()
+                    dismiss()
+                } label: {
+                    Label("Cancel share", systemImage: "xmark.circle")
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            Text("The link contains the 256-bit encryption key in its URL fragment. Shar's web/signaling server never receives that fragment. The separate PIN is not included in the link.")
-                .font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center)
+        } else {
+            HStack(spacing: 12) {
+                if remote.errorMessage != nil {
+                    Button { remote.retry() } label: {
+                        Label("Retry", systemImage: "arrow.clockwise").frame(maxWidth: .infinity, minHeight: 32)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+                Button(role: .destructive) {
+                    remote.cancel()
+                    dismiss()
+                } label: {
+                    Label("Cancel", systemImage: "xmark.circle").frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -735,7 +765,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.0',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -863,7 +893,7 @@ private final class MacAboutPanelController {
         }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 430),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -873,6 +903,8 @@ private final class MacAboutPanelController {
         }))
         panel.title = "About Shar"
         panel.contentViewController = host
+        panel.contentMinSize = NSSize(width: 560, height: 420)
+        panel.contentMaxSize = NSSize(width: 560, height: 420)
         panel.isReleasedWhenClosed = false
         panel.center()
         self.panel = panel
@@ -909,13 +941,16 @@ private struct MacAboutView: View {
                 Label("Support Shar", systemImage: "dollarsign.circle.fill").frame(maxWidth: .infinity)
             }.buttonStyle(.borderedProminent)
         }
-        .padding(22)
+        .padding(24)
+        .frame(width: 560, height: 420, alignment: .topLeading)
     }
 }
 
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
+        ("2.2.2", "iOS grid controls + release resilience", "Restored fixed-size iOS grid action controls and made an attached device running out of storage non-blocking for the distribution release after successful build/sign validation."),
+        ("2.2.1", "macOS presentation polish", "Fixed the About panel size, made newly opened images fit the preview window, and compacted Secure Remote Share so its larger primary actions remain visible without scrolling."),
         ("2.2.0", "Polished 3D preview", "Added native lighting, floor, background and fit controls plus a fully local WebGL browser renderer and bundled Previous/Next icons."),
         ("2.1.9", "3D preview build compatibility", "Fixed the macOS 13 3D-preview compile blockers and hardened the SceneKit/Model I/O compatibility checks."),
         ("2.1.8", "3D previews + persistent playback", "Added a 3D media filter and local interactive GLB/glTF plus Apple-native model previews. Audio keeps the same player, position and play/pause state when switching Grid/List or opening Preview."),
@@ -1163,8 +1198,12 @@ private struct MacPreviewContent: View {
             switch file.mediaKind {
             case .image:
                 if let image = NSImage(contentsOf: file.url) {
-                    ScrollView([.horizontal, .vertical]) {
-                        Image(nsImage: image).resizable().scaledToFit().padding(16)
+                    GeometryReader { proxy in
+                        Image(nsImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: max(0, proxy.size.width - 24), height: max(0, proxy.size.height - 24))
+                            .frame(width: proxy.size.width, height: proxy.size.height)
                     }
                     .background(Color.black)
                 } else { unavailable }
