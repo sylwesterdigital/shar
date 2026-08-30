@@ -57,7 +57,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
+        String message="v2.1.5  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
+                "v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
                 "v2.1.3  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+
                 "v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
                 "v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+

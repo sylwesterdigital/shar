@@ -3,30 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://js.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com; connect-src 'self' https://api.stripe.com https://r.stripe.com; img-src 'self' data: https://*.stripe.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; base-uri 'self'; form-action https://checkout.stripe.com https://buy.stripe.com">
 <title>Support Shar</title>
 <style>
-:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1320;color:#f4f7fb}.card{width:min(560px,calc(100% - 40px));padding:32px;border:1px solid #2d3748;border-radius:22px;background:#151d2b;box-sizing:border-box}h1{margin:0 0 10px}p{color:#b9c2d2;line-height:1.5}.btn{display:inline-block;margin-top:14px;padding:12px 18px;border-radius:12px;background:#3487f6;color:white;text-decoration:none;font-weight:700}.muted{font-size:13px;color:#8792a5}</style>
+:root{color-scheme:light dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d1320;color:#f4f7fb}.card{width:min(620px,calc(100% - 32px));padding:32px;border:1px solid #2d3748;border-radius:22px;background:#151d2b;box-sizing:border-box;box-shadow:0 24px 80px #0006}h1{margin:0 0 8px;font-size:clamp(30px,7vw,48px)}p{color:#b9c2d2;line-height:1.5}.stripe{margin:24px 0 12px;min-height:80px}.fallback{display:inline-block;margin-top:8px;padding:12px 18px;border-radius:12px;background:#3487f6;color:white;text-decoration:none;font-weight:700}.muted{font-size:13px;color:#8792a5}.brand{font-weight:700;color:#f4f7fb}.privacy{border-top:1px solid #2d3748;margin-top:24px;padding-top:18px}</style>
+<script async src="https://js.stripe.com/v3/buy-button.js"></script>
 </head>
 <body>
 <main class="card">
   <h1>Support Shar</h1>
-  <p id="message">Opening the secure Stripe payment page…</p>
-  <a id="support" class="btn" href="__STRIPE_SUPPORT_HREF__">Continue to Stripe</a>
-  <p class="muted">Payments are handled by Stripe. Shar does not receive or store your card details.</p>
+  <p><span class="brand">Shar is built by MojoWorks.</span> If it saves you time, you can support continued development here.</p>
+  <div class="stripe">
+    <stripe-buy-button
+      buy-button-id="__STRIPE_BUY_BUTTON_ID__"
+      publishable-key="__STRIPE_PUBLISHABLE_KEY__">
+    </stripe-buy-button>
+  </div>
+  <noscript><p>JavaScript is required for the embedded Stripe checkout button.</p></noscript>
+  <a class="fallback" href="__STRIPE_SUPPORT_HREF__">Open secure Stripe checkout</a>
+  <div class="privacy">
+    <p class="muted">Payments are processed by Stripe. Shar does not receive or store your card number. Stripe is contacted only when you open this support page.</p>
+  </div>
 </main>
-<script>
-(() => {
-  const url = __STRIPE_SUPPORT_JSON__;
-  const button = document.getElementById('support');
-  const message = document.getElementById('message');
-  if (!url || url.startsWith('__')) {
-    button.hidden = true;
-    message.textContent = 'The Stripe support link has not been configured on this deployment yet.';
-    return;
-  }
-  button.href = url;
-  setTimeout(() => location.replace(url), 180);
-})();
-</script>
 </body>
 </html>

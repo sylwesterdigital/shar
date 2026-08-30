@@ -17,6 +17,8 @@ shar_write_profile() {
     printf 'SHAR_REMOTE_OWNER=%q\n' "$SHAR_REMOTE_OWNER"
     printf 'SHAR_REMOTE_CHMOD=%q\n' "$SHAR_REMOTE_CHMOD"
     printf 'SHAR_STRIPE_SUPPORT_URL=%q\n' "${SHAR_STRIPE_SUPPORT_URL:-}"
+    printf 'SHAR_STRIPE_BUY_BUTTON_ID=%q\n' "${SHAR_STRIPE_BUY_BUTTON_ID:-}"
+    printf 'SHAR_STRIPE_PUBLISHABLE_KEY=%q\n' "${SHAR_STRIPE_PUBLISHABLE_KEY:-}"
   } > "$SHAR_RELEASE_PROFILE"
   chmod 600 "$SHAR_RELEASE_PROFILE"
 }
@@ -44,6 +46,8 @@ shar_import_rantlist_profile() {
   SHAR_REMOTE_OWNER="${RANTLIST_REMOTE_OWNER:-www-data:www-data}"
   SHAR_REMOTE_CHMOD="${RANTLIST_REMOTE_CHMOD:-Du=rwx,Dgo=rx,Fu=rw,Fgo=r}"
   SHAR_STRIPE_SUPPORT_URL="${RANTLIST_STRIPE_SUPPORT_URL:-${RANTLIST_SUPPORT_URL:-}}"
+  SHAR_STRIPE_BUY_BUTTON_ID="${RANTLIST_STRIPE_BUY_BUTTON_ID:-}"
+  SHAR_STRIPE_PUBLISHABLE_KEY="${RANTLIST_STRIPE_PUBLISHABLE_KEY:-}"
   shar_write_profile
   printf 'Imported Shar deployment profile from the existing Rantlist release profile: %s\n' "$SHAR_RELEASE_PROFILE"
 }
@@ -67,5 +71,7 @@ shar_load_release_profile() {
   SHAR_REMOTE_DIR="${SHAR_REMOTE_DIR:-/var/www/mojoworks/labs/shar}"
   SHAR_REMOTE_OWNER="${SHAR_REMOTE_OWNER:-www-data:www-data}"
   SHAR_REMOTE_CHMOD="${SHAR_REMOTE_CHMOD:-Du=rwx,Dgo=rx,Fu=rw,Fgo=r}"
-  SHAR_STRIPE_SUPPORT_URL="${SHAR_STRIPE_SUPPORT_URL:-}"
+  SHAR_STRIPE_SUPPORT_URL="${SHAR_STRIPE_SUPPORT_URL:-https://buy.stripe.com/5kQ8wO8jU0Sbg2nc9EcZa04}"
+  SHAR_STRIPE_BUY_BUTTON_ID="${SHAR_STRIPE_BUY_BUTTON_ID:-buy_btn_1UA5kdC7wxoTGQU3qSQrnBTz}"
+  SHAR_STRIPE_PUBLISHABLE_KEY="${SHAR_STRIPE_PUBLISHABLE_KEY:-pk_live_51OS1fPC7wxoTGQU3jLPCJmKrEOZ03kLdBpCyRKcE1DRj9xKHNdIWNbAAwMFLsi0s9cyUGw9BdYQzYDmFbsNacsrx00KDuQKgna}"
 }

@@ -5,6 +5,7 @@ import PhotosUI
 import UniformTypeIdentifiers
 import WebKit
 import CoreImage.CIFilterBuiltins
+import SafariServices
 
 struct ContentView: View {
     @EnvironmentObject private var fileStore: FileStore
@@ -29,6 +30,7 @@ struct ContentView: View {
     @State private var showingVideoCamera = false
     @State private var showingDeveloperUpdates = false
     @State private var remoteShareFile: SharedFile?
+    @State private var showingSupportCheckout = false
 
     private var actionLabelMode: ActionLabelMode {
         ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact
@@ -173,6 +175,10 @@ struct ContentView: View {
                 .tint(colorTheme.accent)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingSupportCheckout) {
+            SupportCheckoutView(url: SharProductInfo.supportURL)
+                .ignoresSafeArea()
         }
         .sheet(item: $remoteShareFile) { file in
             RemoteShareSheet(file: file)
@@ -462,13 +468,15 @@ struct ContentView: View {
                                 HStack { Text("Built by"); Spacer(); Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
                                 Link(destination: SharProductInfo.productURL) { Label("Shar website", systemImage: "globe") }
                                 Link(destination: SharProductInfo.sourceURL) { Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right") }
-                                Link(destination: SharProductInfo.supportURL) {
+                                Button {
+                                    showingSupportCheckout = true
+                                } label: {
                                     Label("Support Shar", systemImage: "heart.fill")
                                         .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(.borderedProminent)
                             }
-                            Text("Support opens Shar's secure support page, which forwards to the configured Stripe Payment Link. Keep the app in the foreground while transferring large files. Local browser sharing requires a reachable local network.")
+                            Text("Support opens Shar's Stripe-backed checkout inside the app. Shar never receives card details. Keep the app in the foreground while transferring large files. Local browser sharing requires a reachable local network.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -520,7 +528,22 @@ struct ContentView: View {
 }
 
 
-private struct DeveloperUpdate: Identifiable {
+private struct SupportCheckoutView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let configuration = SFSafariViewController.Configuration()
+        configuration.entersReaderIfAvailable = false
+        configuration.barCollapsingEnabled = true
+        let controller = SFSafariViewController(url: url, configuration: configuration)
+        controller.dismissButtonStyle = .close
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+}
+
+struct DeveloperUpdate: Identifiable {
     let version: String
     let title: String
     let summary: String
@@ -528,7 +551,7 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
-    .init(version: "2.1.4", title: "Release pipeline resilience", summary: "A locked iPhone no longer aborts the full release after the app has already installed successfully."),
+    .init(version: "2.1.5", title: "Release pipeline resilience", summary: "A locked iPhone no longer aborts the full release after the app has already installed successfully."),
     .init(version: "2.1.3", title: "Unified native library UI", summary: "Brought macOS grid/list, media filters and cog-based Settings in line with iOS; made Version/Build explicit and added About/Support links across native clients."),
     .init(version: "2.1.2", title: "Native macOS Secure Remote Share", summary: "Remote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI."),
     .init(version: "2.1.1", title: "Android secure-share build fix", summary: "Fixed the Android embedded browser Base64URL helper and added a Java text-block compile guard to release verification."),
@@ -1161,7 +1184,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.4',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.5',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}

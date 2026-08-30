@@ -301,7 +301,7 @@ struct MacContentView: View {
                         Label("Support Shar", systemImage: "heart.fill").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    Text("Support opens Shar's support page and forwards to the configured Stripe Payment Link.")
+                    Text("Support opens Shar's Stripe-backed support checkout. Shar never receives card details.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -709,7 +709,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.4',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.5',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -826,7 +826,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
-        ("2.1.4", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
+        ("2.1.5", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
         ("2.1.3", "Unified native library UI", "Added iOS-style media filters, grid/list library modes, cog-based Config, explicit version/build information and About/Support links on macOS."),
         ("2.1.2", "Native macOS Secure Remote Share", "Remote sharing now stays inside the macOS app with native PIN, QR/link, approval, encrypted-transfer progress and completion UI instead of opening the localhost browser."),
         ("2.1.1", "Secure Android build fix", "Fixed the Android embedded secure-share JavaScript escaping regression and added a javac release guard."),

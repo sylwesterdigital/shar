@@ -58,20 +58,24 @@ p.write_text(text)
  'deployment_url':remote,'downloads':{k:{'name':needed[k],'url':assets[needed[k]]} for k in needed}
 },indent=2)+'\n')
 PY
-python3 - "$BUILD_DIR/support.html" "${SHAR_STRIPE_SUPPORT_URL:-}" <<'PY'
+python3 - "$BUILD_DIR/support.html" "${SHAR_STRIPE_SUPPORT_URL:-}" "${SHAR_STRIPE_BUY_BUTTON_ID:-}" "${SHAR_STRIPE_PUBLISHABLE_KEY:-}" <<'PY'
 from pathlib import Path
-import html, json, sys
-p=Path(sys.argv[1]); url=sys.argv[2].strip()
-if url and not url.startswith('https://buy.stripe.com/'):
+import html, sys
+p=Path(sys.argv[1]); url=sys.argv[2].strip(); button=sys.argv[3].strip(); key=sys.argv[4].strip()
+if not url.startswith('https://buy.stripe.com/'):
     raise SystemExit('SHAR_STRIPE_SUPPORT_URL must be an https://buy.stripe.com/ Payment Link')
+if not button.startswith('buy_btn_'):
+    raise SystemExit('SHAR_STRIPE_BUY_BUTTON_ID must be a Stripe buy_btn_ identifier')
+if not key.startswith(('pk_live_', 'pk_test_')):
+    raise SystemExit('SHAR_STRIPE_PUBLISHABLE_KEY must be a Stripe publishable key')
 text=p.read_text()
 text=text.replace('__STRIPE_SUPPORT_HREF__', html.escape(url, quote=True))
-text=text.replace('__STRIPE_SUPPORT_JSON__', json.dumps(url))
+text=text.replace('__STRIPE_BUY_BUTTON_ID__', html.escape(button, quote=True))
+text=text.replace('__STRIPE_PUBLISHABLE_KEY__', html.escape(key, quote=True))
+if '__STRIPE_' in text:
+    raise SystemExit('Unresolved Stripe placeholder remains in support page')
 p.write_text(text)
 PY
-if [[ -z "${SHAR_STRIPE_SUPPORT_URL:-}" ]]; then
-  printf 'WARNING: SHAR_STRIPE_SUPPORT_URL is not configured; Support buttons will open the Shar support page but no Stripe checkout until the profile value is added.\n' >&2
-fi
 rm -f "$RELEASE_JSON"
 grep -F "$TAG" "$BUILD_DIR/index.html" >/dev/null || fail "Homepage does not contain release tag $TAG"
 grep -F 'Receive with Shar' "$BUILD_DIR/receive.html" >/dev/null || fail "Remote receiver page is invalid"

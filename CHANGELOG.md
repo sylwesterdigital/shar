@@ -2,6 +2,19 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.1.5] - 2026-08-30
+
+### Support checkout
+- Connected **Support Shar** to the production Stripe Payment Link and official Stripe Buy Button generated for Shar.
+- Replaced the support-page auto-redirect with an embedded Stripe checkout card plus a direct Payment Link fallback.
+- Added `SFSafariViewController` presentation on iOS so Support Shar opens inside the native app experience without adding the Stripe iOS SDK or a new payment backend.
+- Kept macOS and Android support actions on the stable Shar support URL, centralizing payment configuration.
+- Added validation for the Payment Link, Buy Button ID and publishable key while keeping Stripe secret keys out of the repository.
+
+### Release safety
+- Added repository guards for the Stripe Buy Button placeholders, iOS Safari checkout wrapper, and v2.1.5 runtime signaling version.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.5 / 20105.
+
 ## [2.1.4] - 2026-08-30
 
 ### Fixed
