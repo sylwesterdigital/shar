@@ -257,8 +257,10 @@ if ((LAUNCH)); then
     xcrun devicectl device process launch --device "$DEVICE_ID" --console "$BUNDLE_ID"
   else
     if ! xcrun devicectl device process launch --device "$DEVICE_ID" "$BUNDLE_ID"; then
-      printf '\nInstalled successfully, but iOS refused automatic launch (commonly because the device locked between install and launch).\n' >&2
-      exit 3
+      # Installation is authoritative for release validation. CoreDevice can reject
+      # the optional launch when the phone locks between install and launch; that
+      # must not abort macOS/Android/server/GitHub/homepage deployment.
+      printf '\nWARNING: App installed successfully, but iOS refused automatic launch (commonly because the device locked between install and launch). Continuing because installation succeeded.\n' >&2
     fi
   fi
 fi

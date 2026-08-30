@@ -2,6 +2,34 @@
 
 All notable changes to Shar are recorded here.
 
+## [2.1.4] - 2026-08-30
+
+### Fixed
+- Made the connected-device launch step best-effort after a successful iOS install. If the iPhone locks between installation and `devicectl ... process launch`, the release now prints a warning and continues instead of failing the entire macOS/Android/server/GitHub/homepage pipeline.
+- Preserved fatal behavior for actual iOS build, signing, installation, or explicit `--console` launch failures.
+
+### Release safety
+- Added repository verification that requires the non-fatal locked-device launch guard and rejects the old `exit 3` regression.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.4 / 20104.
+
+## [2.1.3] - 2026-08-30
+
+### Native client consistency
+- Reworked the macOS main library to follow the iOS structure with an import `+` control, compact LAN Sharing strip, All/Images/Audio/Video/Docs/Other filtering, filtered-file count, and native Grid/List views.
+- Moved macOS button-label configuration, Grid/List preference, file-size visibility, colour theme, developer toggle and sharing details into a right-side **Config** drawer opened by the cog.
+- Added dedicated macOS grid cards and list rows while retaining native preview, inline audio, Remote Share, Finder reveal and delete actions.
+
+### About and support
+- Replaced the iOS About `LabeledContent` version row with explicit **Version** and **Build** rows so both values remain visible in the narrow Settings drawer.
+- Added builder identity (**MojoWorks**), Shar website, source-code and **Support Shar** actions to iOS and macOS.
+- Added an Android **About Shar** dialog and **Support Shar** button with version/build and builder information.
+- Added `homepage/support.html` as the stable client support endpoint. Deployment validates `SHAR_STRIPE_SUPPORT_URL` as a `https://buy.stripe.com/...` Payment Link and renders the support page to forward to Stripe without hard-coding payment identifiers throughout the native clients.
+- Extended the private Shar release profile to persist the Stripe support URL and import compatible Rantlist support URL variables when available.
+
+### Release safety
+- Added repository guards for macOS Grid/List + media filters + cog Config, explicit iOS Version/Build display, cross-client About/Support links, support-page deployment, and the v2.1.3 signaling version.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.1.3 / 20103.
+
 ## [2.1.2] - 2026-08-30
 
 ### Fixed

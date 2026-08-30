@@ -39,7 +39,7 @@ for p in \
   scripts/check_remote_share.sh scripts/deploy_remote_share.sh scripts/remote_bootstrap.sh scripts/test_remote_protocol.sh scripts/test_remote_crypto.sh \
   scripts/release_profile.sh scripts/setup_android_release.sh scripts/check_android_release_credentials.sh \
   scripts/check_macos_release_credentials.sh scripts/check_ios_release_credentials.sh scripts/android_env.sh \
-  remote/server.js homepage/index.html homepage/receive.html; do
+  remote/server.js homepage/index.html homepage/receive.html homepage/support.html; do
   [[ -e "$p" ]] || fail "Missing $p"
 done
 
@@ -99,9 +99,18 @@ for lineno, raw in enumerate(lines, 1):
 if violations:
     raise SystemExit('AVAudioSession references escape the iOS-only guard at lines: ' + ', '.join(map(str, violations)))
 PYIOSGUARD
+grep -Fq 'Installation is authoritative for release validation' scripts/app_build.sh || fail "iOS installed-app launch must be best-effort for distribution releases"
+! grep -Fq 'exit 3' scripts/app_build.sh || fail "iOS locked-device launch regression still aborts release after successful install"
 grep -Fq 'Shar · v\(appVersion)' LocalWebShare/ContentView.swift || fail "iOS visible Settings version missing"
+grep -Fq 'Text("Version")' LocalWebShare/ContentView.swift || fail "iOS explicit Version row missing"
+grep -Fq 'Text("Build")' LocalWebShare/ContentView.swift || fail "iOS explicit Build row missing"
+grep -Fq 'Support Shar' LocalWebShare/ContentView.swift || fail "iOS Support Shar action missing"
+grep -Fq 'SharProductInfo.builderName' LocalWebShare/ContentView.swift || fail "iOS builder About identity missing"
 ! grep -A110 -F 'private var settingsPanel' LocalWebShare/ContentView.swift | grep -Fq '.ignoresSafeArea()' || fail "iOS Settings panel ignores safe area"
 grep -Fq 'android:label="Shar"' android/app/src/main/AndroidManifest.xml || fail "Android display name is not Shar"
+grep -Fq 'About Shar' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android About dialog missing"
+grep -Fq 'Support Shar' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android Support Shar action missing"
+grep -Fq 'BUILDER_NAME = "MojoWorks"' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android builder identity missing"
 grep -Fq 'Text("Shar").font(.title2.bold())' macos/LocalWebShareMacApp.swift || fail "macOS header is not Shar"
 grep -Fq 'Show ⓘ developer updates' macos/LocalWebShareMacApp.swift || fail "macOS developer-info preference missing"
 grep -Fq 'show_developer_info' android/app/src/main/java/com/localwebshare/app/MainActivity.java || fail "Android developer-info preference missing"
@@ -142,6 +151,14 @@ if 'webServer.start' in m.group(1): raise SystemExit('iOS Remote Share still sta
 PYREMOTEIOS
 grep -Fq 'openRemoteShare' macos/LocalWebShareMacApp.swift || fail "macOS remote share action missing"
 grep -Fq 'MacRemoteShareSheet' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share sheet missing"
+grep -Fq '@AppStorage("macFileViewMode")' macos/LocalWebShareMacApp.swift || fail "macOS Grid/List preference missing"
+grep -Fq '@AppStorage("macMediaFilter")' macos/LocalWebShareMacApp.swift || fail "macOS media-filter preference missing"
+grep -Fq 'ForEach(MediaFilter.allCases)' macos/LocalWebShareMacApp.swift || fail "macOS media filter strip missing"
+grep -Fq 'LazyVGrid' macos/LocalWebShareMacApp.swift || fail "macOS grid library missing"
+grep -Fq 'Label("Config", systemImage: "gearshape.fill")' macos/LocalWebShareMacApp.swift || fail "macOS cog Config drawer missing"
+grep -Fq 'MacLibraryListRow' macos/LocalWebShareMacApp.swift || fail "macOS list library missing"
+grep -Fq 'Support Shar' macos/LocalWebShareMacApp.swift || fail "macOS Support Shar action missing"
+grep -Fq 'SharProductInfo.builderName' macos/LocalWebShareMacApp.swift || fail "macOS builder About identity missing"
 grep -Fq 'MacNativeRemoteShareCoordinator' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share coordinator missing"
 grep -Fq 'MacNativeRemoteShareQR' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share QR generator missing"
 grep -Fq 'NSSharingServicePicker(items: [url])' macos/LocalWebShareMacApp.swift || fail "macOS native link sharing picker missing"
@@ -220,6 +237,12 @@ grep -Fq '/var/www/mojoworks/labs/shar' README.md || fail "README does not docum
 grep -Fq '__MAC_DMG_URL__' homepage/index.html || fail "Homepage macOS release placeholder missing"
 grep -Fq '__ANDROID_APK_URL__' homepage/index.html || fail "Homepage Android release placeholder missing"
 grep -Fq 'receive.html' homepage/index.html || fail "Homepage remote receiver link missing"
+grep -Fq 'support.html' homepage/index.html || fail "Homepage support link missing"
+grep -Fq 'Support Shar' homepage/support.html || fail "Shar support page missing"
+grep -Fq '__STRIPE_SUPPORT_HREF__' homepage/support.html || fail "Stripe support href placeholder missing"
+grep -Fq '__STRIPE_SUPPORT_JSON__' homepage/support.html || fail "Stripe support JavaScript placeholder missing"
+grep -Fq 'SHAR_STRIPE_SUPPORT_URL' scripts/release_profile.sh || fail "Private Stripe support profile field missing"
+grep -Fq 'SHAR_STRIPE_SUPPORT_URL' scripts/deploy_homepage.sh || fail "Stripe support homepage renderer missing"
 grep -Fq 'sylwesterdigital/shar' scripts/publish_github_release.sh || fail "GitHub release repository mismatch"
 grep -Fq '/var/www/mojoworks/labs/shar' scripts/release_profile.sh || fail "Shar remote deployment directory mismatch"
 

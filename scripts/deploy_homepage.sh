@@ -18,9 +18,11 @@ retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( 
 for t in gh python3 rsync ssh curl gzip; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 [[ -f "$ROOT/homepage/index.html" ]] || fail "homepage/index.html missing"
 [[ -f "$ROOT/homepage/receive.html" ]] || fail "homepage/receive.html missing"
+[[ -f "$ROOT/homepage/support.html" ]] || fail "homepage/support.html missing"
 mkdir -p "$BUILD_DIR"
 cp "$ROOT/homepage/index.html" "$BUILD_DIR/index.html"
 cp "$ROOT/homepage/receive.html" "$BUILD_DIR/receive.html"
+cp "$ROOT/homepage/support.html" "$BUILD_DIR/support.html"
 cp "$ROOT/assets/shar-logo.svg" "$BUILD_DIR/shar-logo.svg"
 
 log "Resolving published GitHub release $TAG"
@@ -56,9 +58,24 @@ p.write_text(text)
  'deployment_url':remote,'downloads':{k:{'name':needed[k],'url':assets[needed[k]]} for k in needed}
 },indent=2)+'\n')
 PY
+python3 - "$BUILD_DIR/support.html" "${SHAR_STRIPE_SUPPORT_URL:-}" <<'PY'
+from pathlib import Path
+import html, json, sys
+p=Path(sys.argv[1]); url=sys.argv[2].strip()
+if url and not url.startswith('https://buy.stripe.com/'):
+    raise SystemExit('SHAR_STRIPE_SUPPORT_URL must be an https://buy.stripe.com/ Payment Link')
+text=p.read_text()
+text=text.replace('__STRIPE_SUPPORT_HREF__', html.escape(url, quote=True))
+text=text.replace('__STRIPE_SUPPORT_JSON__', json.dumps(url))
+p.write_text(text)
+PY
+if [[ -z "${SHAR_STRIPE_SUPPORT_URL:-}" ]]; then
+  printf 'WARNING: SHAR_STRIPE_SUPPORT_URL is not configured; Support buttons will open the Shar support page but no Stripe checkout until the profile value is added.\n' >&2
+fi
 rm -f "$RELEASE_JSON"
 grep -F "$TAG" "$BUILD_DIR/index.html" >/dev/null || fail "Homepage does not contain release tag $TAG"
 grep -F 'Receive with Shar' "$BUILD_DIR/receive.html" >/dev/null || fail "Remote receiver page is invalid"
+grep -F 'Support Shar' "$BUILD_DIR/support.html" >/dev/null || fail "Support page is invalid"
 find "$BUILD_DIR" -type f \( -name '*.html' -o -name '*.json' -o -name '*.svg' \) -print0 | while IFS= read -r -d '' f; do gzip -9 -kf "$f"; done
 
 log "Deploying homepage to $SHAR_REMOTE_HOST:$SHAR_REMOTE_DIR"
@@ -75,4 +92,6 @@ grep -qi '<title[^>]*>Shar' "$TMP" || fail "Public page is reachable but title v
 grep -F "$TAG" "$TMP" >/dev/null || fail "Public page does not contain $TAG."
 retry 4 8 curl --fail --silent --show-error --location "${REMOTE_URL%/}/receive.html?deploy=$STAMP" -o "$TMP"
 grep -F 'Receive with Shar' "$TMP" >/dev/null || fail "Public remote receiver page verification failed."
+retry 4 8 curl --fail --silent --show-error --location --max-redirs 0 "${REMOTE_URL%/}/support.html?deploy=$STAMP" -o "$TMP" || true
+grep -F 'Support Shar' "$TMP" >/dev/null || fail "Public support page verification failed."
 printf 'Homepage + remote receiver deployed and verified: %s\n' "$REMOTE_URL"

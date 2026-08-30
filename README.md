@@ -1,4 +1,4 @@
-# Shar — 2.1.2
+# Shar — 2.1.4
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.1.2** (build/version code **20102**).
+`VERSION` is authoritative. Current release: **2.1.4** (build/version code **20104**).
 
 ## Branding
 
@@ -92,6 +92,18 @@ Image previews default to **fit**, keeping the entire image visible inside the a
 
 ## LAN and remote WebRTC sharing
 
+### v2.1.4 release pipeline resilience
+- A successful tethered iOS install is now authoritative for distribution validation. If the device locks before the optional automatic launch, Shar prints a warning and continues the remaining release/deployment stages.
+- Actual build, signing and installation failures remain fatal. This prevents an already-installed iPhone app from blocking macOS/Android artifacts, remote-service deployment, GitHub publication and homepage deployment.
+
+### v2.1.3 unified native library UI and About/Support
+- macOS now mirrors the iOS library structure instead of using a configuration-heavy sidebar: the main window has the import `+`, compact LAN Sharing strip, All/Images/Audio/Video/Docs/Other media filter chips, visible filtered-file count, and native Grid/List modes.
+- macOS button-label mode, layout, file-size visibility, colour theme, developer updates and sharing details moved into the **Config** drawer opened by the top-right cog.
+- iOS About now renders **Version** and **Build** as explicit visible rows instead of relying on a compact `LabeledContent` value that could disappear in the narrow settings drawer.
+- iOS and macOS About identify **MojoWorks** as the builder and link to the Shar website and source repository. Android now has a native **About Shar** dialog with the same builder/version/product information.
+- All native clients include **Support Shar**. The clients open the stable `https://mojoworks.xyz/labs/shar/support.html` endpoint; deployment renders that page to forward to `SHAR_STRIPE_SUPPORT_URL`, which must be a Stripe Payment Link (`https://buy.stripe.com/...`). Keeping the payment target in the private release profile allows the Stripe link to change without shipping new apps.
+- `scripts/release_profile.sh` persists `SHAR_STRIPE_SUPPORT_URL` and can import an existing `RANTLIST_STRIPE_SUPPORT_URL` / `RANTLIST_SUPPORT_URL` when bootstrapping the Shar profile. If no Stripe link is configured yet, the support page reports that clearly instead of embedding a fake payment URL.
+
 ### v2.1.2 native macOS Secure Remote Share
 - macOS Remote Share now stays entirely inside the native Shar app. Pressing **Remote** no longer starts the LAN HTTP server or opens `127.0.0.1:8080` in a browser.
 - The native macOS sheet mirrors the iOS secure flow: filename/size, status, mandatory receiver PIN, local QR code, copy/share link actions, sender approval, encrypted-transfer progress, SHA-256 verified completion, retry and cancel.
@@ -140,7 +152,7 @@ The dedicated TURN service uses port **3479** and relay range **49210–49250**,
 
 If the deployment SSH user does not have passwordless sudo, automation intentionally stops before publication and prints the exact one-time `sudo /tmp/shar-remote-bootstrap.sh ...` command. After that bootstrap, `/opt/shar-remote` is writable by the release user and a systemd path unit restarts the service after source updates, so future ZIP releases do not normally need root access. If nginx cannot be identified or `nginx -t` fails, the bootstrap aborts and restores the previous config automatically.
 
-After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.2.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
+After completing a one-time manual bootstrap or correcting an external firewall/DNS issue, run `touch archive/LocalWebSharePrototype-v2.1.4.zip`. The foreground watcher recognizes the changed ZIP signature and performs an intentional same-version deployment retry.
 
 If the VPS has a provider-level firewall outside Ubuntu/UFW, that control panel must also allow TURN port **3479 TCP/UDP** and relay range **49210–49250 TCP/UDP**. The deployment script can manage UFW but cannot change an external hosting-provider firewall.
 
@@ -167,7 +179,7 @@ The normal release workflow is now deliberately one-action: leave the foreground
 For example:
 
 ```text
-LocalWebSharePrototype-v2.1.2.zip
+LocalWebSharePrototype-v2.1.4.zip
 ```
 
 `scripts/build-watch.sh` detects the highest new semantic version, waits until the ZIP is stable, synchronises it into the repository, then visibly calls `scripts/deploy.sh`. The deployment pipeline performs:

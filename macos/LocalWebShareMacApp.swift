@@ -27,37 +27,64 @@ struct MacContentView: View {
     @EnvironmentObject private var fileStore: FileStore
     @EnvironmentObject private var webServer: LocalWebServer
     @AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.compact.rawValue
+    @AppStorage("macFileViewMode") private var fileViewModeRaw = FileViewMode.grid.rawValue
+    @AppStorage("macMediaFilter") private var mediaFilterRaw = MediaFilter.all.rawValue
+    @AppStorage("macShowFileSizes") private var showFileSizes = true
+    @AppStorage("macColorTheme") private var colorThemeRaw = AppColorTheme.system.rawValue
     @AppStorage("showDeveloperInfo") private var showDeveloperInfo = false
     @State private var selectedFile: SharedFile?
     @State private var deleteCandidate: SharedFile?
     @State private var isDropTargeted = false
     @State private var showingDeveloperUpdates = false
+    @State private var showingSettings = false
     @State private var remoteShareFile: SharedFile?
+    @State private var copiedAddress = false
 
     private var mode: ActionLabelMode { ActionLabelMode(rawValue: actionLabelModeRaw) ?? .compact }
+    private var fileViewMode: FileViewMode { FileViewMode(rawValue: fileViewModeRaw) ?? .grid }
+    private var mediaFilter: MediaFilter { MediaFilter(rawValue: mediaFilterRaw) ?? .all }
+    private var colorTheme: AppColorTheme { AppColorTheme(rawValue: colorThemeRaw) ?? .system }
+    private var filteredFiles: [SharedFile] { fileStore.files.filter { mediaFilter.matches($0) } }
 
     var body: some View {
-        NavigationSplitView {
-            VStack(alignment: .leading, spacing: 18) {
-                appHeader
-                sharingCard
-                importCard
-                Picker("Buttons", selection: $actionLabelModeRaw) {
-                    ForEach(ActionLabelMode.allCases) { Text($0.title).tag($0.rawValue) }
-                }
-                .pickerStyle(.segmented)
-                Toggle("Show ⓘ developer updates", isOn: $showDeveloperInfo)
-                    .font(.caption)
-                Spacer()
-                Text("Shared folder").font(.caption).foregroundStyle(.secondary)
-                Text(FileStore.documentsDirectory.path).font(.caption2.monospaced()).foregroundStyle(.tertiary).textSelection(.enabled)
-                Text("Version \(appVersion)").font(.caption2).foregroundStyle(.tertiary)
+        ZStack(alignment: .trailing) {
+            VStack(spacing: 0) {
+                topBar
+                Divider()
+                sharingStrip
+                Divider()
+                filterStrip
+                Divider()
+                filesContent
             }
-            .padding(20)
-            .navigationSplitViewColumnWidth(min: 270, ideal: 310)
-        } detail: { filesPane }
+            .background(Color(nsColor: .windowBackgroundColor))
+            .allowsHitTesting(!showingSettings)
+            .opacity(showingSettings ? 0.92 : 1)
+            .dropDestination(for: URL.self) { urls, _ in
+                urls.forEach { fileStore.importFile(from: $0) }
+                return !urls.isEmpty
+            } isTargeted: { isDropTargeted = $0 }
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(colorTheme.accent, style: StrokeStyle(lineWidth: 3, dash: [9, 7]))
+                        .padding(12)
+                        .background(colorTheme.accent.opacity(0.08))
+                        .allowsHitTesting(false)
+                }
+            }
+
+            if showingSettings {
+                Color.black.opacity(0.08)
+                    .ignoresSafeArea()
+                    .onTapGesture { withAnimation(.easeInOut(duration: 0.18)) { showingSettings = false } }
+                settingsPanel
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .tint(colorTheme.accent)
         .sheet(item: $selectedFile) { file in
-            MacMediaGallery(files: fileStore.files, initialFile: file) { deleted in fileStore.delete(deleted) }
+            MacMediaGallery(files: filteredFiles, initialFile: file) { deleted in fileStore.delete(deleted) }
                 .frame(minWidth: 760, minHeight: 560)
         }
         .sheet(item: $remoteShareFile) { file in
@@ -68,97 +95,244 @@ struct MacContentView: View {
             MacDeveloperUpdatesView()
                 .frame(minWidth: 520, minHeight: 430)
         }
-        .confirmationDialog(deleteCandidate.map { "Delete \($0.name)?" } ?? "Delete file?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate=nil } })) {
-            Button("Delete", role: .destructive) { if let f=deleteCandidate { fileStore.delete(f) }; deleteCandidate=nil }
-            Button("Cancel", role: .cancel) { deleteCandidate=nil }
+        .confirmationDialog(deleteCandidate.map { "Delete \($0.name)?" } ?? "Delete file?", isPresented: Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } })) {
+            Button("Delete", role: .destructive) { if let f = deleteCandidate { fileStore.delete(f) }; deleteCandidate = nil }
+            Button("Cancel", role: .cancel) { deleteCandidate = nil }
         }
     }
 
-    private var appHeader: some View {
-        HStack(spacing:12) {
-            if let image=Bundle.main.url(forResource:"shar-logo-1024",withExtension:"png").flatMap(NSImage.init(contentsOf:)) {
-                Image(nsImage:image).resizable().scaledToFit().frame(width:58,height:58).clipShape(RoundedRectangle(cornerRadius:12))
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            Button { chooseFiles() } label: {
+                Image(systemName: "plus.circle.fill").font(.title2)
             }
-            VStack(alignment:.leading,spacing:2){Text("Shar").font(.title2.bold());Text("Wi-Fi media sharing").foregroundStyle(.secondary)}
+            .buttonStyle(.plain)
+            .help("Import files")
+
+            if let image = Bundle.main.url(forResource: "shar-logo-1024", withExtension: "png").flatMap(NSImage.init(contentsOf:)) {
+                Image(nsImage: image).resizable().scaledToFit().frame(width: 38, height: 38).clipShape(RoundedRectangle(cornerRadius: 9))
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Shar").font(.title2.bold())
+                Text("Local + secure remote sharing").font(.caption).foregroundStyle(.secondary)
+            }
             Spacer()
+            Button { NSWorkspace.shared.open(FileStore.documentsDirectory) } label: { Image(systemName: "folder") }
+                .buttonStyle(.plain).help("Show shared folder")
+            Button { fileStore.refresh() } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(.plain).help("Refresh")
             if showDeveloperInfo {
-                Button { showingDeveloperUpdates = true } label: { Image(systemName: "info.circle.fill").font(.title3) }
-                    .buttonStyle(.borderless)
-                    .help("Developer updates")
+                Button { showingDeveloperUpdates = true } label: { Image(systemName: "info.circle") }
+                    .buttonStyle(.plain).help("Developer updates")
             }
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) { showingSettings = true }
+            } label: {
+                Image(systemName: "gearshape.fill").font(.title3)
+            }
+            .buttonStyle(.plain)
+            .help("Config")
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
     }
 
-    private var sharingCard: some View {
-        GroupBox("Wi-Fi Sharing") {
-            VStack(alignment:.leading,spacing:10) {
-                HStack { Circle().fill(webServer.isRunning ? Color.green : Color.secondary).frame(width:10,height:10); Text(webServer.isRunning ? "Sharing is ON":"Sharing is OFF").fontWeight(.semibold) }
-                Text(webServer.statusMessage).font(.caption).foregroundStyle(.secondary)
-                if webServer.isRunning {
-                    Text(webServer.shareURL).font(.body.monospaced()).textSelection(.enabled)
-                    HStack {
-                        MacActionButton(full:"Copy Address",short:"Copy",icon:"doc.on.doc",mode:mode) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(webServer.shareURL,forType:.string) }
-                        MacActionButton(full:"Open in Browser",short:"Open",icon:"safari",mode:mode) { if let url=URL(string:webServer.shareURL){NSWorkspace.shared.open(url)} }
+    private var sharingStrip: some View {
+        HStack(spacing: 12) {
+            Toggle("Sharing", isOn: Binding(
+                get: { webServer.isRunning },
+                set: { enabled in enabled ? webServer.start() : webServer.stop() }
+            ))
+            .toggleStyle(.switch)
+            .fontWeight(.semibold)
+
+            if webServer.isRunning {
+                Text(webServer.shareURL.replacingOccurrences(of: "http://", with: ""))
+                    .font(.callout.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            } else {
+                Text(webServer.statusMessage).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(webServer.shareURL, forType: .string)
+                copiedAddress = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { copiedAddress = false }
+            } label: { Image(systemName: copiedAddress ? "checkmark" : "doc.on.doc") }
+                .disabled(!webServer.isRunning)
+                .help("Copy sharing address")
+            ShareLink(item: webServer.shareURL) { Image(systemName: "square.and.arrow.up") }
+                .disabled(!webServer.isRunning)
+                .help("Share sharing address")
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(colorTheme.accent.opacity(0.065))
+    }
+
+    private var filterStrip: some View {
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(MediaFilter.allCases) { filter in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.16)) { mediaFilterRaw = filter.rawValue }
+                        } label: {
+                            Label(filter.title, systemImage: filter.systemImage)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(mediaFilter == filter ? colorTheme.accent.opacity(0.18) : Color(nsColor: .controlBackgroundColor), in: Capsule())
+                                .overlay { Capsule().stroke(mediaFilter == filter ? colorTheme.accent.opacity(0.55) : Color.secondary.opacity(0.16), lineWidth: 1) }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                MacActionButton(full:webServer.isRunning ? "Stop Sharing":"Start Sharing",short:webServer.isRunning ? "Stop":"Start",icon:webServer.isRunning ? "stop.fill":"play.fill",mode:mode) { webServer.isRunning ? webServer.stop() : webServer.start() }
-                    .buttonStyle(.borderedProminent)
-            }.frame(maxWidth:.infinity,alignment:.leading).padding(.top,4)
+                .padding(.leading, 18)
+            }
+            Text("\(filteredFiles.count)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            Picker("View", selection: $fileViewModeRaw) {
+                ForEach(FileViewMode.allCases) { view in
+                    Image(systemName: view.systemImage).tag(view.rawValue)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 82)
+            .padding(.trailing, 18)
         }
+        .padding(.vertical, 8)
     }
 
-    private var importCard: some View {
-        GroupBox("Import") {
-            VStack(spacing:8) {
-                Image(systemName:"square.and.arrow.down.on.square").font(.system(size:30));Text("Drop files here").fontWeight(.semibold);Text("They are copied into Shar immediately.").font(.caption).foregroundStyle(.secondary)
-                MacActionButton(full:"Choose Files…",short:"Choose",icon:"plus",mode:mode){chooseFiles()}
-            }
-            .frame(maxWidth:.infinity).padding(.vertical,16).background(isDropTargeted ? Color.accentColor.opacity(0.12):Color.clear).clipShape(RoundedRectangle(cornerRadius:10))
-            .dropDestination(for:URL.self){urls,_ in urls.forEach{fileStore.importFile(from:$0)};return !urls.isEmpty} isTargeted:{isDropTargeted=$0}
-        }
-    }
-
-    private var filesPane: some View {
-        VStack(spacing:0) {
-            HStack { Text("Files").font(.title2.bold());Text("\(fileStore.files.count)").foregroundStyle(.secondary);Spacer();MacActionButton(full:"Show Folder",short:"Folder",icon:"folder",mode:mode){NSWorkspace.shared.open(FileStore.documentsDirectory)};MacActionButton(full:"Refresh",short:"Refresh",icon:"arrow.clockwise",mode:mode){fileStore.refresh()} }.padding(18)
-            Divider()
-            if fileStore.files.isEmpty {
-                MacEmptyStateView(
-                    title: "No Files Yet",
-                    systemImage: "folder",
-                    message: "Drop files into this window or upload them from the browser."
-                )
-            }
-            else {
-                List(fileStore.files) { file in
-                    HStack(spacing:12) {
-                        MacThumbnail(file:file)
-                        VStack(alignment:.leading,spacing:4) {
-                            Text(file.name).fontWeight(.medium)
-                            MacAudioMetadataLine(file:file)
-                            Text("\(file.mediaKind.rawValue.capitalized) • \(ByteCountFormatter.string(fromByteCount:file.size,countStyle:.file))").font(.caption).foregroundStyle(.secondary)
+    @ViewBuilder
+    private var filesContent: some View {
+        if fileStore.files.isEmpty {
+            MacEmptyStateView(title: "No Files Yet", systemImage: "folder", message: "Click + or drop files into Shar. Turn on Sharing to upload from another device on the LAN.")
+        } else if filteredFiles.isEmpty {
+            MacEmptyStateView(title: "No \(mediaFilter.title)", systemImage: mediaFilter.systemImage, message: "Choose another media filter.")
+        } else {
+            switch fileViewMode {
+            case .grid:
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 300), spacing: 12)], spacing: 12) {
+                        ForEach(filteredFiles) { file in
+                            MacLibraryGridCard(file: file, mode: mode, showFileSize: showFileSizes, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
                         }
-                        Spacer()
-                        if file.mediaKind == .audio { MacInlineAudioButton(file:file) }
-                        MacActionButton(full:"Preview",short:"View",icon:"eye",mode:mode){selectedFile=file}.buttonStyle(.borderless)
-                        MacActionButton(full:"Remote",short:"Remote",icon:"network",mode:mode){openRemoteShare(file)}.buttonStyle(.borderless)
-                        MacActionButton(full:"Delete",short:"Del",icon:"trash",mode:mode){deleteCandidate=file}.buttonStyle(.borderless)
                     }
-                    .contentShape(Rectangle()).onTapGesture(count:2){selectedFile=file}
-                    .contextMenu { Button("Preview"){selectedFile=file};Button("Remote share"){openRemoteShare(file)};Button("Reveal in Finder"){NSWorkspace.shared.activateFileViewerSelecting([file.url])};Divider();Button("Delete",role:.destructive){deleteCandidate=file} }
-                    .padding(.vertical,3)
-                }.listStyle(.inset)
+                    .padding(14)
+                }
+            case .list:
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(filteredFiles) { file in
+                            MacLibraryListRow(file: file, mode: mode, showFileSize: showFileSizes, onPreview: { selectedFile = file }, onRemote: { openRemoteShare(file) }, onDelete: { deleteCandidate = file })
+                        }
+                    }
+                    .padding(14)
+                }
             }
         }
     }
 
-    private func chooseFiles(){let p=NSOpenPanel();p.canChooseFiles=true;p.canChooseDirectories=false;p.allowsMultipleSelection=true;if p.runModal() == .OK {p.urls.forEach{fileStore.importFile(from:$0)}}}
-    private func openRemoteShare(_ file: SharedFile) {
-        remoteShareFile = file
-    }
-    private var appVersion:String {"\(Bundle.main.object(forInfoDictionaryKey:"CFBundleShortVersionString") as? String ?? "?") (\(Bundle.main.object(forInfoDictionaryKey:"CFBundleVersion") as? String ?? "?"))"}
-}
+    private var settingsPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label("Config", systemImage: "gearshape.fill").font(.title2.bold())
+                        Text("Shar · v\(appVersion)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button { withAnimation(.easeInOut(duration: 0.18)) { showingSettings = false } } label: {
+                        Image(systemName: "xmark.circle.fill").font(.title2).foregroundStyle(.secondary)
+                    }.buttonStyle(.plain)
+                }
 
+                macSettingsSection("Buttons") {
+                    Picker("Button labels", selection: $actionLabelModeRaw) {
+                        ForEach(ActionLabelMode.allCases) { option in Text(option.title).tag(option.rawValue) }
+                    }.pickerStyle(.segmented)
+                }
+
+                macSettingsSection("File layout") {
+                    Picker("View", selection: $fileViewModeRaw) {
+                        ForEach(FileViewMode.allCases) { option in Label(option.title, systemImage: option.systemImage).tag(option.rawValue) }
+                    }.pickerStyle(.segmented)
+                    Toggle("Show file sizes", isOn: $showFileSizes)
+                }
+
+                macSettingsSection("Colour theme") {
+                    ForEach(AppColorTheme.allCases) { theme in
+                        Button { colorThemeRaw = theme.rawValue } label: {
+                            HStack {
+                                Circle().fill(theme.accent).frame(width: 16, height: 16)
+                                Text(theme.title).foregroundStyle(.primary)
+                                Spacer()
+                                if colorTheme == theme { Image(systemName: "checkmark").foregroundStyle(theme.accent) }
+                            }
+                        }.buttonStyle(.plain)
+                    }
+                }
+
+                macSettingsSection("Developer") {
+                    Toggle("Show ⓘ developer updates", isOn: $showDeveloperInfo)
+                }
+
+                macSettingsSection("Sharing") {
+                    Text(webServer.isRunning ? webServer.shareURL : "LAN browser sharing is off")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    Button("Show Shared Folder") { NSWorkspace.shared.open(FileStore.documentsDirectory) }
+                }
+
+                macSettingsSection("About & Support") {
+                    HStack { Text("Version"); Spacer(); Text(appShortVersion).monospacedDigit() }
+                    HStack { Text("Build"); Spacer(); Text(appBuild).monospacedDigit() }
+                    Divider()
+                    HStack { Text("Built by"); Spacer(); Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
+                    Link(destination: SharProductInfo.productURL) { Label("Shar website", systemImage: "globe") }
+                    Link(destination: SharProductInfo.sourceURL) { Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right") }
+                    Link(destination: SharProductInfo.supportURL) {
+                        Label("Support Shar", systemImage: "heart.fill").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Text("Support opens Shar's support page and forwards to the configured Stripe Payment Link.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(22)
+        }
+        .frame(width: 390)
+        .frame(maxHeight: .infinity)
+        .background(.regularMaterial)
+        .shadow(radius: 22, x: -8)
+    }
+
+    private func macSettingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+            content()
+        }
+    }
+
+    private func chooseFiles() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if panel.runModal() == .OK { panel.urls.forEach { fileStore.importFile(from: $0) } }
+    }
+
+    private func openRemoteShare(_ file: SharedFile) { remoteShareFile = file }
+    private var appShortVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
+    private var appBuild: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
+    private var appVersion: String { "\(appShortVersion) (\(appBuild))" }
+}
 
 
 private struct MacRemoteShareSheet: View {
@@ -535,7 +709,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.1.4',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -652,6 +826,8 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String)] = [
+        ("2.1.4", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
+        ("2.1.3", "Unified native library UI", "Added iOS-style media filters, grid/list library modes, cog-based Config, explicit version/build information and About/Support links on macOS."),
         ("2.1.2", "Native macOS Secure Remote Share", "Remote sharing now stays inside the macOS app with native PIN, QR/link, approval, encrypted-transfer progress and completion UI instead of opening the localhost browser."),
         ("2.1.1", "Secure Android build fix", "Fixed the Android embedded secure-share JavaScript escaping regression and added a javac release guard."),
         ("2.1.0", "Secure Remote Share", "Added AES-256-GCM content encryption, receiver PIN, sender approval, SHA-256 verification and private metadata mode."),
@@ -692,6 +868,97 @@ private struct MacDeveloperUpdatesView: View {
     }
 }
 
+private struct MacLibraryGridCard: View {
+    let file: SharedFile
+    let mode: ActionLabelMode
+    let showFileSize: Bool
+    let onPreview: () -> Void
+    let onRemote: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button(action: onPreview) {
+                MacThumbnail(file: file, size: 142)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+            Text(file.name).font(.headline).lineLimit(2)
+            MacAudioMetadataLine(file: file)
+            HStack(spacing: 5) {
+                Text(file.mediaKind.rawValue.uppercased())
+                if showFileSize {
+                    Text("•")
+                    Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                if file.mediaKind == .audio { MacInlineAudioButton(file: file) }
+                MacActionButton(full: "Preview", short: "View", icon: "eye", mode: mode, action: onPreview).buttonStyle(.borderless)
+                MacActionButton(full: "Remote", short: "Remote", icon: "network", mode: mode, action: onRemote).buttonStyle(.borderless)
+                Spacer(minLength: 0)
+                MacActionButton(full: "Delete", short: "Del", icon: "trash", mode: mode, action: onDelete).buttonStyle(.borderless)
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.12), lineWidth: 1) }
+        .contextMenu {
+            Button("Preview", action: onPreview)
+            Button("Remote share", action: onRemote)
+            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file.url]) }
+            Divider()
+            Button("Delete", role: .destructive, action: onDelete)
+        }
+    }
+}
+
+private struct MacLibraryListRow: View {
+    let file: SharedFile
+    let mode: ActionLabelMode
+    let showFileSize: Bool
+    let onPreview: () -> Void
+    let onRemote: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onPreview) { MacThumbnail(file: file) }.buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(file.name).fontWeight(.medium).lineLimit(1)
+                MacAudioMetadataLine(file: file)
+                HStack(spacing: 5) {
+                    Text(file.mediaKind.rawValue.uppercased())
+                    if showFileSize {
+                        Text("•")
+                        Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if file.mediaKind == .audio { MacInlineAudioButton(file: file) }
+            MacActionButton(full: "Preview", short: "View", icon: "eye", mode: mode, action: onPreview).buttonStyle(.borderless)
+            MacActionButton(full: "Remote", short: "Remote", icon: "network", mode: mode, action: onRemote).buttonStyle(.borderless)
+            MacActionButton(full: "Delete", short: "Del", icon: "trash", mode: mode, action: onDelete).buttonStyle(.borderless)
+        }
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2, perform: onPreview)
+        .contextMenu {
+            Button("Preview", action: onPreview)
+            Button("Remote share", action: onRemote)
+            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file.url]) }
+            Divider()
+            Button("Delete", role: .destructive, action: onDelete)
+        }
+    }
+}
+
 private struct MacEmptyStateView: View {
     let title: String
     let systemImage: String
@@ -723,9 +990,32 @@ private struct MacActionButton: View {
 }
 
 private struct MacThumbnail: View {
-    let file:SharedFile
-    var body: some View { ZStack { RoundedRectangle(cornerRadius:9).fill(.quaternary);if let image=thumbnail {Image(nsImage:image).resizable().scaledToFill()}else{Image(systemName:file.systemImageName).font(.title2).foregroundStyle(.secondary)}}.frame(width:54,height:54).clipShape(RoundedRectangle(cornerRadius:9)).overlay(alignment:.bottomTrailing){Text(file.typeLabel).font(.system(size:8,weight:.semibold)).padding(.horizontal,4).padding(.vertical,2).background(.ultraThinMaterial,in:Capsule()).padding(3)} }
-    private var thumbnail:NSImage? { if file.mediaKind == .image {return NSImage(contentsOf:file.url)};if file.mediaKind == .audio,let d=MediaMetadataReader.read(file.url).artworkData{return NSImage(data:d)};return nil }
+    let file: SharedFile
+    var size: CGFloat = 54
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9).fill(.quaternary)
+            if let image = thumbnail {
+                Image(nsImage: image).resizable().scaledToFill()
+            } else {
+                Image(systemName: file.systemImageName)
+                    .font(size > 80 ? .system(size: 42) : .title2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay(alignment: .bottomTrailing) {
+            Text(file.typeLabel).font(.system(size: 8, weight: .semibold))
+                .padding(.horizontal, 4).padding(.vertical, 2)
+                .background(.ultraThinMaterial, in: Capsule()).padding(3)
+        }
+    }
+    private var thumbnail: NSImage? {
+        if file.mediaKind == .image { return NSImage(contentsOf: file.url) }
+        if file.mediaKind == .audio, let data = MediaMetadataReader.read(file.url).artworkData { return NSImage(data: data) }
+        return nil
+    }
 }
 
 private struct MacAudioMetadataLine: View {

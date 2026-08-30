@@ -28,6 +28,10 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     private boolean showDeveloperInfo;
     private boolean rebuilding;
     private static final int PICK_FILES = 4001;
+    private static final String PRODUCT_URL = "https://mojoworks.xyz/labs/shar/";
+    private static final String SOURCE_URL = "https://github.com/sylwesterdigital/shar";
+    private static final String SUPPORT_URL = "https://mojoworks.xyz/labs/shar/support.html";
+    private static final String BUILDER_NAME = "MojoWorks";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -48,11 +52,14 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
         Button importButton=new Button(this);setLabel(importButton,"Import Files","Import","＋");importButton.setOnClickListener(v->chooseFiles());root.addView(importButton);
         LinearLayout modeRow=new LinearLayout(this);modeRow.setGravity(Gravity.CENTER_VERTICAL);TextView ml=text("Buttons",14);modeRow.addView(ml);Spinner spinner=new Spinner(this);ArrayAdapter<String>a=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Text","Icons","Icon + short"});spinner.setAdapter(a);spinner.setSelection(buttonMode,false);spinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onNothingSelected(android.widget.AdapterView<?>p){}public void onItemSelected(android.widget.AdapterView<?>p,View v,int pos,long id){if(rebuilding||pos==buttonMode)return;buttonMode=pos;getPreferences(MODE_PRIVATE).edit().putInt("button_mode",pos).apply();rebuildUI();}});modeRow.addView(spinner,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));root.addView(modeRow);
         CheckBox developerToggle=new CheckBox(this);developerToggle.setText("Show ⓘ developer updates");developerToggle.setChecked(showDeveloperInfo);developerToggle.setOnCheckedChangeListener((button,checked)->{if(rebuilding)return;showDeveloperInfo=checked;getPreferences(MODE_PRIVATE).edit().putBoolean("show_developer_info",checked).apply();rebuildUI();});root.addView(developerToggle);
-        LinearLayout filesHeader=new LinearLayout(this);filesHeader.setGravity(Gravity.CENTER_VERTICAL);filesHeader.setPadding(0,dp(18),0,dp(8));TextView fh=text("Files",20);filesHeader.addView(fh,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));countText=text("0",14);filesHeader.addView(countText);root.addView(filesHeader);filesLayout=new LinearLayout(this);filesLayout.setOrientation(LinearLayout.VERTICAL);root.addView(filesLayout);TextView version=text(appVersionLabel(),12);version.setPadding(0,dp(24),0,0);root.addView(version);return scroll;
+        LinearLayout filesHeader=new LinearLayout(this);filesHeader.setGravity(Gravity.CENTER_VERTICAL);filesHeader.setPadding(0,dp(18),0,dp(8));TextView fh=text("Files",20);filesHeader.addView(fh,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));countText=text("0",14);filesHeader.addView(countText);root.addView(filesHeader);filesLayout=new LinearLayout(this);filesLayout.setOrientation(LinearLayout.VERTICAL);root.addView(filesLayout);
+        LinearLayout aboutRow=new LinearLayout(this);aboutRow.setGravity(Gravity.CENTER_VERTICAL);aboutRow.setPadding(0,dp(24),0,0);Button about=new Button(this);about.setText("About Shar");about.setOnClickListener(v->showAbout());aboutRow.addView(about,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));Button support=new Button(this);support.setText("♥ Support Shar");support.setOnClickListener(v->openExternal(SUPPORT_URL));aboutRow.addView(support,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));root.addView(aboutRow);TextView version=text(appVersionLabel(),12);version.setPadding(0,dp(6),0,0);root.addView(version);return scroll;
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
+        String message="v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
+                "v2.1.3  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+
+                "v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
                 "v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
                 "v2.1.0  Secure Remote Share\nAdded AES-256-GCM encryption, separate PIN verification, sender approval, SHA-256 integrity checks, and hardened TURN/API privacy.\n\n"+
                 "v2.0.8  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
@@ -71,6 +78,22 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
             "v1.7.2  More ways to add\nPhotos & Videos, camera recording, and Files from +.\n\n"+
             "v1.7.1  Shar identity\nShar branding and persistent iOS + importer.";
         new AlertDialog.Builder(this).setTitle("Developer updates").setMessage(message).setPositiveButton("Close",null).show();
+    }
+
+    private void showAbout(){
+        String version=appVersionLabel();
+        new AlertDialog.Builder(this)
+                .setTitle("About Shar")
+                .setMessage(version+"\n\nBuilt by "+BUILDER_NAME+"\n"+PRODUCT_URL+"\n\nSource: "+SOURCE_URL)
+                .setPositiveButton("Support Shar",(d,w)->openExternal(SUPPORT_URL))
+                .setNeutralButton("Website",(d,w)->openExternal(PRODUCT_URL))
+                .setNegativeButton("Close",null)
+                .show();
+    }
+
+    private void openExternal(String value){
+        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(value))); }
+        catch(Exception e) { Toast.makeText(this,"Could not open link",Toast.LENGTH_LONG).show(); }
     }
 
     private String appVersionLabel(){

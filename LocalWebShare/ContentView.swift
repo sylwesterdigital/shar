@@ -454,9 +454,21 @@ struct ContentView: View {
                             }
                         }
 
-                        settingsSection("About") {
-                            LabeledContent("Version", value: appVersion)
-                            Text("Keep the app in the foreground while transferring large files. Local browser sharing requires a reachable local network.")
+                        settingsSection("About & Support") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack { Text("Version"); Spacer(); Text(appShortVersion).monospacedDigit() }
+                                HStack { Text("Build"); Spacer(); Text(appBuild).monospacedDigit() }
+                                Divider()
+                                HStack { Text("Built by"); Spacer(); Link(SharProductInfo.builderName, destination: SharProductInfo.builderURL) }
+                                Link(destination: SharProductInfo.productURL) { Label("Shar website", systemImage: "globe") }
+                                Link(destination: SharProductInfo.sourceURL) { Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right") }
+                                Link(destination: SharProductInfo.supportURL) {
+                                    Label("Support Shar", systemImage: "heart.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            Text("Support opens Shar's secure support page, which forwards to the configured Stripe Payment Link. Keep the app in the foreground while transferring large files. Local browser sharing requires a reachable local network.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -496,11 +508,15 @@ struct ContentView: View {
         webServer.shareURL.replacingOccurrences(of: "http://", with: "")
     }
 
-    private var appVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-        return "\(version) (\(build))"
+    private var appShortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     }
+
+    private var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+    }
+
+    private var appVersion: String { "\(appShortVersion) (\(appBuild))" }
 }
 
 
@@ -512,6 +528,8 @@ private struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.1.4", title: "Release pipeline resilience", summary: "A locked iPhone no longer aborts the full release after the app has already installed successfully."),
+    .init(version: "2.1.3", title: "Unified native library UI", summary: "Brought macOS grid/list, media filters and cog-based Settings in line with iOS; made Version/Build explicit and added About/Support links across native clients."),
     .init(version: "2.1.2", title: "Native macOS Secure Remote Share", summary: "Remote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI."),
     .init(version: "2.1.1", title: "Android secure-share build fix", summary: "Fixed the Android embedded browser Base64URL helper and added a Java text-block compile guard to release verification."),
     .init(version: "2.1.0", title: "Secure Remote Share", summary: "Added AES-256-GCM content encryption, separate PIN verification, sender approval, SHA-256 integrity checks, private metadata mode, and hardened TURN/API logging."),
@@ -1143,7 +1161,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.1.4',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
