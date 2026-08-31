@@ -341,7 +341,14 @@ private final class AudioVisualizationModel: ObservableObject {
 }
 
 private enum AudioFileAnalyzer {
-    private static let bandFrequencies: [Double] = [63, 125, 250, 500, 1_000, 2_000, 3_150, 5_000, 8_000, 10_000, 12_500, 16_000]
+    // 20 logarithmic bands give a recognisable equalizer/spectrum shape while
+    // remaining light enough to pre-analyse locally before/during playback.
+    private static let bandFrequencies: [Double] = (0..<20).map { index in
+        let low = 55.0
+        let high = 16_000.0
+        let fraction = Double(index) / 19.0
+        return low * pow(high / low, fraction)
+    }
 
     static func analyze(url: URL) -> AudioAnalysisResult {
         guard let audioFile = try? AVAudioFile(forReading: url) else {
@@ -352,16 +359,15 @@ private enum AudioFileAnalyzer {
         let totalFrames = max(1, audioFile.length)
         let duration = Double(totalFrames) / sampleRate
 
-        // About 12 spectrum samples/second for normal tracks. Long recordings
-        // automatically reduce the analysis rate to cap memory/CPU, while the
-        // displayed spectrum still interpolates at the 20 Hz playback clock.
-        let targetFPS = min(12.0, max(3.0, 12_000.0 / max(duration, 1)))
-        let hopFrames = max(AVAudioFrameCount(1_024), AVAudioFrameCount((sampleRate / targetFPS).rounded()))
-        let spectrumWindow = 1_024
+        // Normal music tracks are analysed at 20 frequency snapshots/second.
+        // Very long recordings scale down only to keep memory/CPU bounded.
+        let targetFPS = min(20.0, max(8.0, 20_000.0 / max(duration, 1)))
+        let hopFrames = max(AVAudioFrameCount(512), AVAudioFrameCount((sampleRate / targetFPS).rounded()))
+        let spectrumWindow = 768
 
         var amplitudes: [Double] = []
         var spectra: [[Double]] = []
-        let expected = min(12_000, max(1, Int(duration * targetFPS) + 1))
+        let expected = min(20_000, max(1, Int(duration * targetFPS) + 1))
         amplitudes.reserveCapacity(expected)
         spectra.reserveCapacity(expected)
 
@@ -384,25 +390,25 @@ private enum AudioFileAnalyzer {
             let rms = sqrt(allSamples.reduce(0.0) { partial, sample in
                 partial + Double(sample * sample)
             } / Double(allSamples.count))
-            let amplitude = min(1, sqrt(max(0, rms)) * 2.5)
+            let amplitude = min(1, sqrt(max(0, rms)) * 2.7)
             amplitudes.append(amplitude)
 
-            let samples: [Float]
-            if allSamples.count > spectrumWindow {
-                let start = max(0, (allSamples.count - spectrumWindow) / 2)
-                samples = Array(allSamples[start..<min(allSamples.count, start + spectrumWindow)])
-            } else {
-                samples = allSamples
-            }
+            let countForSpectrum = min(spectrumWindow, allSamples.count)
+            let start = max(0, (allSamples.count - countForSpectrum) / 2)
+            let samples = Array(allSamples[start..<start + countForSpectrum])
 
             let raw = bandFrequencies.map { frequency in
-                frequency < sampleRate * 0.48 ? goertzel(samples: samples, sampleRate: sampleRate, frequency: frequency) : 0
+                frequency < sampleRate * 0.48
+                    ? goertzel(samples: samples, sampleRate: sampleRate, frequency: frequency)
+                    : 0
             }
             let peak = max(raw.max() ?? 0, 0.000_001)
-            let energy = min(1, max(0.08, amplitude * 1.7))
+            let energy = min(1, max(0.05, amplitude * 1.85))
             spectra.append(raw.map { value in
                 let relative = min(1, max(0, value / peak))
-                return min(1, pow(relative, 0.42) * (0.15 + 0.85 * energy))
+                // Preserve the frequency shape while allowing quiet passages to
+                // visibly fall instead of keeping every bar artificially raised.
+                return min(1, pow(relative, 0.52) * (0.05 + 0.95 * energy))
             })
         }
 
@@ -548,7 +554,6 @@ private struct AudioVisualizationView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .animation(.linear(duration: 0.05), value: bands)
         }
     }
 
@@ -583,43 +588,96 @@ private struct AudioCaptionChunk: Sendable {
 }
 
 private enum AudioCaptionChunker {
-    static func makeChunks(url: URL, maxSeconds: Double = 45) throws -> [AudioCaptionChunk] {
+    /// Speech receives short, local 16 kHz mono PCM chunks. This avoids asking
+    /// the recognizer to decode a long/compressed music file directly and keeps
+    /// every preprocessing step on the device.
+    static func makeChunks(url: URL, maxSeconds: Double = 20) throws -> [AudioCaptionChunk] {
         let input = try AVAudioFile(forReading: url)
-        let format = input.processingFormat
-        let sampleRate = max(1, format.sampleRate)
+        let sourceFormat = input.processingFormat
+        let sourceRate = max(1, sourceFormat.sampleRate)
         let totalFrames = input.length
-        let totalDuration = Double(totalFrames) / sampleRate
-        if totalDuration <= maxSeconds {
-            return [AudioCaptionChunk(url: url, start: 0, isTemporary: false)]
+        let framesPerChunk = max(
+            AVAudioFramePosition(1),
+            AVAudioFramePosition((sourceRate * maxSeconds).rounded())
+        )
+        guard let speechFormat = AVAudioFormat(
+            standardFormatWithSampleRate: 16_000,
+            channels: 1
+        ) else {
+            throw NSError(
+                domain: "SharAudioCaption",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Could not create the local speech audio format."]
+            )
         }
 
-        let framesPerChunk = max(AVAudioFramePosition(1), AVAudioFramePosition((sampleRate * maxSeconds).rounded()))
         var chunks: [AudioCaptionChunk] = []
         var startFrame: AVAudioFramePosition = 0
-        let bufferCapacity: AVAudioFrameCount = 8_192
 
         while startFrame < totalFrames {
+            input.framePosition = startFrame
+            let sourceCount = AVAudioFrameCount(min(framesPerChunk, totalFrames - startFrame))
+            guard let sourceBuffer = AVAudioPCMBuffer(
+                pcmFormat: sourceFormat,
+                frameCapacity: sourceCount
+            ) else { break }
+            try input.read(into: sourceBuffer, frameCount: sourceCount)
+            guard sourceBuffer.frameLength > 0 else { break }
+
+            guard let converter = AVAudioConverter(from: sourceFormat, to: speechFormat) else {
+                throw NSError(
+                    domain: "SharAudioCaption",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not prepare this audio for local captions."]
+                )
+            }
+            let ratio = speechFormat.sampleRate / sourceRate
+            let targetCapacity = AVAudioFrameCount(
+                max(1, Int(ceil(Double(sourceBuffer.frameLength) * ratio)) + 1_024)
+            )
+            guard let converted = AVAudioPCMBuffer(
+                pcmFormat: speechFormat,
+                frameCapacity: targetCapacity
+            ) else { break }
+
+            var suppliedSource = false
+            var conversionError: NSError?
+            let status = converter.convert(to: converted, error: &conversionError) { _, inputStatus in
+                if suppliedSource {
+                    inputStatus.pointee = .endOfStream
+                    return nil
+                }
+                suppliedSource = true
+                inputStatus.pointee = .haveData
+                return sourceBuffer
+            }
+            if status == .error {
+                throw conversionError ?? NSError(
+                    domain: "SharAudioCaption",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Local audio conversion failed."]
+                )
+            }
+
             let tempURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("shar-caption-\(UUID().uuidString)")
                 .appendingPathExtension("caf")
-            let output = try AVAudioFile(forWriting: tempURL, settings: format.settings)
-            var remaining = min(framesPerChunk, totalFrames - startFrame)
-
-            while remaining > 0 {
-                let count = AVAudioFrameCount(min(AVAudioFramePosition(bufferCapacity), remaining))
-                guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: count) else { break }
-                try input.read(into: buffer, frameCount: count)
-                guard buffer.frameLength > 0 else { break }
-                try output.write(from: buffer)
-                remaining -= AVAudioFramePosition(buffer.frameLength)
-            }
-
+            let output = try AVAudioFile(forWriting: tempURL, settings: speechFormat.settings)
+            try output.write(from: converted)
             chunks.append(AudioCaptionChunk(
                 url: tempURL,
-                start: Double(startFrame) / sampleRate,
+                start: Double(startFrame) / sourceRate,
                 isTemporary: true
             ))
-            startFrame += framesPerChunk
+            startFrame += AVAudioFramePosition(sourceBuffer.frameLength)
+        }
+
+        if chunks.isEmpty {
+            throw NSError(
+                domain: "SharAudioCaption",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "No local caption audio could be prepared."]
+            )
         }
         return chunks
     }
@@ -641,8 +699,8 @@ private final class AudioCaptionController: ObservableObject {
     @Published private(set) var words: [TimedCaptionWord] = []
     @Published private(set) var isTranscribing = false
     @Published private(set) var message: String?
-    @Published private(set) var canTryAppleOnline = false
     @Published private(set) var progressLabel: String?
+    @Published private(set) var recognizerLabel: String?
 
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
@@ -652,44 +710,40 @@ private final class AudioCaptionController: ObservableObject {
         activePath = file.url.path
         words = AudioCaptionMemoryCache.wordsByPath[file.url.path] ?? []
         message = nil
-        canTryAppleOnline = false
         progressLabel = nil
+        recognizerLabel = nil
     }
 
-    func generate(file: SharedFile, allowAppleOnline: Bool = false) {
+    func generate(file: SharedFile) {
         let path = file.url.path
         activePath = path
         recognitionTask?.cancel()
         recognitionTask = nil
         message = nil
-        canTryAppleOnline = false
         progressLabel = nil
-        if allowAppleOnline {
-            words = []
-            AudioCaptionMemoryCache.wordsByPath[path] = []
-        }
+        recognizerLabel = nil
+        words = []
+        AudioCaptionMemoryCache.wordsByPath[path] = []
 
         Task {
             let authorization = await requestAuthorization()
             guard activePath == path else { return }
             guard authorization == .authorized else {
-                message = "Speech Recognition permission is needed to create captions."
+                message = "Speech Recognition permission is needed to create captions on this iPhone."
                 return
             }
-            guard let speechRecognizer = SFSpeechRecognizer(locale: Locale.current), speechRecognizer.isAvailable else {
-                message = "Apple Speech is not available for the current language right now."
-                return
-            }
-            if !allowAppleOnline && !speechRecognizer.supportsOnDeviceRecognition {
-                message = "On-device captions are unavailable for this language. You can try Apple online transcription instead."
-                canTryAppleOnline = true
+            guard let speechRecognizer = preferredOnDeviceRecognizer() else {
+                message = "No on-device speech model is available for the preferred language. Shar will not upload this audio."
                 return
             }
 
             recognizer = speechRecognizer
+            recognizerLabel = Locale.current.localizedString(forIdentifier: speechRecognizer.locale.identifier)
+                ?? speechRecognizer.locale.identifier
             isTranscribing = true
             var chunks: [AudioCaptionChunk] = []
             do {
+                progressLabel = "Preparing audio locally…"
                 chunks = try await Task.detached(priority: .utility) {
                     try AudioCaptionChunker.makeChunks(url: file.url)
                 }.value
@@ -700,25 +754,32 @@ private final class AudioCaptionController: ObservableObject {
                 }
 
                 var combined: [TimedCaptionWord] = []
+                var failedSections = 0
                 for (chunkIndex, chunk) in chunks.enumerated() {
                     guard activePath == path else { break }
-                    progressLabel = chunks.count > 1 ? "Creating captions \(chunkIndex + 1)/\(chunks.count)…" : "Creating captions…"
-                    let chunkWords = try await recognize(
-                        chunk: chunk,
-                        recognizer: speechRecognizer,
-                        requiresOnDevice: !allowAppleOnline
-                    )
-                    combined.append(contentsOf: chunkWords)
-                    words = combined
-                    AudioCaptionMemoryCache.wordsByPath[path] = combined
+                    progressLabel = chunks.count > 1
+                        ? "Creating captions \(chunkIndex + 1)/\(chunks.count)…"
+                        : "Creating captions…"
+                    do {
+                        let chunkWords = try await recognize(
+                            chunk: chunk,
+                            recognizer: speechRecognizer
+                        )
+                        combined.append(contentsOf: chunkWords)
+                        words = combined
+                        AudioCaptionMemoryCache.wordsByPath[path] = combined
+                    } catch {
+                        // Do not discard useful captions just because one local
+                        // section could not be recognized.
+                        failedSections += 1
+                    }
                 }
 
                 if activePath == path {
                     if combined.isEmpty {
-                        message = allowAppleOnline
-                            ? "Apple Speech did not find recognizable speech in this audio. Songs and heavily mixed audio can be difficult to transcribe."
-                            : "On-device Speech did not find recognizable speech. You can try Apple online transcription."
-                        canTryAppleOnline = !allowAppleOnline
+                        message = "On-device captions could not recognize speech in this track. Nothing was uploaded. Spoken voice works better than vocals mixed with music."
+                    } else if failedSections > 0 {
+                        message = "Captions were created locally, but \(failedSections) section\(failedSections == 1 ? "" : "s") could not be recognized."
                     } else {
                         message = nil
                     }
@@ -729,12 +790,7 @@ private final class AudioCaptionController: ObservableObject {
                     isTranscribing = false
                     return
                 }
-                if !allowAppleOnline {
-                    message = "On-device transcription could not process this audio. Try Apple online transcription."
-                    canTryAppleOnline = true
-                } else {
-                    message = friendlySpeechError(error)
-                }
+                message = friendlySpeechError(error)
             }
             AudioCaptionChunker.removeTemporary(chunks)
             if activePath == path {
@@ -745,14 +801,31 @@ private final class AudioCaptionController: ObservableObject {
         }
     }
 
+    /// Only returns recognizers that explicitly advertise on-device support.
+    /// There is deliberately no network/cloud fallback anywhere in this path.
+    private func preferredOnDeviceRecognizer() -> SFSpeechRecognizer? {
+        var identifiers: [String] = [Locale.current.identifier]
+        identifiers.append(contentsOf: Locale.preferredLanguages)
+        identifiers.append("en-US")
+
+        var seen = Set<String>()
+        for identifier in identifiers {
+            let normalized = identifier.replacingOccurrences(of: "_", with: "-")
+            guard seen.insert(normalized).inserted else { continue }
+            guard let candidate = SFSpeechRecognizer(locale: Locale(identifier: normalized)) else { continue }
+            guard candidate.isAvailable, candidate.supportsOnDeviceRecognition else { continue }
+            return candidate
+        }
+        return nil
+    }
+
     private func recognize(
         chunk: AudioCaptionChunk,
-        recognizer speechRecognizer: SFSpeechRecognizer,
-        requiresOnDevice: Bool
+        recognizer speechRecognizer: SFSpeechRecognizer
     ) async throws -> [TimedCaptionWord] {
         let request = SFSpeechURLRecognitionRequest(url: chunk.url)
         request.shouldReportPartialResults = false
-        request.requiresOnDeviceRecognition = requiresOnDevice
+        request.requiresOnDeviceRecognition = true
         request.taskHint = .dictation
         request.addsPunctuation = true
 
@@ -785,9 +858,9 @@ private final class AudioCaptionController: ObservableObject {
     private func friendlySpeechError(_ error: Error) -> String {
         let ns = error as NSError
         if ns.domain == "kAFAssistantErrorDomain" || ns.domain.localizedCaseInsensitiveContains("speech") {
-            return "Apple Speech could not transcribe this audio. Spoken voice works best; music or heavily mixed vocals may still fail."
+            return "On-device Speech could not process this track. Nothing was uploaded. Spoken recordings are more reliable than music with mixed vocals."
         }
-        return "Captions could not be created: \(error.localizedDescription)"
+        return "Local captions could not be created: \(error.localizedDescription)"
     }
 
     private func requestAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
@@ -855,23 +928,16 @@ private struct AudioCaptionStrip: View {
                     .multilineTextAlignment(.center)
             }
 
-            if captions.canTryAppleOnline && !captions.isTranscribing {
-                Button {
-                    captions.generate(file: file, allowAppleOnline: true)
-                } label: {
-                    Label("Try Apple online transcription", systemImage: "icloud.and.arrow.up")
-                        .frame(maxWidth: .infinity)
+            HStack(spacing: 5) {
+                Image(systemName: "lock.shield")
+                Text("On-device only • audio is never uploaded")
+                if let label = captions.recognizerLabel, !label.isEmpty {
+                    Text("• \(label)")
                 }
-                .buttonStyle(.borderedProminent)
-                Text("Optional fallback • the audio may be sent to Apple for transcription")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else if !captions.words.isEmpty && captions.message == nil {
-                Text("Apple Speech captions • best for spoken voice; songs may be imperfect")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

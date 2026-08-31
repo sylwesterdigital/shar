@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.36] - 2026-08-31
+
+### Private local captions and responsive spectrum
+
+- Removed the Apple online/cloud transcription fallback completely. Caption generation now hard-requires `supportsOnDeviceRecognition` and sets `requiresOnDeviceRecognition = true` for every request. There is no code path that intentionally uploads audio for transcription.
+- Preprocesses caption audio locally into short 16 kHz mono PCM chunks before on-device recognition, improving compatibility with compressed source files and long tracks. Failed chunks are skipped so one recognition error does not discard useful captions from the rest of the track.
+- Reworked the iOS Live spectrum to 20 logarithmic frequency bands and up to 20 analysis snapshots per second, with a 30 Hz shared playback clock and direct redraws for more immediate equalizer-like movement.
+- Added a persistent privacy note to the caption UI: on-device only, audio is never uploaded.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.36 / 20236; updated active native/browser/receiver and signaling-service version identifiers.
+
 ## [2.2.35] - 2026-08-31
 
 ### iOS live spectrum and resilient captions

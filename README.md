@@ -1,4 +1,4 @@
-# Shar — 2.2.35
+# Shar — 2.2.36
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.35** (build/version code **20235**).
+`VERSION` is authoritative. Current release: **2.2.36** (build/version code **20236**).
 
 ## Branding
 
@@ -101,6 +101,13 @@ Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cache
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.36 Private local captions + responsive spectrum
+
+- Removed the Apple/cloud transcription fallback completely. iOS caption requests now set `requiresOnDeviceRecognition = true` unconditionally and Shar refuses caption creation when no on-device recognizer is available.
+- Caption preprocessing is local: audio is converted into short 16 kHz mono PCM sections before recognition. A failed section no longer discards captions recognized from other sections.
+- Reworked Live spectrum into 20 logarithmic frequency bands sampled around 20 times per second for normal music tracks, while the shared playback clock refreshes at 30 Hz. The bars redraw directly instead of waiting on a slow per-frame animation.
+- The caption panel explicitly states that audio is never uploaded.
 
 ### v2.2.35 Live spectrum + resilient captions
 
