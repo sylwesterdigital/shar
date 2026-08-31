@@ -618,6 +618,8 @@ struct DeveloperUpdate: Identifiable {
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
+    .init(version: "2.2.33", date: "2026-08-31", title: "Remote Share help + media feedback", summary: "Simplified the iOS Secure Remote Share screen, moved technical security details into a bottom-left quick Help guide, and added clear press/active-card feedback for Grid media on iOS and macOS."),
+    .init(version: "2.2.32", date: "2026-08-31", title: "macOS 3D thumbnail build hotfix", summary: "Fixed the async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing."),
     .init(version: "2.2.3", date: "2026-08-31", title: "3D thumbnails + compact iOS workflow", summary: "Added background 3D thumbnail capture with in-preview recapture, visual file confirmation in Secure Remote Share, compact iOS Settings, main Grid/List switching, a first-run add button, clearer Files access, dated update history, and context-aware highlighted calls to action."),
     .init(version: "2.2.2", date: "2026-08-31", title: "iOS grid controls + release resilience", summary: "Restored compact fixed-size iOS grid action controls and made device-storage exhaustion a visible non-blocking warning after successful build/sign validation, so distribution publishing can continue."),
     .init(version: "2.2.1", date: "2026-08-30", title: "macOS presentation polish", summary: "Fixed the macOS About window size, made newly opened images fit the preview window, and compacted Secure Remote Share so larger primary actions remain visible without scrolling."),
@@ -734,7 +736,7 @@ private struct MediaGridCard: View {
                 ThumbnailView(file: file, size: CGSize(width: 172, height: 118))
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MediaPreviewPressButtonStyle())
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(file.name)
@@ -770,7 +772,15 @@ private struct MediaGridCard: View {
             gridActions
         }
         .padding(9)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(
+            audioPlayback.isActive(file) ? Color.accentColor.opacity(0.10) : Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(audioPlayback.isActive(file) ? Color.accentColor.opacity(0.85) : Color.clear, lineWidth: 2)
+        }
+        .animation(.easeOut(duration: 0.16), value: audioPlayback.activeFileID)
         .contextMenu {
             Button(action: onPreview) { Label("Preview", systemImage: "eye") }
             ShareLink(item: file.url) { Label("Share", systemImage: "square.and.arrow.up") }
@@ -895,6 +905,7 @@ private struct RemoteShareSheet: View {
     let file: SharedFile
     @StateObject private var remote: NativeRemoteShareCoordinator
     @State private var showingSystemShareSheet = false
+    @State private var showingHelp = false
 
     init(file: SharedFile) {
         self.file = file
@@ -975,10 +986,6 @@ private struct RemoteShareSheet: View {
                         .buttonStyle(.bordered)
                     }
 
-                    Text("Remote Share is independent of the local Wi-Fi Sharing switch. Keep Shar open until the transfer finishes. Shar 2.1 encrypts file contents and metadata with a separate AES-256-GCM key stored only in the shared URL fragment; the signaling/TURN service never receives that key.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20)
             }
@@ -995,6 +1002,16 @@ private struct RemoteShareSheet: View {
                     }
                     .accessibilityLabel("Close remote share")
                 }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button {
+                        showingHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Shar help")
+                    Spacer()
+                }
             }
             .background {
                 NativeRemoteEngineView(coordinator: remote)
@@ -1010,6 +1027,11 @@ private struct RemoteShareSheet: View {
                         .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
                 }
+            }
+            .sheet(isPresented: $showingHelp) {
+                SharQuickHelpSheet()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
         }
     }
@@ -1062,15 +1084,6 @@ private struct RemoteShareSheet: View {
                 }
                 .buttonStyle(.bordered)
             }
-            Divider()
-            Label("AES-256-GCM end-to-end content encryption", systemImage: "lock.fill")
-            Label("Encryption key never sent to Shar servers", systemImage: "key.fill")
-            Label("Sender approval required before transfer", systemImage: "person.badge.shield.checkmark")
-            Label("SHA-256 verified before completion", systemImage: "checkmark.seal.fill")
-            Label("One receiver · 30 minute expiry", systemImage: "timer")
-            Text("Send the PIN separately from the link when practical.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .font(.caption)
         .padding(14)
@@ -1144,13 +1157,87 @@ private struct RemoteShareSheet: View {
                 .buttonStyle(PulsingProminentButtonStyle())
                 .accessibilityLabel("Share secure remote link with another app")
             }
-            Text("The link contains the 256-bit encryption key in its URL fragment. Shar's web server never receives that fragment. The separate PIN is not included in the link.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private struct SharQuickHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    helpSection(
+                        "Start with a file",
+                        systemImage: "plus.circle.fill",
+                        text: "Tap + to add files from Photos, the camera or the Files app. Tap a thumbnail to preview or play it."
+                    )
+                    helpSection(
+                        "Share nearby",
+                        systemImage: "wifi",
+                        text: "Turn on Sharing when devices are on the same Wi-Fi. Open the shown address on the other device to browse the files you choose to share."
+                    )
+                    helpSection(
+                        "Share over the Internet",
+                        systemImage: "network",
+                        text: "Choose Remote Share, send the link or show the QR code, then give the receiver the PIN. When Shar asks, approve that receiver and keep Shar open until the transfer finishes."
+                    )
+                    helpSection(
+                        "3D files",
+                        systemImage: "cube",
+                        text: "Shar can preview supported 3D models. Rotate the model to the view you like and use the camera button to save a new thumbnail."
+                    )
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("How Remote Share protects the file", systemImage: "checkmark.shield.fill")
+                            .font(.headline)
+                        Text("""
+                        • The file is encrypted before it leaves your device.
+                        • The encryption key is not sent to Shar servers.
+                        • You approve the receiver before transfer.
+                        • Shar checks the received file before it reports completion.
+                        • A link is for one receiver and expires after about 30 minutes.
+                        """)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("Technical details: AES-256-GCM encryption and SHA-256 verification.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(14)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .padding(20)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Shar Help")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func helpSection(_ title: String, systemImage: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(.tint)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
@@ -1335,7 +1422,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.32',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.33',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -1486,6 +1573,22 @@ private struct PulsingProminentButtonBody: View {
                     pulse = true
                 }
             }
+    }
+}
+
+private struct MediaPreviewPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Color.accentColor.opacity(configuration.isPressed ? 0.14 : 0),
+                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(Color.accentColor.opacity(configuration.isPressed ? 0.95 : 0), lineWidth: 3)
+            }
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
     }
 }
 

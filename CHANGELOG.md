@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.33] - 2026-08-31
+
+### iOS Remote Share help and visual playback feedback
+
+- Simplified the iOS Secure Remote Share security card to the receiver PIN and copy action; moved the AES-256-GCM, key-handling, approval, SHA-256, one-receiver and expiry explanations out of the active transfer flow.
+- Added a bottom-left question-mark Help action to Secure Remote Share. The new quick guide explains file import/preview, local Wi-Fi sharing, Remote Share, 3D thumbnail recapture and the security model in brief plain language.
+- Removed the technical encryption-key paragraph below the QR/link and the long Remote Share implementation note from the primary iOS transfer sheet.
+- Added pressed-state accent feedback to iOS and macOS Grid preview thumbnails. Active audio cards retain an accent background/border so the currently selected playback source is immediately visible.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.33 / 20233; updated active native/browser/receiver and signaling-service version identifiers.
+
 ## [2.2.32] - 2026-08-31
 
 ### macOS build hotfix

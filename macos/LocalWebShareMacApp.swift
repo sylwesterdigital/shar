@@ -762,7 +762,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.32',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.33',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -946,6 +946,7 @@ private struct MacAboutView: View {
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String, String)] = [
+        ("2.2.33", "2026-08-31", "Remote Share help + media feedback", "Simplified the iOS Remote Share flow with bottom-left quick Help and added clearer pressed/active Grid-card feedback on iOS and macOS."),
         ("2.2.32", "2026-08-31", "macOS 3D thumbnail build hotfix", "Fixed the async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing."),
         ("2.2.3", "2026-08-31", "3D thumbnails + compact iOS workflow", "Added background 3D thumbnail capture/recapture, visual file confirmation in Secure Remote Share, compact iOS Settings, main Grid/List switching, first-run add affordance, clearer Files access and dated update history."),
         ("2.2.2", "2026-08-31", "iOS grid controls + release resilience", "Restored fixed-size iOS grid action controls and made an attached device running out of storage non-blocking for the distribution release after successful build/sign validation."),
@@ -1022,7 +1023,7 @@ private struct MacLibraryGridCard: View {
                 MacThumbnail(file: file, size: 142)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MacMediaPreviewPressButtonStyle())
             Text(file.name).font(.headline).lineLimit(2)
             MacAudioMetadataLine(file: file)
             HStack(spacing: 5) {
@@ -1043,8 +1044,18 @@ private struct MacLibraryGridCard: View {
             }
         }
         .padding(12)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-        .overlay { RoundedRectangle(cornerRadius: 14).stroke(Color.secondary.opacity(0.12), lineWidth: 1) }
+        .background(
+            audioPlayback.isActive(file) ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 14)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    audioPlayback.isActive(file) ? Color.accentColor.opacity(0.9) : Color.secondary.opacity(0.12),
+                    lineWidth: audioPlayback.isActive(file) ? 2 : 1
+                )
+        }
+        .animation(.easeOut(duration: 0.16), value: audioPlayback.activeFileID)
         .contextMenu {
             Button("Preview", action: onPreview)
             Button("Remote share", action: onRemote)
@@ -1122,6 +1133,22 @@ private struct MacEmptyStateView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(32)
+    }
+}
+
+private struct MacMediaPreviewPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Color.accentColor.opacity(configuration.isPressed ? 0.14 : 0),
+                in: RoundedRectangle(cornerRadius: 11)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 11)
+                    .stroke(Color.accentColor.opacity(configuration.isPressed ? 0.95 : 0), lineWidth: 3)
+            }
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
     }
 }
 

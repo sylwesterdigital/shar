@@ -1,4 +1,4 @@
-# Shar — 2.2.32
+# Shar — 2.2.33
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.32** (build/version code **20232**).
+`VERSION` is authoritative. Current release: **2.2.33** (build/version code **20233**).
 
 ## Branding
 
@@ -101,6 +101,12 @@ Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cache
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.33 Remote Share help + media-card feedback
+
+- iOS Secure Remote Share keeps the primary sheet focused on the file, status, PIN, approval and QR/link. The dense encryption/integrity checklist and technical URL-fragment explanation moved out of the transfer flow.
+- A persistent **?** help button sits at the bottom-left of the iOS Remote Share screen and opens a short plain-language guide covering adding/previewing files, local Wi-Fi sharing, Remote Share, 3D thumbnails and the security model.
+- iOS and macOS Grid thumbnails now show an accent press border/background while being clicked or tapped. Audio cards also keep an accent card border while that file is the active audio item, making the source of playback visually obvious even after the press ends.
 
 ### v2.2.32 macOS 3D-thumbnail build hotfix
 

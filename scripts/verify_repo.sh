@@ -202,12 +202,28 @@ grep -Fq 'webkitdirectory' LocalWebShare/LocalWebServer.swift || fail "Browser f
 grep -Fq 'NativeRemoteShareCoordinator' LocalWebShare/ContentView.swift || fail "iOS native Remote Share coordinator missing"
 grep -Fq 'NativeRemoteShareQR' LocalWebShare/ContentView.swift || fail "iOS native Remote Share QR generator missing"
 grep -Fq 'NativeSystemShareSheet' LocalWebShare/ContentView.swift || fail "iOS native activity share sheet missing"
+grep -Fq 'SharQuickHelpSheet' LocalWebShare/ContentView.swift || fail "iOS quick Help sheet missing"
+grep -Fq 'ToolbarItemGroup(placement: .bottomBar)' LocalWebShare/ContentView.swift || fail "iOS Remote Share bottom-left Help toolbar missing"
+grep -Fq 'questionmark.circle.fill' LocalWebShare/ContentView.swift || fail "iOS Remote Share Help icon missing"
+grep -Fq 'MediaPreviewPressButtonStyle' LocalWebShare/ContentView.swift || fail "iOS Grid preview pressed-state style missing"
 grep -Fq 'UIActivityViewController(activityItems: activityItems' LocalWebShare/ContentView.swift || fail "iOS Remote Share does not present UIActivityViewController"
 ! grep -A180 -F 'private struct RemoteShareSheet' LocalWebShare/ContentView.swift | grep -Fq 'ShareLink(item: url' || fail "iOS Remote Share regressed to the non-presenting SwiftUI ShareLink"
 grep -Fq "const API='https://mojoworks.xyz/api/shar/remote/v1'" LocalWebShare/ContentView.swift || fail "iOS native Remote Share public API missing"
 grep -Fq "pc=new RTCPeerConnection" LocalWebShare/ContentView.swift || fail "iOS internal WebRTC engine missing"
 grep -Fq "type:'chunk'" LocalWebShare/ContentView.swift || fail "iOS native file-to-WebRTC bridge missing"
 ! grep -Fq 'RemoteShareWebView' LocalWebShare/ContentView.swift || fail "iOS Remote Share must not open the local browser UI"
+python3 - <<'PYIOSREMOTELAYOUT'
+from pathlib import Path
+import re
+s=Path('LocalWebShare/ContentView.swift').read_text()
+m=re.search(r'private var securityCard: some View \{(.*?)\n    \}\n\n    private var approvalCard', s, re.S)
+if not m: raise SystemExit('iOS Remote Share security card missing')
+card=m.group(1)
+for verbose in ('AES-256-GCM end-to-end content encryption','Encryption key never sent to Shar servers','SHA-256 verified before completion','One receiver · 30 minute expiry'):
+    if verbose in card: raise SystemExit('iOS Remote Share technical checklist leaked back into primary security card')
+if 'Text(remote.formattedPIN)' not in card or 'Copy PIN' not in card:
+    raise SystemExit('iOS simplified Remote Share PIN card lost required PIN/copy controls')
+PYIOSREMOTELAYOUT
 python3 - <<'PYREMOTEIOS'
 from pathlib import Path
 import re
@@ -251,6 +267,8 @@ grep -Fq '<key>CFBundleName</key><string>Shar</string>' scripts/build_macos_rele
 ! grep -Fq '<key>CFBundleName</key><string>LocalWebShare</string>' scripts/build_macos.sh scripts/build_macos_release.sh || fail "macOS visible bundle name regressed to LocalWebShare"
 grep -Fq '@StateObject private var audioPlayback = SharedAudioPlaybackController()' macos/LocalWebShareMacApp.swift || fail "macOS shared audio controller missing"
 grep -Fq 'MacInlineAudioButton(file: file, playback: audioPlayback)' macos/LocalWebShareMacApp.swift || fail "macOS library cards do not use shared audio playback"
+grep -Fq 'MacMediaPreviewPressButtonStyle' macos/LocalWebShareMacApp.swift || fail "macOS Grid preview pressed-state style missing"
+grep -Fq 'audioPlayback.isActive(file) ? Color.accentColor.opacity(0.10)' macos/LocalWebShareMacApp.swift || fail "macOS active audio Grid-card highlight missing"
 grep -Fq 'ThreeDPreviewView(file: file)' macos/LocalWebShareMacApp.swift || fail "macOS native 3D preview missing"
 grep -Fq 'GeometryReader { proxy in' macos/LocalWebShareMacApp.swift || fail "macOS image fit-to-preview geometry missing"
 grep -Fq 'proxy.size.width - 24' macos/LocalWebShareMacApp.swift || fail "macOS image preview does not fit the viewport on open"
@@ -263,6 +281,8 @@ grep -Fq 'MacNativeRemoteShareQR' macos/LocalWebShareMacApp.swift || fail "macOS
 grep -Fq 'MacThumbnail(file: file, size: 54)' macos/LocalWebShareMacApp.swift || fail "macOS Secure Remote Share visual file confirmation missing"
 grep -Fq '2026-08-31", "3D thumbnails + compact iOS workflow' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.3 developer update missing"
 grep -Fq '2026-08-31", "macOS 3D thumbnail build hotfix' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.32 developer update missing"
+grep -Fq '2.2.33", "2026-08-31", "Remote Share help + media feedback' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.33 developer update missing"
+grep -Fq 'version: "2.2.33", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.33 developer update missing"
 grep -Fq '.frame(width: 700, height: 670)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share compact sheet dimensions missing"
 grep -Fq 'Text(remote.formattedPIN)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share PIN display missing"
 grep -Fq '.font(.system(size: 34, weight: .bold, design: .monospaced))' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share large PIN styling missing"
