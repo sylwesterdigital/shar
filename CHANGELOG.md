@@ -1,5 +1,46 @@
 # Changelog
 
+## [2.2.445] - 2026-08-31
+
+### Fixed
+- Fixed a false-negative iOS launch-contract check after a successful Xcode 16 Debug build: the app executable is a small debug stub while `LocalWebShare.debug.dylib` owns the weak `whisper.framework` dependency.
+- Added a shared iOS Whisper-linkage verifier used by both generic Release validation and connected-device Debug builds. It verifies the app Frameworks runpath, locates the actual image carrying the weak load command, and emits `otool -L` diagnostics on a real mismatch.
+- Preserved strict rejection of strong/missing Whisper linkage, fully local/offline captions, Android large-model packaging fixes, persistent dependency caching, and resumable Apple notarization.
+
+## [2.2.444] - 2026-08-31
+
+### Fixed
+- Fixed Android `:app:compressReleaseAssets` running out of Java heap while packaging the bundled ~148 MB local Whisper model.
+- Marked `.bin` Android assets as `noCompress`, so AAPT2 stores the already-binary model verbatim instead of trying to deflate it in memory.
+- Added explicit Gradle/Kotlin release-build heap limits and capped workers to keep packaging predictable on developer machines.
+- Preserved the v2.2.443 persistent Whisper cache/resumable download and resilient Apple notarization behavior.
+- Kept all caption processing local/offline.
+
+## [2.2.443] - 2026-08-31
+
+### Fixed
+- Preserved verified `Dependencies/` across foreground-watcher source synchronization so the 148 MB Whisper model and Apple XCFramework are not deleted and re-downloaded every release.
+- Added a persistent verified Whisper cache under `~/Library/Caches/Shar/whisper`, resumable `.part` downloads, checksum validation before reuse, and recovery of the model from previous macOS build output when upgrading from an older watcher.
+- Fixed macOS notarization polling crashing under zsh because `status` is a read-only special parameter; the helper now uses `notary_state`.
+- Added retries around Developer ID secure-timestamp signing and expanded accepted notary-submission polling through transient network outages to six hours by default.
+- Kept all runtime captions fully local/offline.
+
+## [2.2.442] - 2026-08-31
+
+### Fixed
+- Changed macOS notarization from `notarytool submit --wait` retries to submit-once + submission-ID polling, so a network drop after upload does not create repeated 131 MB uploads or lose the accepted submission.
+- Added transient retry handling for Apple notary status checks and stapling.
+- Changed the foreground release watcher to quarantine each stable ZIP signature before validation and retain a bounded processed-signature ledger, preventing malformed packages from rerunning every poll.
+- Watcher candidate selection now ignores filename versions older than the current repository while still allowing a touched same-version ZIP for an intentional retry.
+- Release version jumps above malformed archive filename `v2.2.441`.
+
+## [2.2.44] - 2026-08-31
+
+- Fixed the Apple-client launch crash introduced by dynamic whisper.cpp linking: iOS now carries an explicit `@executable_path/Frameworks` runpath and Whisper is weak-linked so an incompatible framework cannot terminate Shar during dyld startup.
+- Added a local Whisper runtime-symbol probe before caption initialization; an unavailable/incompatible runtime now disables captions with a local error instead of crashing the app.
+- Added build-time Apple launch-contract checks for embedded `whisper.framework`, iOS `LC_RPATH`, and `LC_LOAD_WEAK_DYLIB`; macOS release/development binaries are also verified to weak-link Whisper.
+- Preserved fully local/offline captions and spectrum/waveform behavior across iOS/iPadOS, macOS and Android.
+
 ## [2.2.43] - 2026-08-31
 
 - Fixed the macOS local-Whisper C bridge compile command to use Apple clang's `-isysroot` instead of the unsupported Swift-style `-sdk` flag.

@@ -72,13 +72,26 @@ get_signature() {
 }
 
 get_latest_zip() {
-    local file name version best_file="" best_version=""
+    local file name version signature current_version best_file="" best_version=""
+    current_version="$(current_repo_version)"
     for file in "$WATCH_DIR"/LocalWebSharePrototype-v*.zip; do
         [[ -f "$file" ]] || continue
         name="${file##*/}"
         version="${name#LocalWebSharePrototype-v}"
         version="${version%.zip}"
         valid_version "$version" || continue
+
+        # Old packages can remain in archive forever. Once the repository has
+        # advanced past them they are not candidates, even if a stale watcher
+        # state file does not remember their signatures. Same-version ZIPs are
+        # still eligible when touched/re-downloaded for an intentional retry.
+        if version_gt "$current_version" "$version"; then
+            continue
+        fi
+
+        signature="$(get_signature "$file")"
+        already_processed "$signature" && continue
+
         if [[ -z "$best_version" ]] || version_gt "$version" "$best_version"; then
             best_version="$version"
             best_file="$file"
@@ -133,12 +146,18 @@ resolve_source_dir() {
 
 already_processed() {
     local signature="$1"
-    [[ -f "$STATE_FILE" ]] && [[ "$(cat "$STATE_FILE")" == "$signature" ]]
+    [[ -f "$STATE_FILE" ]] && grep -Fqx -- "$signature" "$STATE_FILE" 2>/dev/null
 }
 
 mark_processed() {
     local signature="$1"
-    printf '%s\n' "$signature" > "$STATE_FILE"
+    already_processed "$signature" && return 0
+    printf '%s\n' "$signature" >> "$STATE_FILE"
+
+    # Keep a compact signature ledger rather than only the last package. This
+    # prevents a malformed high-version ZIP from winning selection forever.
+    local tmp_state="$STATE_FILE.tmp.$$"
+    tail -n 256 "$STATE_FILE" > "$tmp_state" && mv "$tmp_state" "$STATE_FILE"
 }
 
 validate_release() {
@@ -191,6 +210,11 @@ process_zip() {
     wait_until_stable "$zip_file"
     signature="$(get_signature "$zip_file")"
 
+    # A stable package is attempted once per file signature, including ZIPs
+    # that later fail unzip/version validation. Touching or re-downloading the
+    # file changes its signature and explicitly opts into another attempt.
+    mark_processed "$signature"
+
     tmp_dir="$(mktemp -d /tmp/localwebshare-update.XXXXXX)"
 
     log "Unpacking release package..."
@@ -225,7 +249,9 @@ process_zip() {
     shar_field "TO:" "$REPO_DIR"
 
     # The release ZIP is authoritative for repository source files.
-    # Local runtime data and Git metadata are always preserved.
+    # Local runtime data, Git metadata, build output and verified heavyweight
+    # Whisper dependencies are preserved so normal releases do not re-download
+    # ~200 MB of model/framework data. prepare_local_whisper.sh re-verifies them.
     if ! rsync \
         --archive \
         --checksum \
@@ -234,6 +260,7 @@ process_zip() {
         --exclude='archive/' \
         --exclude='.watch-state/' \
         --exclude='build/' \
+        --exclude='Dependencies/' \
         --exclude='xcuserdata/' \
         "$source_dir/" \
         "$REPO_DIR/"; then
@@ -243,10 +270,6 @@ process_zip() {
     fi
 
     rm -rf "$tmp_dir"
-
-    # Match the existing watcher behaviour: mark the package before deployment
-    # so a failed build does not automatically rerun every five seconds.
-    mark_processed "$signature"
 
     echo
     shar_success "Repository files updated"

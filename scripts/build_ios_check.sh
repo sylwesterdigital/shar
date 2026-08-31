@@ -23,5 +23,7 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   clean build > >(tee "$LOG") 2>&1
+APP="$DERIVED/Build/Products/Release-iphoneos/LocalWebShare.app"
+"$ROOT/scripts/verify_ios_whisper_linkage.sh" "$APP"
 shar_success "iOS/iPadOS release compilation passed"
 shar_field "Log:" "$LOG"

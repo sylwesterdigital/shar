@@ -33,7 +33,7 @@ say(){ shar_section "$*"; }
 fail(){ shar_error "$*"; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "macOS build must run on macOS."
-for t in xcrun swiftc iconutil codesign ditto plutil open lipo find; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
+for t in xcrun swiftc iconutil codesign ditto plutil open lipo otool find; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 
 resolve_macos_whisper_framework() {
   local xcroot="$ROOT/Dependencies/whisper/whisper.xcframework"
@@ -106,9 +106,19 @@ xcrun --sdk macosx swiftc \
   "$ROOT/LocalWebShare/ThreeDPreview.swift" \
   "$ROOT/LocalWebShare/LocalMediaIntelligence.swift" \
   "$ROOT/macos/LocalWebShareMacApp.swift" "$BRIDGE_OBJ" \
-  -F "$WHISPER_FDIR" -framework whisper -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+  -F "$WHISPER_FDIR" -Xlinker -weak_framework -Xlinker whisper -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit \
   -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers -framework SceneKit -framework ModelIO
+
+if ! otool -l "$MACOS/LocalWebShare" | awk '
+  /cmd LC_LOAD_WEAK_DYLIB/ { weak=1; next }
+  weak && /name @rpath\/whisper\.framework\/Versions\/Current\/whisper/ { found=1 }
+  /Load command/ { weak=0 }
+  END { exit(found ? 0 : 1) }
+'; then
+  fail "macOS executable does not weak-link whisper.framework; refusing a build that can die during dyld startup."
+fi
+shar_success "macOS Whisper launch dependency is weak-linked"
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

@@ -103,6 +103,7 @@ fi
 command -v xcodebuild >/dev/null 2>&1 || fail "Full Xcode was not found. Install Xcode in /Applications/Xcode.app."
 command -v xcrun >/dev/null 2>&1 || fail "xcrun was not found."
 command -v python3 >/dev/null 2>&1 || fail "python3 was not found (normally supplied by Xcode/macOS)."
+command -v otool >/dev/null 2>&1 || fail "otool was not found."
 [[ -d "$PROJECT" ]] || fail "Project not found: $PROJECT"
 
 mkdir -p "$LOG_DIR"
@@ -245,6 +246,11 @@ say "Verifying code signature"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 ACTUAL_BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist" 2>/dev/null || true)"
 [[ "$ACTUAL_BUNDLE_ID" == "$BUNDLE_ID" ]] || fail "Built bundle identifier '$ACTUAL_BUNDLE_ID' does not match '$BUNDLE_ID'."
+
+# Verify the embedded local Whisper runtime against the actual image that owns
+# its load command. Xcode 16 Debug builds place app code in LocalWebShare.debug.dylib,
+# while Release builds normally link dependencies from the main executable.
+"$SCRIPT_DIR/verify_ios_whisper_linkage.sh" "$APP_PATH" || fail "iOS embedded Whisper launch-contract verification failed."
 
 if ((FRESH)); then
   say "Removing previous install (--fresh)"

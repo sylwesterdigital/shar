@@ -58,7 +58,12 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.2.43 · 2026-08-31  macOS Whisper platform/compiler fix\nFixed the macOS local-Whisper build command and MacOSX XCFramework selection; captions remain fully local.\n\n"+
+        String message="v2.2.445 · 2026-08-31  iOS Debug-dylib linkage verification fix\nXcode 16 Debug builds keep app framework dependencies in LocalWebShare.debug.dylib; Shar now validates the actual loader image instead of rejecting a valid build.\n\n"+
+                "v2.2.444 · 2026-08-31  Android Whisper packaging memory fix\nStops AAPT2 from compressing the ~148 MB local Whisper model and gives release packaging controlled Gradle/Kotlin heap headroom.\n\n"+
+                "v2.2.443 · 2026-08-31  Persistent Whisper cache + network recovery\nKeeps validated Whisper dependencies between releases, resumes interrupted downloads and hardens Apple notarization retries.\n\n"+
+                "v2.2.442 · 2026-08-31  Notary recovery + watcher quarantine\nMade macOS notarization resumable across transient Apple-network failures and stopped malformed stable ZIPs from rerunning every watcher poll.\n\n"+
+                "v2.2.44 · 2026-08-31  Apple launch crash + Whisper isolation\nFixed Apple-client startup around the optional local Whisper runtime; captions remain fully local/offline.\n\n"+
+                "v2.2.43 · 2026-08-31  macOS Whisper platform/compiler fix\nFixed the macOS local-Whisper build command and MacOSX XCFramework selection; captions remain fully local.\n\n"+
                 "v2.2.42 · 2026-08-31  Coloured build + watcher output\nAdded shared TTY-aware terminal styling across the foreground watcher and release/build scripts while redirected logs stay plain text.\n\n"+
                 "v2.2.41 · 2026-08-31  Whisper Apple-mode build exit fix\nFixed successful Apple-only Whisper preparation returning status 1 and aborting the macOS release before compilation under set -e.\n\n"+
                 "v2.2.40 · 2026-08-31  macOS Whisper build handoff hardening\nHardened the macOS local-Whisper build handoff with architecture-based framework selection and explicit pre-compile diagnostics; also fixed this Android Developer Updates source regression.\n\n"+

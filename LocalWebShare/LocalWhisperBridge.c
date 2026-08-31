@@ -3,10 +3,30 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <dlfcn.h>
 
 typedef struct {
     struct whisper_context *ctx;
 } shar_whisper_handle;
+
+int shar_whisper_runtime_available(void) {
+    const char *symbols[] = {
+        "whisper_context_default_params",
+        "whisper_init_from_file_with_params",
+        "whisper_free",
+        "whisper_full_default_params",
+        "whisper_full",
+        "whisper_full_n_segments",
+        "whisper_full_get_segment_t0",
+        "whisper_full_get_segment_t1",
+        "whisper_full_get_segment_text"
+    };
+    const size_t count = sizeof(symbols) / sizeof(symbols[0]);
+    for (size_t i = 0; i < count; ++i) {
+        if (dlsym(RTLD_DEFAULT, symbols[i]) == NULL) return 0;
+    }
+    return 1;
+}
 
 static void append_text(char **buffer, size_t *length, size_t *capacity, const char *text) {
     if (!text) return;
@@ -40,7 +60,7 @@ static char *clean_segment_text(const char *text) {
 }
 
 void *shar_whisper_create(const char *model_path) {
-    if (!model_path || !*model_path) return NULL;
+    if (!model_path || !*model_path || !shar_whisper_runtime_available()) return NULL;
     struct whisper_context_params cparams = whisper_context_default_params();
     struct whisper_context *ctx = whisper_init_from_file_with_params(model_path, cparams);
     if (!ctx) return NULL;

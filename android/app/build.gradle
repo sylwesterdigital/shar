@@ -13,8 +13,8 @@ android {
         applicationId 'com.localwebshare.app'
         minSdk 26
         targetSdk 35
-        versionCode 20243
-        versionName '2.2.43'
+        versionCode 20645
+        versionName '2.2.445'
     }
 
     signingConfigs {
@@ -41,6 +41,13 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // ggml-base.bin is ~148 MB and is already a binary model. Asking AAPT2 to
+    // deflate it wastes a large amount of Gradle heap and can fail in
+    // compressReleaseAssets. Store .bin assets verbatim instead.
+    androidResources {
+        noCompress += ['bin']
     }
 }
 

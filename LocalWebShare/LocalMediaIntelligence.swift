@@ -137,6 +137,8 @@ private struct SharWhisperSegment {
     let text: String
 }
 
+@_silgen_name("shar_whisper_runtime_available")
+private func shar_whisper_runtime_available() -> Int32
 @_silgen_name("shar_whisper_create")
 private func shar_whisper_create(_ modelPath: UnsafePointer<CChar>) -> UnsafeMutableRawPointer?
 @_silgen_name("shar_whisper_destroy")
@@ -155,6 +157,9 @@ enum SharLocalWhisperTranscriber {
     }
 
     static func transcribe(url: URL, progress: @escaping @Sendable (Int, Int) -> Void) throws -> [SharTimedCaptionWord] {
+        guard shar_whisper_runtime_available() != 0 else {
+            throw NSError(domain: "SharLocalWhisper", code: 7, userInfo: [NSLocalizedDescriptionKey: "The bundled local Whisper runtime is not compatible with this OS/device. Shar did not upload any audio."])
+        }
         guard let modelURL = bundledModelURL() else {
             throw NSError(domain: "SharLocalWhisper", code: 1, userInfo: [NSLocalizedDescriptionKey: "The bundled local transcription model is missing."])
         }

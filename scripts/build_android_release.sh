@@ -45,6 +45,22 @@ APK_SRC="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
 AAB_SRC="$ANDROID_DIR/app/build/outputs/bundle/release/app-release.aab"
 [[ -s "$APK_SRC" ]] || fail "Signed release APK was not produced."
 [[ -s "$AAB_SRC" ]] || fail "Signed release AAB was not produced."
+
+# The bundled Whisper model must remain stored (not deflated). Compressing this
+# ~148 MB binary is what previously exhausted the Gradle packaging heap.
+python3 - "$APK_SRC" <<'PYMODEL'
+import sys, zipfile
+apk = sys.argv[1]
+entry = "assets/models/ggml-base.bin"
+with zipfile.ZipFile(apk) as zf:
+    try:
+        info = zf.getinfo(entry)
+    except KeyError:
+        raise SystemExit(f"ERROR: Android APK is missing {entry}")
+    if info.compress_type != zipfile.ZIP_STORED:
+        raise SystemExit(f"ERROR: {entry} is compressed in the APK; expected ZIP_STORED")
+print(f"Android Whisper model packaging verified: {entry} is stored uncompressed ({info.file_size} bytes)")
+PYMODEL
 APK="$ROOT/release/LocalWebShare-v${VERSION}-android.apk"
 AAB="$ROOT/release/LocalWebShare-v${VERSION}-android.aab"
 SHA="$ROOT/release/LocalWebShare-v${VERSION}-android-SHA256.txt"

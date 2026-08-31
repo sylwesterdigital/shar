@@ -20,16 +20,94 @@ RES="$CONTENTS/Resources"
 FRAMEWORKS="$CONTENTS/Frameworks"
 SIGNING_FINGERPRINT="${SHAR_SIGNING_FINGERPRINT:-B97863CA4E17170FCD5FBFA4C76A8DF3D91D5F6B}"
 NOTARY_PROFILE="${SHAR_NOTARY_PROFILE:-workwork-caption-notary}"
+APPLE_NETWORK_ATTEMPTS="${SHAR_APPLE_NETWORK_ATTEMPTS:-20}"
+APPLE_NETWORK_RETRY_DELAY="${SHAR_APPLE_NETWORK_RETRY_DELAY:-15}"
 fail(){ shar_error "$*"; exit 1; }
 log(){ shar_section "$*"; }
 retry(){ local n=1; local max="$1"; local delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; shar_warn "retry $n/$max in ${delay}s: $*"; sleep "$delay"; n=$((n+1)); done; }
+
+json_field(){
+  local field="$1"
+  python3 -c 'import json,sys; data=json.load(sys.stdin); value=data.get(sys.argv[1], ""); print(value if value is not None else "")' "$field" 2>/dev/null
+}
+
+notarize_and_wait(){
+  local artifact="$1" label="$2"
+  local submit_output submission_id info_output notary_state elapsed=0
+  local poll_seconds="${SHAR_NOTARY_POLL_SECONDS:-20}"
+  local max_wait="${SHAR_NOTARY_MAX_WAIT_SECONDS:-21600}"
+  local submit_attempt=1 submit_max="${SHAR_NOTARY_SUBMIT_ATTEMPTS:-30}"
+
+  shar_section "Submitting $label to Apple notary service"
+  while (( submit_attempt <= submit_max )); do
+    local submit_rc=0
+    if submit_output="$(xcrun notarytool submit "$artifact" --keychain-profile "$NOTARY_PROFILE" --output-format json 2>&1)"; then
+      submit_rc=0
+    else
+      submit_rc=$?
+    fi
+    submission_id="$(printf '%s' "$submit_output" | json_field id || true)"
+    if [[ -z "$submission_id" ]]; then
+      submission_id="$(printf '%s\n' "$submit_output" | sed -nE 's/^[[:space:]]*id:[[:space:]]*([0-9A-Fa-f-]{36}).*/\1/p' | head -n1)"
+    fi
+
+    if [[ -n "$submission_id" ]]; then
+      shar_success "$label submission accepted by notary service: $submission_id"
+      break
+    fi
+
+    if (( submit_attempt >= submit_max )); then
+      printf '%s\n' "$submit_output" >&2
+      fail "Could not submit $label for notarization after $submit_max attempts."
+    fi
+    local submit_brief="$(printf '%s\n' "$submit_output" | head -n1)"
+    shar_warn "$label notarization submit transport failed (attempt $submit_attempt/$submit_max). Retrying in ${poll_seconds}s without changing the artifact.${submit_brief:+  $submit_brief}"
+    sleep "$poll_seconds"
+    submit_attempt=$((submit_attempt+1))
+  done
+
+  shar_section "Waiting for $label notarization: $submission_id"
+  while (( elapsed <= max_wait )); do
+    local info_rc=0
+    if info_output="$(xcrun notarytool info "$submission_id" --keychain-profile "$NOTARY_PROFILE" --output-format json 2>&1)"; then
+      info_rc=0
+    else
+      info_rc=$?
+    fi
+    if (( info_rc == 0 )); then
+      notary_state="$(printf '%s' "$info_output" | json_field status || true)"
+      case "$notary_state" in
+        Accepted)
+          shar_success "$label notarization accepted: $submission_id"
+          return 0
+          ;;
+        Invalid|Rejected)
+          printf '%s\n' "$info_output" >&2
+          xcrun notarytool log "$submission_id" --keychain-profile "$NOTARY_PROFILE" 2>/dev/null || true
+          fail "$label notarization was $notary_state: $submission_id"
+          ;;
+        *)
+          printf '%bNotary status:%b %s — %ss elapsed\n' "$SHAR_C_MUTED" "$SHAR_C_RESET" "${notary_state:-In Progress}" "$elapsed"
+          ;;
+      esac
+    else
+      local info_brief="$(printf '%s\n' "$info_output" | head -n1)"
+      shar_warn "Apple notary status check is temporarily unavailable; retaining submission $submission_id and retrying in ${poll_seconds}s.${info_brief:+  $info_brief}"
+    fi
+
+    sleep "$poll_seconds"
+    elapsed=$((elapsed+poll_seconds))
+  done
+
+  fail "$label notarization did not finish within ${max_wait}s. Submission remains $submission_id; no duplicate submission was created by Shar."
+}
 
 log "Using release credentials prevalidated by release_and_deploy.sh"
 IDENTITY_LINE="$(security find-identity -v -p codesigning 2>/dev/null | grep -F "$SIGNING_FINGERPRINT" | head -n1 || true)"
 IDENTITY_NAME="$(printf '%s\n' "$IDENTITY_LINE" | sed -nE 's/.*"([^"]+)".*/\1/p')"
 [[ -n "$IDENTITY_NAME" ]] || IDENTITY_NAME="$SIGNING_FINGERPRINT"
 
-for t in xcrun swiftc iconutil codesign ditto plutil lipo hdiutil shasum find; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
+for t in xcrun swiftc iconutil codesign ditto plutil lipo otool hdiutil shasum find; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 
 resolve_macos_whisper_framework() {
   local xcroot="$ROOT/Dependencies/whisper/whisper.xcframework"
@@ -100,11 +178,20 @@ for arch in arm64 x86_64; do
     "$ROOT/LocalWebShare/LocalWhisperBridge.c" -o "$BRIDGE_OBJ"
   xcrun --sdk macosx swiftc -parse-as-library -sdk "$SDK" -target "${arch}-apple-macos13.3" \
     -o "$BUILD_ROOT/bin/$arch/LocalWebShare" "${SOURCES[@]}" "$BRIDGE_OBJ" \
-    -F "$WHISPER_FDIR" -framework whisper -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+    -F "$WHISPER_FDIR" -Xlinker -weak_framework -Xlinker whisper -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
     -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers -framework SceneKit -framework ModelIO
  done
 lipo -create "$BUILD_ROOT/bin/arm64/LocalWebShare" "$BUILD_ROOT/bin/x86_64/LocalWebShare" -output "$MACOS/LocalWebShare"
 lipo -info "$MACOS/LocalWebShare"
+if ! otool -l "$MACOS/LocalWebShare" | awk '
+  /cmd LC_LOAD_WEAK_DYLIB/ { weak=1; next }
+  weak && /name @rpath\/whisper\.framework\/Versions\/Current\/whisper/ { found=1 }
+  /Load command/ { weak=0 }
+  END { exit(found ? 0 : 1) }
+'; then
+  fail "macOS executable does not weak-link whisper.framework; refusing a build that can die during dyld startup."
+fi
+shar_success "macOS Whisper launch dependency is weak-linked"
 
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -126,14 +213,14 @@ PLIST
 plutil -lint "$CONTENTS/Info.plist" >/dev/null
 
 log "Signing macOS app: $IDENTITY_NAME"
-codesign --force --options runtime --timestamp --sign "$SIGNING_FINGERPRINT" "$FRAMEWORKS/whisper.framework"
-codesign --force --options runtime --timestamp --deep --sign "$SIGNING_FINGERPRINT" "$APP"
+retry "$APPLE_NETWORK_ATTEMPTS" "$APPLE_NETWORK_RETRY_DELAY" codesign --force --options runtime --timestamp --sign "$SIGNING_FINGERPRINT" "$FRAMEWORKS/whisper.framework"
+retry "$APPLE_NETWORK_ATTEMPTS" "$APPLE_NETWORK_RETRY_DELAY" codesign --force --options runtime --timestamp --deep --sign "$SIGNING_FINGERPRINT" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 NOTARY_ZIP="$BUILD_ROOT/LocalWebShare-notary.zip"
 ditto -c -k --sequesterRsrc --keepParent "$APP" "$NOTARY_ZIP"
 log "Notarizing macOS app"
-retry 3 12 xcrun notarytool submit "$NOTARY_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
-xcrun stapler staple "$APP"
+notarize_and_wait "$NOTARY_ZIP" "macOS app"
+retry 60 20 xcrun stapler staple "$APP"
 xcrun stapler validate "$APP"
 /usr/sbin/spctl --assess --type execute --verbose=2 "$APP"
 
@@ -147,10 +234,10 @@ trap 'rm -rf "$DMG_STAGE"' EXIT
 ditto "$APP" "$DMG_STAGE/Shar.app"
 ln -s /Applications "$DMG_STAGE/Applications"
 hdiutil create -volname "Shar" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG" >/dev/null
-codesign --force --timestamp --sign "$SIGNING_FINGERPRINT" "$DMG"
+retry "$APPLE_NETWORK_ATTEMPTS" "$APPLE_NETWORK_RETRY_DELAY" codesign --force --timestamp --sign "$SIGNING_FINGERPRINT" "$DMG"
 log "Notarizing macOS DMG"
-retry 3 12 xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
-xcrun stapler staple "$DMG"
+notarize_and_wait "$DMG" "macOS DMG"
+retry 60 20 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 /usr/sbin/spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
 (

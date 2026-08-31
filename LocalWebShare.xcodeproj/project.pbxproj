@@ -20,7 +20,7 @@
 		A10000000000000000000013 /* LocalMediaIntelligence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* LocalMediaIntelligence.swift */; };
 		A10000000000000000000014 /* LocalWhisperBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* LocalWhisperBridge.c */; };
 		A10000000000000000000015 /* ggml-base.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* ggml-base.bin */; };
-		A10000000000000000000016 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* whisper.xcframework */; };
+		A10000000000000000000016 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* whisper.xcframework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		A10000000000000000000017 /* whisper.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -241,12 +241,13 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20243;
+				CURRENT_PROJECT_VERSION = 20645;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.2.43;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 2.2.445;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -261,12 +262,13 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20243;
+				CURRENT_PROJECT_VERSION = 20645;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.2.43;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 2.2.445;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -1,4 +1,4 @@
-# Shar — 2.2.43
+# Shar — 2.2.445
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.43** (build/version code **20243**).
+`VERSION` is authoritative. Current release: **2.2.445** (build/version code **20645**).
 
 ## Branding
 
@@ -101,6 +101,40 @@ Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cache
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.445 iOS Debug-dylib linkage verification fix
+
+- Xcode 16 Debug device builds use a tiny app executable plus `LocalWebShare.debug.dylib`; the weak `whisper.framework` load command belongs to that debug dylib, not the stub executable.
+- The shared iOS launch-contract verifier now checks the executable runpath and then inspects the actual loader image (`LocalWebShare.debug.dylib` for Debug, the main executable for Release).
+- The verifier prints dependency diagnostics if neither image weak-links Whisper, so a genuinely unsafe build is still rejected.
+- Android large-model packaging, persistent Whisper caching, resilient notarization, and fully local/offline captions remain unchanged.
+
+### v2.2.444 Android Whisper packaging memory fix
+
+- Android release packaging no longer tries to compress the bundled ~148 MB `ggml-base.bin` model. The model is marked `noCompress`, which avoids the `:app:compressReleaseAssets` Java-heap failure and is appropriate for an already-binary model.
+- `android/gradle.properties` gives the Android Gradle Plugin a 4 GB heap, the Kotlin daemon 2 GB, limits workers to two, and disables Gradle parallelism for predictable release packaging.
+- The v2.2.443 persistent Whisper cache remains in place: valid local dependencies are reused, partial downloads resume, and network access is only needed when the verified cache is absent or invalid.
+- The submit-once Apple notarization flow from v2.2.443 remains unchanged; accepted submission IDs are polled through temporary network outages instead of re-uploading the artifact.
+- Runtime caption processing remains fully local/offline.
+
+### v2.2.443 Persistent Whisper cache + network recovery
+
+- The foreground watcher preserves `Dependencies/`, so once the pinned Whisper base model and Apple XCFramework are valid they are reused on future release ZIPs instead of being deleted and downloaded again.
+- `prepare_local_whisper.sh` also maintains a persistent fallback cache at `~/Library/Caches/Shar/whisper` (override with `SHAR_WHISPER_CACHE_DIR`), verifies cached content before reuse, and resumes `.part` downloads after interrupted connections.
+- The first upgrade from an older watcher can recover the already-bundled 148 MB model from a previous macOS build before going to the network; after v2.2.443 is installed, normal releases should perform no Whisper network download unless the cache is missing or fails the pinned checksum.
+- Fixed the zsh `status` special-variable collision in notarization polling by using a normal `notary_state` variable. Developer ID timestamp signing is retried on transient failures, notarization submission is retried before acceptance, and accepted submissions are polled through temporary outages for up to six hours by default (`SHAR_NOTARY_MAX_WAIT_SECONDS`).
+- All caption processing remains local/offline at runtime.
+
+### v2.2.442 Resumable notarization + watcher quarantine
+
+- macOS notarization now submits each artifact once, captures the Apple submission ID, and polls that existing submission through transient network outages instead of re-uploading duplicate 131 MB artifacts after `NSURLErrorDomain -1009` failures.
+- Notary polling retries for up to 90 minutes by default (`SHAR_NOTARY_MAX_WAIT_SECONDS`), while stapling also has a longer transient-network retry window.
+- The foreground ZIP watcher now keeps a compact ledger of processed file signatures, marks a stable ZIP attempted before unzip/version validation, and skips packages older than the current repository version. A malformed high-version ZIP therefore fails once instead of winning selection every five seconds.
+- This release intentionally jumps above the malformed `v2.2.441` filename seen in the archive so the existing watcher can select it. Local Whisper captions remain entirely offline.
+
+### v2.2.44 Apple launch crash + Whisper isolation
+
+Apple clients now weak-link the bundled local Whisper runtime, iOS explicitly carries the Frameworks runpath required by the dynamic XCFramework, and caption startup checks runtime symbols before loading the model. A local Whisper incompatibility can no longer terminate Shar during app launch; transcription remains entirely on-device/offline.
 
 ### v2.2.43 macOS Whisper platform/compiler fix
 
