@@ -1,4 +1,4 @@
-# Shar — 2.2.34
+# Shar — 2.2.35
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.34** (build/version code **20234**).
+`VERSION` is authoritative. Current release: **2.2.35** (build/version code **20235**).
 
 ## Branding
 
@@ -101,6 +101,13 @@ Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cache
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.35 Live spectrum + resilient captions
+
+- iOS **Live spectrum** now follows playback at a 20 Hz UI clock, with local frequency analysis sampled around 12 times per second and interpolated between analysis frames. This removes the slow stepping visible on longer tracks while keeping the whole-track Waveform mode unchanged.
+- Audio analysis reads the file sequentially in a background utility task instead of sparsely seeking through a capped set of frames, so long tracks retain useful time-aligned frequency movement.
+- Caption generation now splits long audio into short local chunks before sending them to Apple Speech, avoiding one large recognition request for multi-minute recordings.
+- Shar still tries on-device recognition first. If that fails or the current language has no on-device model, the UI offers an explicit **Try Apple online transcription** fallback and clearly states that audio may then be sent to Apple. Raw `kAFAssistantErrorDomain` messages are replaced with human-readable guidance.
 
 ### v2.2.34 Audio continuity, spectrum/waveform and captions
 

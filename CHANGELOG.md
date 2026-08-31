@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.35] - 2026-08-31
+
+### iOS live spectrum and resilient captions
+
+- Reworked the colour frequency bars into a playback-synchronized **Live spectrum**. The shared audio clock now updates at 20 Hz; local spectrum analysis is sampled densely across the track and interpolated between frames, so the display moves continuously instead of stepping every fraction of a second on long songs.
+- Changed spectrum file analysis to sequential background reads with 12 logarithmically spaced frequency bands, retaining the existing tap-to-switch whole-track Waveform view.
+- Split long caption sources into local ~45-second PCM chunks before Apple Speech recognition, then merge word timings back onto the original track timeline.
+- Kept on-device Apple Speech as the private first choice. If unavailable or if it returns the `kAFAssistantErrorDomain` failure seen on device, Shar now presents a human-readable message and an explicit **Try Apple online transcription** fallback. The online path is never used without the user's tap and warns that audio may be sent to Apple.
+- Added progress text for multi-chunk caption creation and clearer failure guidance for songs/heavily mixed audio.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.35 / 20235; updated active native/browser/receiver and signaling-service version identifiers.
+
 ## [2.2.34] - 2026-08-31
 
 ### iOS continuous audio, visualization and captions
