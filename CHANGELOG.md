@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.34] - 2026-08-31
+
+### iOS continuous audio, visualization and captions
+
+- Preserved the same shared `AVPlayer` and exact playback position when an already-playing/paused audio card opens into full Preview; no restart is introduced by the transition.
+- Added a compact audio visualization below metadata and above progress. Tap it to switch between colour-coded frequency-band bars and a whole-track waveform with played progress highlighted. Analysis is generated locally in a background utility task.
+- Added optional **Create captions** using Apple Speech Recognition. Shar requires on-device recognition support and does not send audio to a remote transcription service as a fallback.
+- Synchronized recognized word timings with playback and highlights the current word while showing nearby caption words. Added the required Speech Recognition privacy description.
+- Increased playback UI time updates for smoother visualization/caption synchronization.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.34 / 20234; updated active native/browser/receiver and signaling-service version identifiers.
+
 ## [2.2.33] - 2026-08-31
 
 ### iOS Remote Share help and visual playback feedback

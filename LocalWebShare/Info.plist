@@ -35,6 +35,8 @@
 	<string>Shar uses the microphone while recording video so captured videos can include audio.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Shar lets you choose photos and videos to add to your shared library.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Shar uses Apple on-device speech recognition only when you choose Create Captions for an audio file.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

@@ -58,7 +58,8 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.2.33 · 2026-08-31  Remote Share help + media feedback\nSimplified iOS Remote Share with a quick Help guide and added clearer pressed/active Grid-card feedback on iOS and macOS.\n\n"+
+        String message="v2.2.34 · 2026-08-31  Audio continuity + visual captions\nOn iOS, audio continues into full Preview, with spectrum/waveform views and optional synchronized on-device Apple speech captions.\n\n"+
+                "v2.2.33 · 2026-08-31  Remote Share help + media feedback\nSimplified iOS Remote Share with a quick Help guide and added clearer pressed/active Grid-card feedback on iOS and macOS.\n\n"+
                 "v2.2.32 · 2026-08-31  macOS 3D thumbnail build hotfix\nFixed the macOS async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing.\n\n"+
                 "v2.2.3 · 2026-08-31  3D thumbnails + compact workflow\nAdded background 3D thumbnail capture/recapture, visual Remote Share confirmation, compact iOS layout controls, first-run add affordance, clearer Files access and dated update history.\n\n"+
             "v2.2.2 · 2026-08-31  iOS grid controls + release resilience\nRestored fixed-size iOS grid action controls and made attached-device storage exhaustion non-blocking for distribution publishing after successful build/sign validation.\n\n"+

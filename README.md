@@ -1,4 +1,4 @@
-# Shar — 2.2.33
+# Shar — 2.2.34
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.33** (build/version code **20233**).
+`VERSION` is authoritative. Current release: **2.2.34** (build/version code **20234**).
 
 ## Branding
 
@@ -101,6 +101,12 @@ Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cache
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.34 Audio continuity, spectrum/waveform and captions
+
+- iOS audio uses the existing shared playback controller when moving from Grid/List playback into full Preview, so opening the thumbnail does not restart an already-active track or interrupt its play/pause state.
+- Full iOS audio Preview now shows a compact visualization between metadata and the progress slider. Tap it to switch between a colour-coded frequency spectrum and a whole-track waveform with played progress highlighted. Analysis runs in a background utility task from the local file.
+- **Create captions** uses Apple Speech Recognition only on demand. Shar requires on-device recognition support for the current language and does not fall back to uploading audio for transcription. Recognized word timings are synchronized with playback and the current word is highlighted. This is intended primarily for spoken audio; songs/music may transcribe imperfectly.
 
 ### v2.2.33 Remote Share help + media-card feedback
 
