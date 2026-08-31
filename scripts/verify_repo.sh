@@ -48,6 +48,20 @@ grep -Fq "## [$VERSION_VALUE]" CHANGELOG.md || fail "CHANGELOG has no $VERSION_V
 grep -Eq '^/archive/$|^archive/$' .gitignore || fail "archive/ is not ignored"
 
 grep -Fq "MARKETING_VERSION = $VERSION_VALUE;" LocalWebShare.xcodeproj/project.pbxproj || fail "iOS marketing version mismatch"
+
+python3 - <<'PYSWIFTASYNCGUARD'
+from pathlib import Path
+import re
+violations=[]
+for base in (Path('LocalWebShare'), Path('macos')):
+    for path in base.rglob('*.swift'):
+        text=path.read_text()
+        for m in re.finditer(r'\?\?\s*await\b', text):
+            line=text.count('\n', 0, m.start())+1
+            violations.append(f"{path}:{line}")
+if violations:
+    raise SystemExit('Invalid async nil-coalescing (?? await) found: ' + ', '.join(violations))
+PYSWIFTASYNCGUARD
 grep -Fq "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" LocalWebShare.xcodeproj/project.pbxproj || fail "iOS build number mismatch"
 grep -Eq "versionName[[:space:]]+'$VERSION_VALUE'" android/app/build.gradle || fail "Android versionName mismatch"
 grep -Eq "versionCode[[:space:]]+$BUILD_NUMBER" android/app/build.gradle || fail "Android versionCode mismatch"
@@ -63,6 +77,15 @@ grep -Fq 'Show ⓘ updates button' LocalWebShare/ContentView.swift || fail "iOS 
 grep -Fq 'DeveloperUpdatesView' LocalWebShare/ContentView.swift || fail "iOS developer updates panel missing"
 grep -Fq 'GridCardIconButtonStyle' LocalWebShare/ContentView.swift || fail "iOS fixed-size grid action button style missing"
 grep -Fq '.frame(width: 34, height: 34)' LocalWebShare/ContentView.swift || fail "iOS grid action controls are not fixed to a stable square size"
+grep -Fq '@AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.icons.rawValue' LocalWebShare/ContentView.swift || fail "iOS new-install Grid actions do not default to icons"
+grep -Fq 'didMigrateGridIconsV223' LocalWebShare/ContentView.swift || fail "iOS existing compact-default installs are not migrated to Grid icons"
+grep -Fq '.frame(width: 78)' LocalWebShare/ContentView.swift || fail "iOS main Grid/List segmented switch missing"
+grep -Fq 'Label("Browse Files…", systemImage: "folder")' LocalWebShare/ContentView.swift || fail "iOS direct Browse Files action missing"
+grep -Fq '.frame(width: 54, height: 54)' LocalWebShare/ContentView.swift || fail "iOS first-run rounded + action missing"
+grep -Fq 'Image("SharLogo")' LocalWebShare/ContentView.swift || fail "iOS Developer updates identity header missing app logo"
+grep -Fq 'let date: String' LocalWebShare/ContentView.swift || fail "iOS Developer updates release dates missing"
+grep -Fq 'ThumbnailView(file: file, size: CGSize(width: 76, height: 76))' LocalWebShare/ContentView.swift || fail "iOS Secure Remote Share visual file confirmation missing"
+grep -Fq 'PulsingProminentButtonStyle' LocalWebShare/ContentView.swift || fail "iOS highlighted current-action style missing"
 grep -Fq 'showingFileImporter' LocalWebShare/ContentView.swift || fail "iOS + file importer missing"
 grep -Fq 'allowsMultipleSelection: true' LocalWebShare/ContentView.swift || fail "iOS multi-file import missing"
 grep -Fq 'PhotoVideoLibraryPicker' LocalWebShare/ContentView.swift || fail "iOS Photos/video picker missing"
@@ -126,6 +149,11 @@ grep -Fq 'ThreeDLightPreset' LocalWebShare/ThreeDPreview.swift || fail "native 3
 grep -Fq 'floorEnabled' LocalWebShare/ThreeDPreview.swift || fail "native 3D floor toggle missing"
 grep -Fq 'ThreeDBackgroundPreset' LocalWebShare/ThreeDPreview.swift || fail "native 3D background presets missing"
 grep -Fq 'Fit model' LocalWebShare/ThreeDPreview.swift || fail "native 3D camera-fit control missing"
+grep -Fq 'ThreeDThumbnailCache' LocalWebShare/ThreeDPreview.swift || fail "native 3D thumbnail cache missing"
+grep -Fq 'camera.viewfinder' LocalWebShare/ThreeDPreview.swift || fail "native 3D thumbnail recapture action missing"
+grep -Fq 'SharThreeDThumbnailChanged' LocalWebShare/FileStore.swift || fail "native 3D thumbnail refresh notification missing"
+grep -Fq 'generateDefault(for: destination)' LocalWebShare/FileStore.swift || fail "imported/dropped 3D thumbnail warmup missing"
+grep -Fq 'ThreeDThumbnailCache.cachedImage' LocalWebShare/ThumbnailView.swift || fail "iOS library does not consume cached 3D thumbnails"
 grep -Fq 'ThreeDPreviewView(file: file)' LocalWebShare/MediaPlayerView.swift || fail "iOS native 3D preview missing"
 grep -Fq 'ensureLoaded(file, autoplayIfNew: true)' LocalWebShare/MediaPlayerView.swift || fail "iOS audio preview does not preserve shared playback state"
 grep -Fq '@Published private(set) var currentTime' LocalWebShare/MediaSupport.swift || fail "shared audio current-time state missing"
@@ -232,6 +260,9 @@ grep -Fq 'audioPlayback.ensureLoaded(file, autoplayIfNew: true)' macos/LocalWebS
 grep -Fq 'SharProductInfo.builderName' macos/LocalWebShareMacApp.swift || fail "macOS builder About identity missing"
 grep -Fq 'MacNativeRemoteShareCoordinator' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share coordinator missing"
 grep -Fq 'MacNativeRemoteShareQR' macos/LocalWebShareMacApp.swift || fail "macOS native Remote Share QR generator missing"
+grep -Fq 'MacThumbnail(file: file, size: 54)' macos/LocalWebShareMacApp.swift || fail "macOS Secure Remote Share visual file confirmation missing"
+grep -Fq '2026-08-31", "3D thumbnails + compact iOS workflow' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.3 developer update missing"
+grep -Fq '2026-08-31", "macOS 3D thumbnail build hotfix' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.32 developer update missing"
 grep -Fq '.frame(width: 700, height: 670)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share compact sheet dimensions missing"
 grep -Fq 'Text(remote.formattedPIN)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share PIN display missing"
 grep -Fq '.font(.system(size: 34, weight: .bold, design: .monospaced))' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share large PIN styling missing"

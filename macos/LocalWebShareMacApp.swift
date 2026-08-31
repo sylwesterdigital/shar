@@ -445,10 +445,7 @@ private struct MacRemoteShareSheet: View {
 
     private var fileAndStatus: some View {
         HStack(spacing: 12) {
-            Image(systemName: "lock.shield.fill")
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 38)
+            MacThumbnail(file: file, size: 54)
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name).font(.headline).lineLimit(1)
                 Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
@@ -765,7 +762,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.32',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -948,41 +945,51 @@ private struct MacAboutView: View {
 
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
-    private let updates: [(String, String, String)] = [
-        ("2.2.2", "iOS grid controls + release resilience", "Restored fixed-size iOS grid action controls and made an attached device running out of storage non-blocking for the distribution release after successful build/sign validation."),
-        ("2.2.1", "macOS presentation polish", "Fixed the About panel size, made newly opened images fit the preview window, and compacted Secure Remote Share so its larger primary actions remain visible without scrolling."),
-        ("2.2.0", "Polished 3D preview", "Added native lighting, floor, background and fit controls plus a fully local WebGL browser renderer and bundled Previous/Next icons."),
-        ("2.1.9", "3D preview build compatibility", "Fixed the macOS 13 3D-preview compile blockers and hardened the SceneKit/Model I/O compatibility checks."),
-        ("2.1.8", "3D previews + persistent playback", "Added a 3D media filter and local interactive GLB/glTF plus Apple-native model previews. Audio keeps the same player, position and play/pause state when switching Grid/List or opening Preview."),
-        ("2.1.7", "Native Mac identity + About routing", "The macOS ⓘ toolbar control now opens Developer updates like iOS, About Shar is owned by the application menu, and the visible macOS application name is Shar instead of LocalWebShare."),
-        ("2.1.6", "Playback + identity polish", "macOS now has one persistent inline audio session across Grid/List, top Support/About/Config controls, refreshed Stripe website support, and WORKWORK.FUN LTD ownership/copyright information."),
-        ("2.1.5", "Stripe support checkout", "Connected Shar Support to the production Stripe Payment Link and official Buy Button."),
-        ("2.1.4", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
-        ("2.1.3", "Unified native library UI", "Added iOS-style media filters, grid/list library modes, cog-based Config, explicit version/build information and About/Support links on macOS."),
-        ("2.1.2", "Native macOS Secure Remote Share", "Remote sharing now stays inside the macOS app with native PIN, QR/link, approval, encrypted-transfer progress and completion UI instead of opening the localhost browser."),
-        ("2.1.1", "Secure Android build fix", "Fixed the Android embedded secure-share JavaScript escaping regression and added a javac release guard."),
-        ("2.1.0", "Secure Remote Share", "Added AES-256-GCM content encryption, receiver PIN, sender approval, SHA-256 verification and private metadata mode."),
-        ("2.0.8", "Remote sender startup fix", "Fixed native iOS Remote Share startup and removed Google STUN from the runtime ICE path."),
-        ("2.0.7", "Remote completion handshake", "Made successful remote downloads terminal and added receiver confirmation so cleanup cannot appear as a false failure."),
-        ("2.0.6", "Native link sharing", "Fixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps."),
-        ("2.0.5", "Remote service readiness", "Fixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation."),
-        ("2.0.4", "Native iPhone Remote Share", "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
-        ("2.0.3", "Public route verification", "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts."),
-        ("2.0.2", "Remote routing repair", "Fixed exact mojoworks.xyz API routing and automatic repair when the public share endpoint returns 404."),
-        ("2.0.1", "Android release fix", "Restored Android release compilation and made its visible version read from package metadata."),
-        ("2.0.0", "Remote WebRTC sharing", "Added expiring QR/link shares, peer-to-peer data channels, TURN fallback, and automated signaling/TURN deployment."),
-        ("1.7.6", "Optional developer info", "Added the hidden-by-default ⓘ updates panel and preference."),
-        ("1.7.5", "Cross-platform audio fix", "Kept iOS background audio while restoring the macOS release build."),
-        ("1.7.4", "Background audio", "Audio can continue while Shar is minimized or the iPhone screen is locked."),
-        ("1.7.3", "Better preview", "Images fit the viewer and previews gained a persistent X close control."),
-        ("1.7.2", "More ways to add", "Added Photos & Videos, camera recording, and Files from the + menu."),
-        ("1.7.1", "Shar identity", "Renamed the visible product to Shar and added the persistent iOS + importer.")
+    private let updates: [(String, String, String, String)] = [
+        ("2.2.32", "2026-08-31", "macOS 3D thumbnail build hotfix", "Fixed the async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing."),
+        ("2.2.3", "2026-08-31", "3D thumbnails + compact iOS workflow", "Added background 3D thumbnail capture/recapture, visual file confirmation in Secure Remote Share, compact iOS Settings, main Grid/List switching, first-run add affordance, clearer Files access and dated update history."),
+        ("2.2.2", "2026-08-31", "iOS grid controls + release resilience", "Restored fixed-size iOS grid action controls and made an attached device running out of storage non-blocking for the distribution release after successful build/sign validation."),
+        ("2.2.1", "2026-08-30", "macOS presentation polish", "Fixed the About panel size, made newly opened images fit the preview window, and compacted Secure Remote Share so its larger primary actions remain visible without scrolling."),
+        ("2.2.0", "2026-08-30", "Polished 3D preview", "Added native lighting, floor, background and fit controls plus a fully local WebGL browser renderer and bundled Previous/Next icons."),
+        ("2.1.9", "2026-08-30", "3D preview build compatibility", "Fixed the macOS 13 3D-preview compile blockers and hardened the SceneKit/Model I/O compatibility checks."),
+        ("2.1.8", "2026-08-30", "3D previews + persistent playback", "Added a 3D media filter and local interactive GLB/glTF plus Apple-native model previews. Audio keeps the same player, position and play/pause state when switching Grid/List or opening Preview."),
+        ("2.1.7", "2026-08-30", "Native Mac identity + About routing", "The macOS ⓘ toolbar control now opens Developer updates like iOS, About Shar is owned by the application menu, and the visible macOS application name is Shar instead of LocalWebShare."),
+        ("2.1.6", "2026-08-30", "Playback + identity polish", "macOS now has one persistent inline audio session across Grid/List, top Support/About/Config controls, refreshed Stripe website support, and WORKWORK.FUN LTD ownership/copyright information."),
+        ("2.1.5", "2026-08-30", "Stripe support checkout", "Connected Shar Support to the production Stripe Payment Link and official Buy Button."),
+        ("2.1.4", "2026-08-30", "Release pipeline resilience", "A locked iPhone no longer aborts the full distribution release after successful installation."),
+        ("2.1.3", "2026-08-30", "Unified native library UI", "Added iOS-style media filters, grid/list library modes, cog-based Config, explicit version/build information and About/Support links on macOS."),
+        ("2.1.2", "2026-08-30", "Native macOS Secure Remote Share", "Remote sharing now stays inside the macOS app with native PIN, QR/link, approval, encrypted-transfer progress and completion UI instead of opening the localhost browser."),
+        ("2.1.1", "2026-08-30", "Secure Android build fix", "Fixed the Android embedded secure-share JavaScript escaping regression and added a javac release guard."),
+        ("2.1.0", "2026-08-30", "Secure Remote Share", "Added AES-256-GCM content encryption, receiver PIN, sender approval, SHA-256 verification and private metadata mode."),
+        ("2.0.8", "2026-08-30", "Remote sender startup fix", "Fixed native iOS Remote Share startup and removed Google STUN from the runtime ICE path."),
+        ("2.0.7", "2026-08-30", "Remote completion handshake", "Made successful remote downloads terminal and added receiver confirmation so cleanup cannot appear as a false failure."),
+        ("2.0.6", "2026-08-30", "Native link sharing", "Fixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps."),
+        ("2.0.5", "2026-08-30", "Remote service readiness", "Fixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation."),
+        ("2.0.4", "2026-08-30", "Native iPhone Remote Share", "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
+        ("2.0.3", "2026-08-30", "Public route verification", "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts."),
+        ("2.0.2", "2026-08-30", "Remote routing repair", "Fixed exact mojoworks.xyz API routing and automatic repair when the public share endpoint returns 404."),
+        ("2.0.1", "2026-08-30", "Android release fix", "Restored Android release compilation and made its visible version read from package metadata."),
+        ("2.0.0", "2026-08-29", "Remote WebRTC sharing", "Added expiring QR/link shares, peer-to-peer data channels, TURN fallback, and automated signaling/TURN deployment."),
+        ("1.7.6", "2026-08-29", "Optional developer info", "Added the hidden-by-default ⓘ updates panel and preference."),
+        ("1.7.5", "2026-08-29", "Cross-platform audio fix", "Kept iOS background audio while restoring the macOS release build."),
+        ("1.7.4", "2026-08-29", "Background audio", "Audio can continue while Shar is minimized or the iPhone screen is locked."),
+        ("1.7.3", "2026-08-29", "Better preview", "Images fit the viewer and previews gained a persistent X close control."),
+        ("1.7.2", "2026-08-29", "More ways to add", "Added Photos & Videos, camera recording, and Files from the + menu."),
+        ("1.7.1", "2026-08-29", "Shar identity", "Renamed the visible product to Shar and added the persistent iOS + importer.")
     ]
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Developer updates").font(.title3.bold())
+            HStack(spacing: 12) {
+                if let image = Bundle.main.url(forResource: "shar-logo-1024", withExtension: "png").flatMap(NSImage.init(contentsOf:)) {
+                    Image(nsImage: image).resizable().scaledToFit().frame(width: 48, height: 48).clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Shar").font(.title3.bold())
+                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?") · Build \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?")")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text("Developer updates").font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.borderless)
             }
@@ -990,8 +997,9 @@ private struct MacDeveloperUpdatesView: View {
             Divider()
             List(Array(updates.enumerated()), id: \.offset) { _, update in
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack { Text("v\(update.0)").font(.caption.monospaced().bold()); Text(update.1).font(.subheadline.bold()) }
-                    Text(update.2).font(.caption).foregroundStyle(.secondary)
+                    HStack { Text("v\(update.0)").font(.caption.monospaced().bold()); Text(update.2).font(.subheadline.bold()) }
+                    Text(update.1).font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+                    Text(update.3).font(.caption).foregroundStyle(.secondary)
                 }
                 .padding(.vertical, 3)
             }
@@ -1125,11 +1133,13 @@ private struct MacActionButton: View {
 private struct MacThumbnail: View {
     let file: SharedFile
     var size: CGFloat = 54
+    @State private var thumbnail: NSImage?
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 9).fill(.quaternary)
-            if let image = thumbnail {
-                Image(nsImage: image).resizable().scaledToFill()
+            if let thumbnail {
+                Image(nsImage: thumbnail).resizable().scaledToFill()
             } else {
                 Image(systemName: file.systemImageName)
                     .font(size > 80 ? .system(size: 42) : .title2)
@@ -1143,11 +1153,32 @@ private struct MacThumbnail: View {
                 .padding(.horizontal, 4).padding(.vertical, 2)
                 .background(.ultraThinMaterial, in: Capsule()).padding(3)
         }
+        .task(id: file.id) { await loadThumbnail() }
+        .onReceive(NotificationCenter.default.publisher(for: .sharThreeDThumbnailChanged)) { notification in
+            guard file.mediaKind == .threeD,
+                  let path = notification.object as? String,
+                  path == file.url.path else { return }
+            thumbnail = ThreeDThumbnailCache.cachedImage(for: file.url)
+        }
     }
-    private var thumbnail: NSImage? {
-        if file.mediaKind == .image { return NSImage(contentsOf: file.url) }
-        if file.mediaKind == .audio, let data = MediaMetadataReader.read(file.url).artworkData { return NSImage(data: data) }
-        return nil
+
+    @MainActor
+    private func loadThumbnail() async {
+        if file.mediaKind == .image {
+            thumbnail = NSImage(contentsOf: file.url)
+            return
+        }
+        if file.mediaKind == .audio, let data = MediaMetadataReader.read(file.url).artworkData {
+            thumbnail = NSImage(data: data)
+            return
+        }
+        if file.mediaKind == .threeD {
+            if let cached = ThreeDThumbnailCache.cachedImage(for: file.url) {
+                thumbnail = cached
+            } else {
+                thumbnail = await ThreeDThumbnailCache.generateDefault(for: file.url)
+            }
+        }
     }
 }
 

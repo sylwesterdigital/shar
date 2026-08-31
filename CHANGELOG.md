@@ -1,5 +1,51 @@
 # Changelog
 
+## [2.2.32] - 2026-08-31
+
+### macOS build hotfix
+
+- Version 2.2.32 intentionally jumps over the malformed local `LocalWebSharePrototype-v2.2.31.zip` seen by the watcher, because that filename sorts above 2.2.4 and would otherwise keep winning package selection.
+- Fixed the macOS 3D thumbnail loader so an awaited asynchronous thumbnail render is no longer placed on the right side of Swift's nil-coalescing operator. The cache lookup now uses an explicit `if let` branch before awaiting fallback generation, which is valid Swift concurrency syntax.
+- Added a repository release guard that rejects `?? await` / async nil-coalescing patterns in Swift sources before packaging, preventing this exact compile regression from reaching the watcher again.
+- Preserved all v2.2.3 3D thumbnail, Secure Remote Share, compact iOS Settings, Grid/List switching and first-run improvements.
+
+### Release metadata
+
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.32 / 20232.
+- Updated active native/browser sender, receiver and remote signaling health identifiers to 2.2.32.
+
+## [2.2.3] - 2026-08-31
+
+### 3D thumbnails
+
+- Added asynchronous native 3D thumbnail generation for imported/dropped GLB/glTF and other locally supported model formats. Shar renders a local SceneKit preview and caches the resulting thumbnail without contacting an external service.
+- Added a camera/viewfinder action inside the native 3D preview. After orbiting/zooming to a useful angle, the current preview can be captured as the file's new library thumbnail.
+- Added cached 3D thumbnail reuse and invalidation when the source model changes, plus cleanup when the model is deleted.
+- macOS drag/drop imports and iOS Files imports both warm the 3D thumbnail cache.
+
+### iOS library and Settings
+
+- New installs default Grid card actions to icon-only mode. The redundant Grid **Preview/View** action was removed because tapping the thumbnail already opens Preview, leaving Share, Remote and Delete controls with more room.
+- Added a Grid/List segmented switch directly to the main filter strip so layout changes no longer require opening Settings.
+- Added a prominent rounded **+** add button to the empty-library first-run state with Photos & Videos, Record Video and Browse Files choices.
+- Added a compact Files section in Settings with a direct **Browse Files…** action and clarified the iOS security model: Files access is granted through Apple's system document picker and selected items are copied into Shar's shared Documents library.
+- Compacted the Settings drawer vertically and changed colour-theme choices from a tall list to a single horizontal row.
+
+### Secure Remote Share and calls to action
+
+- Added the selected file's real thumbnail, filename, type and size to the native iOS and macOS Secure Remote Share header so the sender can visually confirm the item before sharing.
+- Added a filled white-on-accent call-to-action style with a subtle fade/pulse for context-sensitive actions such as **Share link** and receiver **Approve**; Reduce Motion disables the pulse.
+
+### Developer updates
+
+- iOS Developer updates now opens with the Shar app icon, product name, current Version/Build, and dated release entries.
+- macOS and browser/Android update feeds now include release dates and the v2.2.3 summary.
+
+### Release metadata
+
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.3 / 20203.
+- Updated native/browser sender, receiver and remote signaling health identifiers to 2.2.3.
+
 ## [2.2.2] - 2026-08-31
 
 ### iOS grid controls

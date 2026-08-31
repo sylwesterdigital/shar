@@ -7,11 +7,11 @@ import simd
 
 #if os(iOS)
 import UIKit
-private typealias SharPlatformImage = UIImage
+typealias SharPlatformImage = UIImage
 private typealias SharPlatformColor = UIColor
 #elseif os(macOS)
 import AppKit
-private typealias SharPlatformImage = NSImage
+typealias SharPlatformImage = NSImage
 private typealias SharPlatformColor = NSColor
 #endif
 
@@ -59,6 +59,8 @@ struct ThreeDPreviewView: View {
     @State private var backgroundPreset: ThreeDBackgroundPreset = .charcoal
     @State private var floorEnabled = true
     @State private var resetCameraToken = 0
+    @State private var captureThumbnailToken = 0
+    @State private var thumbnailCaptureMessage: String?
 
     private var configuration: ThreeDPreviewConfiguration {
         .init(light: lightPreset, floorEnabled: floorEnabled, background: backgroundPreset)
@@ -67,12 +69,36 @@ struct ThreeDPreviewView: View {
     var body: some View {
         ZStack {
             if let scene {
-                SharSceneView(scene: scene, configuration: configuration, resetToken: resetCameraToken)
-                    .ignoresSafeArea(edges: .bottom)
-                    .overlay(alignment: .topTrailing) {
-                        controls
-                            .padding(10)
+                SharSceneView(
+                    scene: scene,
+                    configuration: configuration,
+                    resetToken: resetCameraToken,
+                    captureThumbnailToken: captureThumbnailToken,
+                    thumbnailFileURL: file.url
+                ) { success in
+                    thumbnailCaptureMessage = success ? "Thumbnail updated" : "Could not save thumbnail"
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        thumbnailCaptureMessage = nil
                     }
+                }
+                .ignoresSafeArea(edges: .bottom)
+                .overlay(alignment: .topTrailing) {
+                    controls
+                        .padding(10)
+                }
+                .overlay(alignment: .bottom) {
+                    if let thumbnailCaptureMessage {
+                        Text(thumbnailCaptureMessage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.black.opacity(0.72), in: Capsule())
+                            .padding(.bottom, 18)
+                            .transition(.opacity)
+                    }
+                }
             } else if let errorMessage {
                 VStack(spacing: 12) {
                     Image(systemName: "cube.transparent")
@@ -165,6 +191,13 @@ struct ThreeDPreviewView: View {
                 Image(systemName: "viewfinder")
             }
             .help("Fit model")
+
+            Button {
+                captureThumbnailToken &+= 1
+            } label: {
+                Image(systemName: "camera.viewfinder")
+            }
+            .help("Use current view as thumbnail")
         }
         .buttonStyle(.bordered)
         .labelStyle(.iconOnly)
@@ -178,14 +211,21 @@ private struct SharSceneView: UIViewRepresentable {
     let scene: SCNScene
     let configuration: ThreeDPreviewConfiguration
     let resetToken: Int
+    let captureThumbnailToken: Int
+    let thumbnailFileURL: URL
+    let onThumbnailCaptured: (Bool) -> Void
 
-    final class Coordinator { var lastResetToken = Int.min }
+    final class Coordinator {
+        var lastResetToken = Int.min
+        var lastCaptureThumbnailToken = Int.min
+    }
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
         ThreeDSceneLoader.configure(view: view, scene: scene, configuration: configuration, resetCamera: true)
         context.coordinator.lastResetToken = resetToken
+        context.coordinator.lastCaptureThumbnailToken = captureThumbnailToken
         return view
     }
     func updateUIView(_ uiView: SCNView, context: Context) {
@@ -193,6 +233,11 @@ private struct SharSceneView: UIViewRepresentable {
         let reset = sceneChanged || context.coordinator.lastResetToken != resetToken
         ThreeDSceneLoader.configure(view: uiView, scene: scene, configuration: configuration, resetCamera: reset)
         context.coordinator.lastResetToken = resetToken
+        if context.coordinator.lastCaptureThumbnailToken != captureThumbnailToken {
+            context.coordinator.lastCaptureThumbnailToken = captureThumbnailToken
+            let image = uiView.snapshot()
+            onThumbnailCaptured(ThreeDThumbnailCache.store(image, for: thumbnailFileURL))
+        }
     }
 }
 #elseif os(macOS)
@@ -200,14 +245,21 @@ private struct SharSceneView: NSViewRepresentable {
     let scene: SCNScene
     let configuration: ThreeDPreviewConfiguration
     let resetToken: Int
+    let captureThumbnailToken: Int
+    let thumbnailFileURL: URL
+    let onThumbnailCaptured: (Bool) -> Void
 
-    final class Coordinator { var lastResetToken = Int.min }
+    final class Coordinator {
+        var lastResetToken = Int.min
+        var lastCaptureThumbnailToken = Int.min
+    }
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> SCNView {
         let view = SCNView(frame: .zero)
         ThreeDSceneLoader.configure(view: view, scene: scene, configuration: configuration, resetCamera: true)
         context.coordinator.lastResetToken = resetToken
+        context.coordinator.lastCaptureThumbnailToken = captureThumbnailToken
         return view
     }
     func updateNSView(_ nsView: SCNView, context: Context) {
@@ -215,9 +267,97 @@ private struct SharSceneView: NSViewRepresentable {
         let reset = sceneChanged || context.coordinator.lastResetToken != resetToken
         ThreeDSceneLoader.configure(view: nsView, scene: scene, configuration: configuration, resetCamera: reset)
         context.coordinator.lastResetToken = resetToken
+        if context.coordinator.lastCaptureThumbnailToken != captureThumbnailToken {
+            context.coordinator.lastCaptureThumbnailToken = captureThumbnailToken
+            let image = nsView.snapshot()
+            onThumbnailCaptured(ThreeDThumbnailCache.store(image, for: thumbnailFileURL))
+        }
     }
 }
 #endif
+
+enum ThreeDThumbnailCache {
+    private static var cacheDirectory: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let directory = base.appendingPathComponent("Shar/3DThumbnails", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private static func cacheURL(for fileURL: URL) -> URL {
+        var hash: UInt64 = 1469598103934665603
+        for byte in fileURL.path.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        return cacheDirectory.appendingPathComponent(String(hash, radix: 16) + ".jpg")
+    }
+
+    static func cachedImage(for fileURL: URL) -> SharPlatformImage? {
+        let cachedURL = cacheURL(for: fileURL)
+        guard FileManager.default.fileExists(atPath: cachedURL.path) else { return nil }
+        if let sourceValues = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
+           let cacheValues = try? cachedURL.resourceValues(forKeys: [.contentModificationDateKey]),
+           let sourceDate = sourceValues.contentModificationDate,
+           let cacheDate = cacheValues.contentModificationDate,
+           cacheDate < sourceDate {
+            try? FileManager.default.removeItem(at: cachedURL)
+            return nil
+        }
+#if os(iOS)
+        return UIImage(contentsOfFile: cachedURL.path)
+#else
+        return NSImage(contentsOf: cachedURL)
+#endif
+    }
+
+    @discardableResult
+    static func store(_ image: SharPlatformImage, for fileURL: URL) -> Bool {
+        let target = cacheURL(for: fileURL)
+#if os(iOS)
+        guard let data = image.jpegData(compressionQuality: 0.86) else { return false }
+#else
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.86]) else { return false }
+#endif
+        do {
+            try data.write(to: target, options: .atomic)
+            NotificationCenter.default.post(name: .sharThreeDThumbnailChanged, object: fileURL.path)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    static func remove(for fileURL: URL) {
+        try? FileManager.default.removeItem(at: cacheURL(for: fileURL))
+    }
+
+    @MainActor
+    static func generateDefault(for fileURL: URL, size: CGSize = CGSize(width: 512, height: 512)) async -> SharPlatformImage? {
+        if let cached = cachedImage(for: fileURL) { return cached }
+        let scene: SCNScene
+        do {
+            scene = try await Task.detached(priority: .utility) {
+                try ThreeDSceneLoader.load(url: fileURL)
+            }.value
+        } catch {
+            return nil
+        }
+        let view = SCNView(frame: CGRect(origin: .zero, size: size))
+        let configuration = ThreeDPreviewConfiguration(light: .studio, floorEnabled: true, background: .charcoal)
+        ThreeDSceneLoader.configure(view: view, scene: scene, configuration: configuration, resetCamera: true)
+#if os(iOS)
+        view.layoutIfNeeded()
+#else
+        view.layoutSubtreeIfNeeded()
+#endif
+        let image = view.snapshot()
+        _ = store(image, for: fileURL)
+        return image
+    }
+}
 
 private enum ThreeDSceneLoader {
     enum PreviewError: LocalizedError {

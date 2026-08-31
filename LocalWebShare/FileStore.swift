@@ -86,6 +86,7 @@ struct SharedFile: Identifiable, Hashable {
 
 extension Notification.Name {
     static let localWebShareFilesChanged = Notification.Name("LocalWebShareFilesChanged")
+    static let sharThreeDThumbnailChanged = Notification.Name("SharThreeDThumbnailChanged")
 }
 
 @MainActor
@@ -163,6 +164,11 @@ final class FileStore: ObservableObject {
             let destination = uniqueDestination(for: name)
             try FileManager.default.copyItem(at: sourceURL, to: destination)
             refresh()
+            if SharedFile.threeDExtensions.contains(destination.pathExtension.lowercased()) {
+                Task { @MainActor in
+                    _ = await ThreeDThumbnailCache.generateDefault(for: destination)
+                }
+            }
         } catch {
             lastError = error.localizedDescription
         }
@@ -185,6 +191,7 @@ final class FileStore: ObservableObject {
     func delete(_ file: SharedFile) {
         do {
             try FileManager.default.removeItem(at: file.url)
+            if file.mediaKind == .threeD { ThreeDThumbnailCache.remove(for: file.url) }
             refresh()
         } catch {
             lastError = error.localizedDescription

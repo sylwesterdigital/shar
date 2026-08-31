@@ -1,4 +1,4 @@
-# Shar — 2.2.2
+# Shar — 2.2.32
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.2** (build/version code **20202**).
+`VERSION` is authoritative. Current release: **2.2.32** (build/version code **20232**).
 
 ## Branding
 
@@ -96,9 +96,25 @@ Shar groups common model/scene formats under a dedicated **3D** filter. The reco
 
 The native iOS and macOS preview is local and interactive. Shar directly parses common glTF 2.0 / GLB meshes and uses Apple Model I/O/SceneKit importers for USD/USDZ, OBJ, STL, PLY, Alembic and any additional formats supported by the installed OS. Orbit, pan and zoom stay inside the app; model bytes are not uploaded to an online preview service. Formats/encodings the local renderer cannot decode remain fully shareable/downloadable and show a clear preview-unavailable message instead of silently contacting an external converter.
 
+Starting with v2.2.3, imported/dropped 3D assets asynchronously generate a cached native thumbnail. The 3D preview also has a camera/viewfinder control that captures the current orbit/zoom view as the new thumbnail, making it possible to choose a meaningful visual angle for the Grid/List and Secure Remote Share confirmation row.
+
 Audio playback is owned by one persistent `SharedAudioPlaybackController` per native library. Starting another audio file stops the previous one, but switching Grid/List or opening an already-playing/paused track through its thumbnail reuses the same player, time position and play/pause state.
 
 ## LAN and remote WebRTC sharing
+
+### v2.2.32 macOS 3D-thumbnail build hotfix
+
+- The patch number intentionally advances to **2.2.32** so this valid package sorts above the malformed `v2.2.31` ZIP already present in the watched archive.
+- Corrected the macOS 3D thumbnail fallback so Swift no longer evaluates an `await` expression inside the nil-coalescing operator's autoclosure. Cached thumbnails are used immediately; only a cache miss awaits the renderer.
+- Release verification now scans Swift sources for the invalid `?? await` pattern before a ZIP can be packaged. All v2.2.3 UI and 3D-preview features remain unchanged.
+
+### v2.2.3 3D thumbnails and compact iOS workflow
+
+- iOS new installs default Grid card actions to icons and omit the redundant Preview/View action; tapping the thumbnail remains the preview action. Grid/List can now be switched directly from the main filter strip.
+- The first-run empty state includes a large rounded + button. Settings is vertically compact, colour themes are presented in one horizontal row, and a Browse Files action makes the system Files picker immediately reachable.
+- iOS does not grant apps blanket access to all Files storage. Shar uses Apple's document picker to obtain user-approved access and copies selected items into its shared Documents library, which is exposed through Files via `UIFileSharingEnabled` / `LSSupportsOpeningDocumentsInPlace`.
+- Native Secure Remote Share shows the selected file thumbnail next to its name/type/size before transfer, and context-sensitive primary actions use a filled white-on-accent treatment with a subtle Reduce-Motion-aware pulse.
+- Developer updates now show Shar identity/version and release dates.
 
 ### v2.2.2 iOS grid controls and release resilience
 

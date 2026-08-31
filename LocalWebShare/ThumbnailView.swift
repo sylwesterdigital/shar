@@ -36,6 +36,12 @@ struct ThumbnailView: View {
         .task(id: file.id) {
             await loadThumbnail()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .sharThreeDThumbnailChanged)) { notification in
+            guard file.mediaKind == .threeD,
+                  let path = notification.object as? String,
+                  path == file.url.path else { return }
+            thumbnail = ThreeDThumbnailCache.cachedImage(for: file.url)
+        }
     }
 
     @MainActor
@@ -51,6 +57,17 @@ struct ThumbnailView: View {
             }.value
             if let data, let image = UIImage(data: data) {
                 thumbnail = image
+                return
+            }
+        }
+
+        if file.mediaKind == .threeD {
+            if let cached = ThreeDThumbnailCache.cachedImage(for: file.url) {
+                thumbnail = cached
+                return
+            }
+            if let rendered = await ThreeDThumbnailCache.generateDefault(for: file.url) {
+                thumbnail = rendered
                 return
             }
         }

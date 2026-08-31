@@ -58,34 +58,36 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.2.2  iOS grid controls + release resilience\nRestored fixed-size iOS grid action controls and made attached-device storage exhaustion non-blocking for distribution publishing after successful build/sign validation.\n\n"+
-            "v2.2.1  macOS presentation polish\nFixed About sizing, image fit-on-open behavior, and compacted Secure Remote Share with larger always-visible actions.\n\n"+
-            "v2.2.0  Polished 3D preview\nAdded local WebGL 3D rendering with lighting/floor/background controls and fixed missing Previous/Next icons.\n\n"+
-            "v2.1.9  3D preview build compatibility\nFixed the macOS 13 3D-preview compile blockers and added release guards for the actual Model I/O/SceneKit bridge.\n\n"+
-            "v2.1.8  3D previews + persistent playback\nAdded a 3D media category and interactive Apple-client previews; audio playback keeps its position when moving between library layouts and Preview.\n\n"+
-            "v2.1.7  Native Mac identity + About routing\nmacOS now maps the info toolbar button to Developer updates, routes About Shar through the app menu, and uses Shar as the visible macOS application name.\n\n"+
-                "v2.1.6  Playback + company polish\nmacOS keeps a single audio session across Grid/List, adds top Support/About/Config controls, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright.\n\n"+
-                "v2.1.5  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
-                "v2.1.4  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
-                "v2.1.3  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+
-                "v2.1.2  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
-                "v2.1.1  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
-                "v2.1.0  Secure Remote Share\nAdded AES-256-GCM encryption, separate PIN verification, sender approval, SHA-256 integrity checks, and hardened TURN/API privacy.\n\n"+
-                "v2.0.8  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
-                "v2.0.7  Remote completion handshake\nSuccessful remote downloads stay complete and explicitly confirm receipt back to the sender.\n\n"+
-                "v2.0.6  Native link sharing\nFixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.\n\n"+
-                "v2.0.5  Remote service readiness\nFixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation.\n\n"+
-                "v2.0.4  Native iPhone Remote Share\nRemote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI.\n\n"+
-                "v2.0.3  Public route verification\nMade the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts.\n\n"+
-                "v2.0.2  Remote routing repair\nFixed exact mojoworks.xyz API routing and automatic public-endpoint repair.\n\n"+
-                "v2.0.1  Android release fix\nRestored Android release compilation and kept version display sourced from package metadata.\n\n"+
-            "v2.0.0  Remote WebRTC sharing\nExpiring QR/link shares with P2P data channels and TURN fallback.\n\n"+
-            "v1.7.6  Optional developer info\nHidden-by-default ⓘ updates panel and preference.\n\n"+
-            "v1.7.5  Cross-platform audio fix\nRestored macOS release builds while keeping iOS background audio.\n\n"+
-            "v1.7.4  Background audio\nAudio continues while Shar is minimized or the screen is locked.\n\n"+
-            "v1.7.3  Better preview\nFit-first images and a persistent X close control.\n\n"+
-            "v1.7.2  More ways to add\nPhotos & Videos, camera recording, and Files from +.\n\n"+
-            "v1.7.1  Shar identity\nShar branding and persistent iOS + importer.";
+        String message="v2.2.32 · 2026-08-31  macOS 3D thumbnail build hotfix\nFixed the macOS async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing.\n\n"+
+                "v2.2.3 · 2026-08-31  3D thumbnails + compact workflow\nAdded background 3D thumbnail capture/recapture, visual Remote Share confirmation, compact iOS layout controls, first-run add affordance, clearer Files access and dated update history.\n\n"+
+            "v2.2.2 · 2026-08-31  iOS grid controls + release resilience\nRestored fixed-size iOS grid action controls and made attached-device storage exhaustion non-blocking for distribution publishing after successful build/sign validation.\n\n"+
+            "v2.2.1 · 2026-08-30  macOS presentation polish\nFixed About sizing, image fit-on-open behavior, and compacted Secure Remote Share with larger always-visible actions.\n\n"+
+            "v2.2.0 · 2026-08-30  Polished 3D preview\nAdded local WebGL 3D rendering with lighting/floor/background controls and fixed missing Previous/Next icons.\n\n"+
+            "v2.1.9 · 2026-08-30  3D preview build compatibility\nFixed the macOS 13 3D-preview compile blockers and added release guards for the actual Model I/O/SceneKit bridge.\n\n"+
+            "v2.1.8 · 2026-08-30  3D previews + persistent playback\nAdded a 3D media category and interactive Apple-client previews; audio playback keeps its position when moving between library layouts and Preview.\n\n"+
+            "v2.1.7 · 2026-08-30  Native Mac identity + About routing\nmacOS now maps the info toolbar button to Developer updates, routes About Shar through the app menu, and uses Shar as the visible macOS application name.\n\n"+
+                "v2.1.6 · 2026-08-30  Playback + company polish\nmacOS keeps a single audio session across Grid/List, adds top Support/About/Config controls, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright.\n\n"+
+                "v2.1.5 · 2026-08-30  Stripe support checkout\nSupport Shar now opens the centralized Stripe-backed support experience using the configured Payment Link / Buy Button.\n\n"+
+                "v2.1.4 · 2026-08-30  Release pipeline resilience\nA locked iPhone can no longer abort an otherwise successful distribution release after installation.\n\n"+
+                "v2.1.3 · 2026-08-30  Unified native library UI\nBrought macOS grid/list, media filters and cog-based Config in line with iOS; added explicit About/Support information across native clients.\n\n"+
+                "v2.1.2 · 2026-08-30  Native macOS Secure Remote Share\nRemote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI.\n\n"+
+                "v2.1.1 · 2026-08-30  Android build fix\nFixed the secure-share browser embedding escape regression and added a Java text-block compile guard.\n\n"+
+                "v2.1.0 · 2026-08-30  Secure Remote Share\nAdded AES-256-GCM encryption, separate PIN verification, sender approval, SHA-256 integrity checks, and hardened TURN/API privacy.\n\n"+
+                "v2.0.8 · 2026-08-30  Remote sender startup fix\nFixed native iOS Remote Share startup and removed Google STUN from runtime ICE.\n\n"+
+                "v2.0.7 · 2026-08-30  Remote completion handshake\nSuccessful remote downloads stay complete and explicitly confirm receipt back to the sender.\n\n"+
+                "v2.0.6 · 2026-08-30  Native link sharing\nFixed iPhone Remote Share so Share link opens the native iOS share sheet for Messages, Mail, AirDrop and installed messaging apps.\n\n"+
+                "v2.0.5 · 2026-08-30  Remote service readiness\nFixed the signaling-service startup race and added readiness diagnostics before nginx/public-route validation.\n\n"+
+                "v2.0.4 · 2026-08-30  Native iPhone Remote Share\nRemote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI.\n\n"+
+                "v2.0.3 · 2026-08-30  Public route verification\nMade the real public HTTPS API authoritative and hardened nginx repair for duplicate/address-bound apex vhosts.\n\n"+
+                "v2.0.2 · 2026-08-30  Remote routing repair\nFixed exact mojoworks.xyz API routing and automatic public-endpoint repair.\n\n"+
+                "v2.0.1 · 2026-08-30  Android release fix\nRestored Android release compilation and kept version display sourced from package metadata.\n\n"+
+            "v2.0.0 · 2026-08-29  Remote WebRTC sharing\nExpiring QR/link shares with P2P data channels and TURN fallback.\n\n"+
+            "v1.7.6 · 2026-08-29  Optional developer info\nHidden-by-default ⓘ updates panel and preference.\n\n"+
+            "v1.7.5 · 2026-08-29  Cross-platform audio fix\nRestored macOS release builds while keeping iOS background audio.\n\n"+
+            "v1.7.4 · 2026-08-29  Background audio\nAudio continues while Shar is minimized or the screen is locked.\n\n"+
+            "v1.7.3 · 2026-08-29  Better preview\nFit-first images and a persistent X close control.\n\n"+
+            "v1.7.2 · 2026-08-29  More ways to add\nPhotos & Videos, camera recording, and Files from +.\n\n"+
+            "v1.7.1 · 2026-08-29  Shar identity\nShar branding and persistent iOS + importer.";
         new AlertDialog.Builder(this).setTitle("Developer updates").setMessage(message).setPositiveButton("Close",null).show();
     }
 

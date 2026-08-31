@@ -12,13 +12,14 @@ struct ContentView: View {
     @EnvironmentObject private var webServer: LocalWebServer
     @EnvironmentObject private var networkMonitor: NetworkStatusMonitor
 
-    @AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.compact.rawValue
+    @AppStorage("actionLabelMode") private var actionLabelModeRaw = ActionLabelMode.icons.rawValue
     @AppStorage("fileViewMode") private var fileViewModeRaw = FileViewMode.grid.rawValue
     @AppStorage("mediaFilter") private var mediaFilterRaw = MediaFilter.all.rawValue
     @AppStorage("colorTheme") private var colorThemeRaw = AppColorTheme.ocean.rawValue
     @AppStorage("autoStartSharing") private var autoStartSharing = false
     @AppStorage("showFileSizes") private var showFileSizes = true
     @AppStorage("showDeveloperInfo") private var showDeveloperInfo = false
+    @AppStorage("didMigrateGridIconsV223") private var didMigrateGridIconsV223 = false
 
     @StateObject private var audioPlayback = SharedAudioPlaybackController()
     @State private var selectedFile: SharedFile?
@@ -220,6 +221,10 @@ struct ContentView: View {
             Text(fileStore.lastError ?? webServer.lastError ?? "Unknown error")
         }
         .onAppear {
+            if !didMigrateGridIconsV223 {
+                if actionLabelModeRaw == ActionLabelMode.compact.rawValue { actionLabelModeRaw = ActionLabelMode.icons.rawValue }
+                didMigrateGridIconsV223 = true
+            }
             fileStore.refresh()
             if autoStartSharing, networkMonitor.kind == .wifi, !webServer.isRunning {
                 webServer.start()
@@ -307,7 +312,16 @@ struct ContentView: View {
             Text("\(filteredFiles.count)")
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .padding(.trailing, 12)
+
+            Picker("View", selection: $fileViewModeRaw) {
+                ForEach(FileViewMode.allCases) { mode in
+                    Image(systemName: mode.systemImage).tag(mode.rawValue)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 78)
+            .padding(.trailing, 12)
         }
         .padding(.vertical, 8)
         .background(Color(uiColor: .systemBackground))
@@ -316,11 +330,35 @@ struct ContentView: View {
     @ViewBuilder
     private var filesContent: some View {
         if fileStore.files.isEmpty {
-            ContentUnavailableView(
-                "No Files Yet",
-                systemImage: "folder",
-                description: Text("Tap + to choose Photos & Videos, record a video, or import Files. Turn on Sharing to upload from another device.")
-            )
+            VStack(spacing: 2) {
+                ContentUnavailableView(
+                    "No Files Yet",
+                    systemImage: "folder",
+                    description: Text("Choose Photos & Videos, record a video, or browse Files. Turn on Sharing to upload from another device.")
+                )
+                Menu {
+                    Button { showingPhotoPicker = true } label: {
+                        Label("Photos & Videos", systemImage: "photo.on.rectangle.angled")
+                    }
+                    Button { showingVideoCamera = true } label: {
+                        Label("Record Video", systemImage: "video.badge.plus")
+                    }
+                    .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+                    Button { showingFileImporter = true } label: {
+                        Label("Browse Files", systemImage: "folder")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 54, height: 54)
+                        .background(colorTheme.accent, in: Circle())
+                        .shadow(radius: 8, y: 3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add files")
+                .padding(.bottom, 28)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if filteredFiles.isEmpty {
             ContentUnavailableView(
@@ -379,7 +417,7 @@ struct ContentView: View {
             HStack(spacing: 0) {
                 Spacer()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Label("Settings", systemImage: "gearshape.fill")
@@ -399,7 +437,7 @@ struct ContentView: View {
                         }
 
                         settingsSection("Buttons") {
-                            Picker("Button labels", selection: $actionLabelModeRaw) {
+                            Picker("Grid buttons", selection: $actionLabelModeRaw) {
                                 ForEach(ActionLabelMode.allCases) { mode in
                                     Text(mode.title).tag(mode.rawValue)
                                 }
@@ -418,28 +456,47 @@ struct ContentView: View {
                         }
 
                         settingsSection("Colour theme") {
-                            VStack(spacing: 8) {
-                                ForEach(AppColorTheme.allCases) { theme in
-                                    Button {
-                                        colorThemeRaw = theme.rawValue
-                                    } label: {
-                                        HStack {
-                                            Circle()
-                                                .fill(theme.accent)
-                                                .frame(width: 18, height: 18)
-                                            Text(theme.title)
-                                                .foregroundStyle(.primary)
-                                            Spacer()
-                                            if colorTheme == theme {
-                                                Image(systemName: "checkmark")
-                                                    .foregroundStyle(theme.accent)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 7) {
+                                    ForEach(AppColorTheme.allCases) { theme in
+                                        Button {
+                                            colorThemeRaw = theme.rawValue
+                                        } label: {
+                                            VStack(spacing: 4) {
+                                                ZStack {
+                                                    Circle().fill(theme.accent).frame(width: 24, height: 24)
+                                                    if colorTheme == theme {
+                                                        Image(systemName: "checkmark")
+                                                            .font(.caption2.bold())
+                                                            .foregroundStyle(.white)
+                                                    }
+                                                }
+                                                Text(theme.title)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.primary)
                                             }
+                                            .frame(width: 54)
+                                            .padding(.vertical, 5)
+                                            .background(colorTheme == theme ? theme.accent.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 9))
                                         }
-                                        .contentShape(Rectangle())
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
+                        }
+
+                        settingsSection("Files") {
+                            Button {
+                                showingSettings = false
+                                showingFileImporter = true
+                            } label: {
+                                Label("Browse Files…", systemImage: "folder")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.bordered)
+                            Text("iOS grants file access through the system Files picker. Selected items are copied into Shar's shared library and remain visible in On My iPhone/iPad → Shar.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
 
                         settingsSection("Developer") {
@@ -490,8 +547,8 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 24)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
                     .padding(.bottom, 20)
                 }
                 .frame(width: min(350, proxy.size.width * 0.88))
@@ -503,7 +560,7 @@ struct ContentView: View {
     }
 
     private func settingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
@@ -554,61 +611,96 @@ private struct SupportCheckoutView: UIViewControllerRepresentable {
 
 struct DeveloperUpdate: Identifiable {
     let version: String
+    let date: String
     let title: String
     let summary: String
     var id: String { version }
 }
 
 private let recentDeveloperUpdates: [DeveloperUpdate] = [
-    .init(version: "2.2.2", title: "iOS grid controls + release resilience", summary: "Restored compact fixed-size iOS grid action controls and made device-storage exhaustion a visible non-blocking warning after successful build/sign validation, so distribution publishing can continue."),
-    .init(version: "2.2.1", title: "macOS presentation polish", summary: "Fixed the macOS About window size, made newly opened images fit the preview window, and compacted Secure Remote Share so larger primary actions remain visible without scrolling."),
-    .init(version: "2.2.0", title: "Polished 3D preview", summary: "Added lighting, floor, background and fit controls to native 3D previews; browser 3D now renders locally with WebGL and Previous/Next icons are bundled inline."),
-    .init(version: "2.1.9", title: "3D preview build compatibility", summary: "Fixed macOS 13 compilation for the 3D preview, imported the SceneKit/Model I/O bridge explicitly, and hardened release checks for these compatibility issues."),
-    .init(version: "2.1.8", title: "3D previews + persistent playback", summary: "Added a 3D media category and local interactive previews for GLB/glTF plus Apple-supported model formats; audio keeps its exact position and play/pause state when moving between Grid, List and Preview."),
-    .init(version: "2.1.7", title: "Native Mac identity + About routing", summary: "macOS now uses the ⓘ toolbar action for Developer updates like iOS, routes About Shar through the application menu, and presents the visible app name as Shar."),
-    .init(version: "2.1.6", title: "Playback + company polish", summary: "macOS keeps one audio session across Grid/List, adds a top Support action, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright."),
-    .init(version: "2.1.5", title: "Stripe support checkout", summary: "Connected Support Shar to the production Stripe Payment Link and official Buy Button."),
-    .init(version: "2.1.4", title: "Release pipeline resilience", summary: "A locked iPhone no longer aborts the full release after the app has already installed successfully."),
-    .init(version: "2.1.3", title: "Unified native library UI", summary: "Brought macOS grid/list, media filters and cog-based Settings in line with iOS; made Version/Build explicit and added About/Support links across native clients."),
-    .init(version: "2.1.2", title: "Native macOS Secure Remote Share", summary: "Remote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI."),
-    .init(version: "2.1.1", title: "Android secure-share build fix", summary: "Fixed the Android embedded browser Base64URL helper and added a Java text-block compile guard to release verification."),
-    .init(version: "2.1.0", title: "Secure Remote Share", summary: "Added AES-256-GCM content encryption, separate PIN verification, sender approval, SHA-256 integrity checks, private metadata mode, and hardened TURN/API logging."),
-    .init(version: "2.0.8", title: "Remote sender startup fix", summary: "Fixed the native iOS WebRTC engine parse regression and removed Google STUN from the runtime ICE path."),
-    .init(version: "2.0.7", title: "Remote completion handshake", summary: "Made successful remote downloads terminal, added receiver confirmation back to the sender, and prevented expected session cleanup from becoming a false failure."),
-    .init(version: "2.0.6", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
-    .init(version: "2.0.5", title: "Remote service readiness", summary: "Fixed the signaling-service startup race and added systemd readiness diagnostics before nginx/public-route validation."),
-    .init(version: "2.0.4", title: "Native iPhone Remote Share", summary: "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
-    .init(version: "2.0.3", title: "Public route verification", summary: "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate or address-bound apex vhosts."),
-    .init(version: "2.0.2", title: "Remote routing repair", summary: "Fixed exact mojoworks.xyz API routing and automatic repair when signaling is healthy locally but public sharing returns 404."),
-    .init(version: "2.0.1", title: "Android release fix", summary: "Restored Android release compilation and made its visible version read from package metadata."),
-    .init(version: "2.0.0", title: "Remote WebRTC sharing", summary: "Added expiring QR/link shares, P2P data channels, TURN fallback, and automated signaling/TURN deployment."),
-    .init(version: "1.7.6", title: "Optional developer info", summary: "Added the hidden-by-default ⓘ updates panel and Settings toggle."),
-    .init(version: "1.7.5", title: "Cross-platform audio fix", summary: "Kept iOS background audio while restoring the macOS release build."),
-    .init(version: "1.7.4", title: "Background audio", summary: "Audio can continue with Shar minimized or the iPhone screen locked."),
-    .init(version: "1.7.3", title: "Better preview", summary: "Images fit the viewer and previews gained a persistent X close control."),
-    .init(version: "1.7.2", title: "More ways to add", summary: "Added Photos & Videos, camera recording, and Files from the + menu."),
-    .init(version: "1.7.1", title: "Shar identity", summary: "Renamed the visible product to Shar and added the persistent iOS + importer.")
+    .init(version: "2.2.3", date: "2026-08-31", title: "3D thumbnails + compact iOS workflow", summary: "Added background 3D thumbnail capture with in-preview recapture, visual file confirmation in Secure Remote Share, compact iOS Settings, main Grid/List switching, a first-run add button, clearer Files access, dated update history, and context-aware highlighted calls to action."),
+    .init(version: "2.2.2", date: "2026-08-31", title: "iOS grid controls + release resilience", summary: "Restored compact fixed-size iOS grid action controls and made device-storage exhaustion a visible non-blocking warning after successful build/sign validation, so distribution publishing can continue."),
+    .init(version: "2.2.1", date: "2026-08-30", title: "macOS presentation polish", summary: "Fixed the macOS About window size, made newly opened images fit the preview window, and compacted Secure Remote Share so larger primary actions remain visible without scrolling."),
+    .init(version: "2.2.0", date: "2026-08-30", title: "Polished 3D preview", summary: "Added lighting, floor, background and fit controls to native 3D previews; browser 3D now renders locally with WebGL and Previous/Next icons are bundled inline."),
+    .init(version: "2.1.9", date: "2026-08-30", title: "3D preview build compatibility", summary: "Fixed macOS 13 compilation for the 3D preview, imported the SceneKit/Model I/O bridge explicitly, and hardened release checks for these compatibility issues."),
+    .init(version: "2.1.8", date: "2026-08-30", title: "3D previews + persistent playback", summary: "Added a 3D media category and local interactive previews for GLB/glTF plus Apple-supported model formats; audio keeps its exact position and play/pause state when moving between Grid, List and Preview."),
+    .init(version: "2.1.7", date: "2026-08-30", title: "Native Mac identity + About routing", summary: "macOS now uses the ⓘ toolbar action for Developer updates like iOS, routes About Shar through the application menu, and presents the visible app name as Shar."),
+    .init(version: "2.1.6", date: "2026-08-30", title: "Playback + company polish", summary: "macOS keeps one audio session across Grid/List, adds a top Support action, refreshes Stripe on the website, and identifies WORKWORK.FUN LTD with Sylwester Mielniczuk copyright."),
+    .init(version: "2.1.5", date: "2026-08-30", title: "Stripe support checkout", summary: "Connected Support Shar to the production Stripe Payment Link and official Buy Button."),
+    .init(version: "2.1.4", date: "2026-08-30", title: "Release pipeline resilience", summary: "A locked iPhone no longer aborts the full release after the app has already installed successfully."),
+    .init(version: "2.1.3", date: "2026-08-30", title: "Unified native library UI", summary: "Brought macOS grid/list, media filters and cog-based Settings in line with iOS; made Version/Build explicit and added About/Support links across native clients."),
+    .init(version: "2.1.2", date: "2026-08-30", title: "Native macOS Secure Remote Share", summary: "Remote sharing on macOS now stays inside the native Shar app with PIN, QR/link, approval, encrypted-transfer progress and verified completion UI."),
+    .init(version: "2.1.1", date: "2026-08-30", title: "Android secure-share build fix", summary: "Fixed the Android embedded browser Base64URL helper and added a Java text-block compile guard to release verification."),
+    .init(version: "2.1.0", date: "2026-08-30", title: "Secure Remote Share", summary: "Added AES-256-GCM content encryption, separate PIN verification, sender approval, SHA-256 integrity checks, private metadata mode, and hardened TURN/API logging."),
+    .init(version: "2.0.8", date: "2026-08-30", title: "Remote sender startup fix", summary: "Fixed the native iOS WebRTC engine parse regression and removed Google STUN from the runtime ICE path."),
+    .init(version: "2.0.7", date: "2026-08-30", title: "Remote completion handshake", summary: "Made successful remote downloads terminal, added receiver confirmation back to the sender, and prevented expected session cleanup from becoming a false failure."),
+    .init(version: "2.0.6", date: "2026-08-30", title: "Native link sharing", summary: "Fixed the iPhone Remote Share button to open the native iOS share sheet so receiver links can be sent directly through Messages, Mail, AirDrop and installed messaging apps."),
+    .init(version: "2.0.5", date: "2026-08-30", title: "Remote service readiness", summary: "Fixed the signaling-service startup race and added systemd readiness diagnostics before nginx/public-route validation."),
+    .init(version: "2.0.4", date: "2026-08-30", title: "Native iPhone Remote Share", summary: "Remote sharing now starts directly from the native iOS file card and shows a native QR/link transfer sheet without opening the local browser UI."),
+    .init(version: "2.0.3", date: "2026-08-30", title: "Public route verification", summary: "Made the real public HTTPS API authoritative and hardened nginx repair for duplicate or address-bound apex vhosts."),
+    .init(version: "2.0.2", date: "2026-08-30", title: "Remote routing repair", summary: "Fixed exact mojoworks.xyz API routing and automatic repair when signaling is healthy locally but public sharing returns 404."),
+    .init(version: "2.0.1", date: "2026-08-30", title: "Android release fix", summary: "Restored Android release compilation and made its visible version read from package metadata."),
+    .init(version: "2.0.0", date: "2026-08-29", title: "Remote WebRTC sharing", summary: "Added expiring QR/link shares, P2P data channels, TURN fallback, and automated signaling/TURN deployment."),
+    .init(version: "1.7.6", date: "2026-08-29", title: "Optional developer info", summary: "Added the hidden-by-default ⓘ updates panel and Settings toggle."),
+    .init(version: "1.7.5", date: "2026-08-29", title: "Cross-platform audio fix", summary: "Kept iOS background audio while restoring the macOS release build."),
+    .init(version: "1.7.4", date: "2026-08-29", title: "Background audio", summary: "Audio can continue with Shar minimized or the iPhone screen locked."),
+    .init(version: "1.7.3", date: "2026-08-29", title: "Better preview", summary: "Images fit the viewer and previews gained a persistent X close control."),
+    .init(version: "1.7.2", date: "2026-08-29", title: "More ways to add", summary: "Added Photos & Videos, camera recording, and Files from the + menu."),
+    .init(version: "1.7.1", date: "2026-08-29", title: "Shar identity", summary: "Renamed the visible product to Shar and added the persistent iOS + importer.")
 ]
 
 private struct DeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
 
+    private var appShortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+    }
+    private var appBuild: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+    }
+
     var body: some View {
         NavigationStack {
-            List(recentDeveloperUpdates) { update in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("v\(update.version)")
-                            .font(.subheadline.monospaced().weight(.bold))
-                        Text(update.title)
-                            .font(.subheadline.weight(.semibold))
+            List {
+                Section {
+                    HStack(spacing: 12) {
+                        Image("SharLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 54, height: 54)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Shar")
+                                .font(.headline)
+                            Text("Version \(appShortVersion) · Build \(appBuild)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                            Text("Developer update history")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    Text(update.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 3)
+
+                ForEach(recentDeveloperUpdates) { update in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("v\(update.version)")
+                                .font(.subheadline.monospaced().weight(.bold))
+                            Text(update.title)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        Text(update.date)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                        Text(update.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.vertical, 3)
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Developer updates")
@@ -692,12 +784,6 @@ private struct MediaGridCard: View {
         switch actionLabelMode {
         case .icons:
             HStack(spacing: 6) {
-                Button(action: onPreview) {
-                    Image(systemName: "eye")
-                        .accessibilityLabel("Preview")
-                }
-                .buttonStyle(GridCardIconButtonStyle())
-
                 ShareLink(item: file.url) {
                     Image(systemName: "square.and.arrow.up")
                         .accessibilityLabel("Share")
@@ -721,10 +807,6 @@ private struct MediaGridCard: View {
 
         case .compact, .text:
             HStack(spacing: 6) {
-                Button(action: onPreview) {
-                    ActionLabel(full: "Preview", short: "View", systemImage: "eye", mode: actionLabelMode)
-                        .fixedSize(horizontal: true, vertical: true)
-                }
                 ShareLink(item: file.url) {
                     ActionLabel(full: "Share", short: "Share", systemImage: "square.and.arrow.up", mode: actionLabelMode)
                         .fixedSize(horizontal: true, vertical: true)
@@ -823,18 +905,27 @@ private struct RemoteShareSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    VStack(spacing: 5) {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 34, weight: .semibold))
-                            .foregroundStyle(.tint)
-                        Text(file.name)
-                            .font(.headline)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(3)
-                        Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                    HStack(spacing: 12) {
+                        ThumbnailView(file: file, size: CGSize(width: 76, height: 76))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(file.name)
+                                .font(.headline)
+                                .lineLimit(3)
+                            HStack(spacing: 5) {
+                                Text(file.typeLabel)
+                                Text("•")
+                                Text(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                            }
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            Label("End-to-end encrypted", systemImage: "lock.shield.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.tint)
+                        }
+                        Spacer(minLength: 0)
                     }
+                    .padding(12)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                     statusCard
 
@@ -1008,7 +1099,7 @@ private struct RemoteShareSheet: View {
                     Label("Approve", systemImage: "checkmark.shield")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PulsingProminentButtonStyle())
             }
         }
         .padding(14)
@@ -1050,7 +1141,7 @@ private struct RemoteShareSheet: View {
                     Label("Share link", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(PulsingProminentButtonStyle())
                 .accessibilityLabel("Share secure remote link with another app")
             }
             Text("The link contains the 256-bit encryption key in its URL fragment. Shar's web server never receives that fragment. The separate PIN is not included in the link.")
@@ -1244,7 +1335,7 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
         function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
         function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
         async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.2',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+        async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'ios-native-2.2.32',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
         window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
         window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
         function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -1367,6 +1458,36 @@ private final class NativeRemoteShareCoordinator: NSObject, ObservableObject, WK
     }
 }
 
+
+private struct PulsingProminentButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PulsingProminentButtonBody(configuration: configuration)
+    }
+}
+
+private struct PulsingProminentButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
+    var body: some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.accentColor.opacity(pulse && !reduceMotion ? 0.72 : 1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: Color.accentColor.opacity(pulse && !reduceMotion ? 0.12 : 0.26), radius: 7, y: 3)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.84 : 1)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true)) {
+                    pulse = true
+                }
+            }
+    }
+}
 
 private struct GridCardIconButtonStyle: ButtonStyle {
     var isDestructive = false
