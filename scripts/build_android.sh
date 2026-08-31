@@ -4,9 +4,11 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/terminal_style.sh"
 cd "$ROOT"
 
 "$SCRIPT_DIR/sync_ui_icons.sh"
+"$ROOT/scripts/prepare_local_whisper.sh" android
 
 VERSION="$(tr -d '[:space:]' < VERSION)"
 ANDROID_DIR="$ROOT/android"
@@ -16,8 +18,8 @@ SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 NO_INSTALL=0
 [[ "${1:-}" == "--no-install" ]] && NO_INSTALL=1
 
-say(){ printf '\n==> %s\n' "$*"; }
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+say(){ shar_section "$*"; }
+fail(){ shar_error "$*"; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "Android build script is configured for the macOS release host."
 command -v curl >/dev/null 2>&1 || fail "curl is required."

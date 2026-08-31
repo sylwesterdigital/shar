@@ -1,5 +1,69 @@
 # Changelog
 
+## [2.2.43] - 2026-08-31
+
+- Fixed the macOS local-Whisper C bridge compile command to use Apple clang's `-isysroot` instead of the unsupported Swift-style `-sdk` flag.
+- Hardened XCFramework selection to inspect each framework's `CFBundleSupportedPlatforms` and accept only `MacOSX`, preventing the universal tvOS simulator slice from being selected just because it contains arm64 + x86_64.
+- Aligned the macOS deployment target and `LSMinimumSystemVersion` with whisper.cpp v1.9.0's macOS framework minimum of 13.3.
+- Added verification guards for the macOS platform filter and clang SDK flag so this regression cannot re-enter the release scripts.
+- Preserved fully local Whisper captions and Spectrum/Waveform parity across iOS/iPadOS, macOS and Android; no cloud transcription path exists.
+
+## [2.2.42] - 2026-08-31
+
+- Added a shared terminal styling helper for the foreground build watcher and release/build shell scripts, with coloured stage headings, success/warning/error states, metadata fields and release banners.
+- Styling is TTY-aware and respects `NO_COLOR`; redirected build logs remain plain text and machine-readable.
+- Kept watcher version ordering, stability detection, processed-package state, build/deploy flow and failure semantics unchanged.
+
+## [2.2.41] - 2026-08-31
+
+- Fixed `scripts/prepare_local_whisper.sh apple` returning status 1 after otherwise successful preparation because its final optional Android-output condition evaluated false.
+- Added an explicit successful exit so `build_macos_release.sh` and `build_macos.sh` no longer abort under `set -e` before the first macOS compile step.
+- Added release verification coverage for the Apple-mode helper success contract and updated release/client/service metadata to 2.2.41 / 20241.
+- Local Whisper captions remain entirely on-device/offline on iOS/iPadOS, macOS and Android.
+
+## [2.2.40] - 2026-08-31
+
+### macOS Whisper build handoff hardening
+
+- Fixed the v2.2.39 stop immediately after local Whisper dependency preparation by removing the redundant network-based notarization credential recheck from the inner macOS build. The release entry point already validates those credentials before `build_all.sh`, and notarization itself retains retry/error handling later in the macOS release.
+- Replaced the fragile macOS XCFramework path-name lookup with architecture-based framework selection: Shar now enumerates `whisper.framework` candidates and selects the framework whose binary actually contains both `arm64` and `x86_64`, then logs the chosen slice before compilation.
+- Added explicit failures for app-icon creation, model/framework bundling and macOS SDK resolution so an early build stop can no longer disappear without identifying the failing preparation step.
+- Fixed an Android Developer Updates source regression that accidentally declared `String message` twice and would have broken Android Java compilation once the release reached that platform.
+- Preserved fully local Whisper captions and Live spectrum/Waveform parity on iOS/iPadOS, macOS and Android; no cloud transcription path exists.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.40 / 20240; updated active native/browser/receiver and signaling-service version identifiers.
+
+## [2.2.39] - 2026-08-31
+
+### Correct whisper.cpp Release-asset integrity pin
+
+- Fixed the v2.2.38 dependency stop: the GitHub **Release asset** for `whisper-v1.9.0-xcframework.zip` is SHA-256 `fd6af2471980094eadf8a19d4241ab89cd64c6110bfb75793cdcc68cb2ccf467` and 50,438,559 bytes, exactly as the GitHub Releases API reported during deployment.
+- The previous pin (`8c9326…`) referred to the workflow-produced Actions artifact, not the downloadable Release asset consumed by Shar. The release download was therefore being rejected even though GitHub consistently returned the same valid release binary through direct, CLI and API transports.
+- Kept strict integrity verification and now pin both the Release-asset SHA-256 and byte count before extraction. No checksum bypass or trust-on-first-use behavior was added.
+- Preserved fully local Whisper captions and Live spectrum/Waveform parity on iOS/iPadOS, macOS and Android; no cloud transcription path exists.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.39 / 20239; updated active native/browser/receiver and signaling-service version identifiers.
+
+## [2.2.38] - 2026-08-31
+
+### Whisper dependency download hardening
+
+- Fixed the v2.2.37 deployment stop at Apple Whisper dependency preparation without weakening integrity checks.
+- Kept the official pinned whisper.cpp v1.9.0 XCFramework SHA-256 and added cache-busting plus independent retries through GitHub CLI and the GitHub Releases API when the direct release download does not match.
+- Invalid cached/downloaded XCFramework ZIPs are deleted and never extracted or linked.
+- Added detailed received SHA-256 and byte-count diagnostics if all verified transports fail.
+- Preserved cross-platform local captions and Live spectrum/Waveform parity for iOS/iPadOS, macOS and Android; no cloud transcription route was introduced.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.38 / 20238; updated active native/browser/receiver and signaling-service version identifiers.
+
+## [2.2.37] - 2026-08-31
+
+- Replaced the temporary iOS Apple Speech caption implementation with fully local Whisper transcription; no media is sent to Apple, iCloud, Shar servers, or any transcription service.
+- Added a shared Apple `LocalMediaIntelligence` layer and native C bridge to pinned whisper.cpp v1.9.0 for iOS/iPadOS and macOS, using a bundled multilingual `ggml-base.bin` model.
+- Added macOS Live spectrum / whole-track Waveform switching, local caption generation, synchronized caption display, and current-word highlighting to match iOS Preview behavior.
+- Added Android Live spectrum / whole-track Waveform switching and local Whisper caption generation with synchronized current-word highlighting.
+- Added a build-time dependency preparation script with pinned URLs and SHA-256 checks; prepared ML binaries/models are ignored by Git and excluded from source ZIP packaging.
+- Removed the iOS Speech-recognition usage description and active Speech framework code.
+- Hardened repository verification so all three native clients must expose the same local captions + audio visualization feature family and no Apple/cloud transcription path can reappear.
+- Bumped iOS/macOS marketing/build version and Android versionName/versionCode to 2.2.37 / 20237; updated active native/browser/receiver and signaling-service version identifiers.
+
 ## [2.2.36] - 2026-08-31
 
 ### Private local captions and responsive spectrum

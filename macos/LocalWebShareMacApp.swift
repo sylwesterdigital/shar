@@ -762,7 +762,7 @@ private final class MacNativeRemoteShareCoordinator: NSObject, ObservableObject,
                 function b64urlEncode(u){let s='';for(const b of u)s+=String.fromCharCode(b);return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'')}
                 function randomPin(){const x=new Uint32Array(1);do{crypto.getRandomValues(x)}while(x[0]>=4294000000);return String(x[0]%1000000).padStart(6,'0')}
                 async function pinVerifier(pin,salt){const material=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:PIN_ITERATIONS},material,256);return b64urlEncode(new Uint8Array(bits))}
-                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.36',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
+                async function api(path,opt={}){let response;try{response=await fetch(API+path,{cache:'no-store',...opt,headers:{'Content-Type':'application/json','X-Shar-Client':'macos-native-2.2.43',...(opt.headers||{})}})}catch(e){throw Error('Cannot reach Shar remote service. Check Internet connection or server deployment.')}const text=await response.text();let body={};try{body=text?JSON.parse(text):{}}catch{}if(!response.ok)throw Error(body.error||`Shar remote service returned HTTP ${response.status}`);return body}
                 window.__sharNativeChunk=(id,b64)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);try{const raw=atob(b64),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);p.resolve(out)}catch(e){p.reject(e)}};
                 window.__sharNativeChunkError=(id,message)=>{const p=chunkRequests.get(id);if(!p)return;chunkRequests.delete(id);p.reject(Error(message||'Could not read file'))};
                 function chunk(offset,length){return new Promise((resolve,reject)=>{const id=String(++chunkCounter);chunkRequests.set(id,{resolve,reject});native({type:'chunk',requestId:id,offset,length})})}
@@ -946,9 +946,16 @@ private struct MacAboutView: View {
 private struct MacDeveloperUpdatesView: View {
     @Environment(\.dismiss) private var dismiss
     private let updates: [(String, String, String, String)] = [
-        ("2.2.36", "2026-08-31", "Private local captions + responsive spectrum", "Removed all online transcription paths. iOS captions are on-device only with local PCM preprocessing, while the spectrum uses denser 20-band analysis and a faster playback clock."),
-        ("2.2.35", "2026-08-31", "Live spectrum + resilient captions", "iOS frequency bars now track playback fluidly, long audio is captioned in short chunks, and an explicit Apple online fallback is offered when on-device Speech fails."),
-        ("2.2.34", "2026-08-31", "Audio continuity + visual captions", "iOS keeps audio continuous from library playback into Preview, adds spectrum/waveform visualization, and can generate synchronized on-device Apple speech captions with the current word highlighted."),
+        ("2.2.43", "2026-08-31", "macOS Whisper platform/compiler fix", "Fixed the macOS local-Whisper bridge build to use Apple clang correctly and select only the MacOSX XCFramework slice instead of a same-architecture tvOS simulator slice."),
+        ("2.2.42", "2026-08-31", "Coloured build + watcher output", "Added shared TTY-aware terminal styling across the foreground watcher and release/build scripts while keeping redirected logs plain text."),
+        ("2.2.41", "2026-08-31", "Whisper Apple-mode build exit fix", "Fixed the successful Apple-only Whisper preparation path returning status 1 and aborting the macOS release before compilation under set -e."),
+        ("2.2.40", "2026-08-31", "macOS Whisper build handoff hardening", "Hardened the macOS local-Whisper build handoff with architecture-based framework selection and explicit pre-compile diagnostics; also fixed an Android Developer Updates Java declaration regression."),
+        ("2.2.39", "2026-08-31", "Whisper Release-asset pin fix", "Corrected the strict whisper.cpp Apple XCFramework integrity pin to the SHA-256 and byte count of the actual GitHub Release asset. Local captions remain fully on-device across iOS/iPadOS, macOS and Android."),
+        ("2.2.38", "2026-08-31", "Whisper dependency download hardening", "Kept fully local cross-platform Whisper and hardened Apple framework preparation with verified retries across independent GitHub release transports when a direct download is corrupted or stale."),
+        ("2.2.37", "2026-08-31", "Cross-platform local Whisper + audio parity", "iOS, macOS and Android now share local captions plus switchable Live spectrum / whole-track Waveform. Captions run with bundled local Whisper and media is never uploaded for transcription."),
+        ("2.2.36", "2026-08-31", "Private local captions + responsive spectrum", "Hardened the first local-only caption prototype and improved the iOS 20-band spectrum. The caption engine is superseded by cross-platform local Whisper in v2.2.37."),
+        ("2.2.35", "2026-08-31", "Live spectrum + resilient captions", "Improved iOS spectrum timing and chunked caption processing. The temporary caption engine is superseded by fully local Whisper in v2.2.37."),
+        ("2.2.34", "2026-08-31", "Audio continuity + visual captions", "Introduced persistent iOS Preview playback, switchable spectrum/waveform visualization, and synchronized highlighted caption UI."),
         ("2.2.33", "2026-08-31", "Remote Share help + media feedback", "Simplified the iOS Remote Share flow with bottom-left quick Help and added clearer pressed/active Grid-card feedback on iOS and macOS."),
         ("2.2.32", "2026-08-31", "macOS 3D thumbnail build hotfix", "Fixed the async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing."),
         ("2.2.3", "2026-08-31", "3D thumbnails + compact iOS workflow", "Added background 3D thumbnail capture/recapture, visual file confirmation in Secure Remote Share, compact iOS Settings, main Grid/List switching, first-run add affordance, clearer Files access and dated update history."),
@@ -1280,6 +1287,8 @@ private struct MacPreviewContent: View {
                     let metadata = MediaMetadataReader.read(file.url)
                     Text(metadata.title ?? file.name).font(.title3.bold())
                     if let artist = metadata.artist { Text(artist).foregroundStyle(.secondary) }
+                    MacAudioVisualizationView(file: file, playback: audioPlayback)
+                    MacAudioCaptionStrip(file: file, playback: audioPlayback)
                     MacSharedAudioControls(file: file, playback: audioPlayback)
                     Spacer()
                 }
@@ -1338,6 +1347,88 @@ private struct MacSharedAudioControls: View {
         let value = Int(seconds)
         return String(format: "%d:%02d", value / 60, value % 60)
     }
+}
+
+
+private enum MacAudioVisualizationMode: String { case spectrum = "Live spectrum"; case waveform = "Waveform" }
+
+@MainActor
+private final class MacAudioVisualizationModel: ObservableObject {
+    @Published var waveform: [Double] = []
+    @Published var spectrumFrames: [[Double]] = []
+    @Published var loading = false
+    private var path: String?
+    func load(_ file: SharedFile) async {
+        if path == file.url.path, !waveform.isEmpty { return }
+        path = file.url.path; loading = true
+        let expected = file.url.path
+        let result = await Task.detached(priority: .utility) { SharAudioAnalyzer.analyze(url: file.url) }.value
+        guard path == expected else { return }
+        waveform = result.waveform; spectrumFrames = result.spectrumFrames; loading = false
+    }
+}
+
+private struct MacAudioVisualizationView: View {
+    let file: SharedFile
+    @ObservedObject var playback: SharedAudioPlaybackController
+    @StateObject private var analysis = MacAudioVisualizationModel()
+    @State private var mode: MacAudioVisualizationMode = .spectrum
+    private var progress: Double { guard playback.isActive(file), playback.duration > 0 else { return 0 }; return min(max(playback.currentTime / playback.duration, 0), 1) }
+    var body: some View {
+        Button { withAnimation(.easeInOut(duration: 0.16)) { mode = mode == .spectrum ? .waveform : .spectrum } } label: {
+            VStack(spacing: 5) {
+                HStack { Label(mode.rawValue, systemImage: mode == .spectrum ? "waveform.path.ecg" : "waveform").font(.caption.weight(.semibold)); Spacer(); Text("click to switch").font(.caption2).foregroundStyle(.secondary) }
+                if analysis.loading && analysis.waveform.isEmpty { ProgressView().frame(height: 68) }
+                else if mode == .spectrum { spectrum } else { waveform }
+            }.padding(10).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+        }.buttonStyle(.plain).frame(maxWidth: 560).task(id: file.id) { await analysis.load(file) }
+    }
+    private var spectrum: some View {
+        let bands = SharAudioAnalyzer.spectrum(frames: analysis.spectrumFrames, progress: progress)
+        return GeometryReader { proxy in HStack(alignment: .bottom, spacing: 3) { ForEach(Array(bands.enumerated()), id: \.offset) { index, value in RoundedRectangle(cornerRadius: 2.5).fill(Color(hue: Double(index) / Double(max(1,bands.count-1)) * 0.76, saturation: 0.82, brightness: 0.94)).frame(maxWidth: .infinity).frame(height: max(4, proxy.size.height * value)) } }.frame(maxWidth: .infinity,maxHeight: .infinity,alignment: .bottom) }.frame(height: 68)
+    }
+    private var waveform: some View {
+        GeometryReader { proxy in let vals = analysis.waveform.isEmpty ? Array(repeating: 0.1,count:72) : analysis.waveform; HStack(alignment:.center,spacing:1.5){ForEach(Array(vals.enumerated()),id:\.offset){i,v in Capsule().fill(Double(i)/Double(max(1,vals.count-1)) <= progress ? Color.accentColor : Color.secondary.opacity(0.28)).frame(maxWidth:.infinity).frame(height:max(3,proxy.size.height*v))}}.frame(maxWidth:.infinity,maxHeight:.infinity) }.frame(height:68)
+    }
+}
+
+@MainActor
+private enum MacCaptionCache { static var words: [String:[SharTimedCaptionWord]] = [:] }
+
+@MainActor
+private final class MacAudioCaptionController: ObservableObject {
+    @Published var words: [SharTimedCaptionWord] = []
+    @Published var running = false
+    @Published var status: String?
+    @Published var progress: String?
+    private var path: String?
+    func prepare(_ file: SharedFile) { path=file.url.path; words=MacCaptionCache.words[path!] ?? []; status=nil; progress=nil }
+    func generate(_ file: SharedFile) {
+        let expected=file.url.path; path=expected; words=[]; MacCaptionCache.words[expected]=[]; running=true; status=nil; progress="Loading local transcription model…"
+        Task {
+            do {
+                let generated = try await Task.detached(priority:.userInitiated) { try SharLocalWhisperTranscriber.transcribe(url:file.url) { current,total in Task { @MainActor in guard self.path == expected else{return}; self.progress = total > 1 ? "Creating captions \(current)/\(total)…" : "Creating captions…" } } }.value
+                guard path==expected else{return}; words=generated; MacCaptionCache.words[expected]=generated; if generated.isEmpty { status="No speech was recognized. Nothing left this Mac." }
+            } catch { guard path==expected else{return}; status="Local captions could not be created: \(error.localizedDescription)" }
+            if path==expected { running=false; progress=nil }
+        }
+    }
+}
+
+private struct MacAudioCaptionStrip: View {
+    let file: SharedFile
+    @ObservedObject var playback: SharedAudioPlaybackController
+    @StateObject private var captions=MacAudioCaptionController()
+    private var current:Int? { guard !captions.words.isEmpty else{return nil}; let t=playback.isActive(file) ? playback.currentTime : 0; return captions.words.lastIndex(where:{$0.start <= t}) }
+    var body: some View {
+        VStack(spacing:8){
+            if captions.words.isEmpty { Button { captions.generate(file) } label: { HStack(spacing:8){ if captions.running { ProgressView().controlSize(.small) }; Image(systemName:"captions.bubble"); Text(captions.progress ?? (captions.running ? "Creating captions…":"Create captions")).font(.subheadline.weight(.semibold)) }.frame(maxWidth:.infinity) }.buttonStyle(.bordered).disabled(captions.running) }
+            else { HStack { Label("Captions",systemImage:"captions.bubble.fill").font(.caption.weight(.semibold)); Spacer(); if captions.running { ProgressView().controlSize(.small) }; Button("Refresh"){captions.generate(file)}.buttonStyle(.plain).font(.caption) }; captionText.font(.body).multilineTextAlignment(.center).frame(maxWidth:.infinity,minHeight:42) }
+            if let status=captions.status { Text(status).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(.center) }
+            Label("Local Whisper • audio is never uploaded",systemImage:"lock.shield").font(.caption2).foregroundStyle(.secondary)
+        }.padding(10).background(Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:12)).frame(maxWidth:560).onAppear{captions.prepare(file)}
+    }
+    private var captionText: Text { guard let idx=current else{return Text(captions.words.prefix(8).map(\.text).joined(separator:" "))}; let lo=max(0,idx-5), hi=min(captions.words.count,idx+7); var out=Text(""); for i in lo..<hi { var tok=Text((i==lo ? "":" ")+captions.words[i].text); tok = i==idx ? tok.foregroundColor(.accentColor).bold().underline() : tok.foregroundColor(.primary); out=out+tok }; return out }
 }
 
 private struct MacQuickLook:NSViewRepresentable{let url:URL;func makeNSView(context:Context)->QLPreviewView{let v=QLPreviewView(frame:.zero,style:.normal)!;v.autostarts=true;v.previewItem=url as NSURL;return v};func updateNSView(_ nsView:QLPreviewView,context:Context){nsView.previewItem=url as NSURL}}

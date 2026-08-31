@@ -58,9 +58,16 @@ public class MainActivity extends Activity implements LocalHttpServer.Listener {
     }
 
     private void showDeveloperUpdates(){
-        String message="v2.2.36 · 2026-08-31  Private local captions + responsive spectrum\nOn iOS, caption audio stays on-device with no online fallback; local PCM preprocessing improves reliability and the 20-band spectrum refreshes more responsively.\n\n"+
-                "v2.2.35 · 2026-08-31  Live spectrum + resilient captions\nOn iOS, frequency bars now move fluidly with playback and long captions use chunked Apple Speech with an explicit online fallback when on-device recognition fails.\n\n"+
-                "v2.2.34 · 2026-08-31  Audio continuity + visual captions\nOn iOS, audio continues into full Preview, with spectrum/waveform views and optional synchronized on-device Apple speech captions.\n\n"+
+        String message="v2.2.43 · 2026-08-31  macOS Whisper platform/compiler fix\nFixed the macOS local-Whisper build command and MacOSX XCFramework selection; captions remain fully local.\n\n"+
+                "v2.2.42 · 2026-08-31  Coloured build + watcher output\nAdded shared TTY-aware terminal styling across the foreground watcher and release/build scripts while redirected logs stay plain text.\n\n"+
+                "v2.2.41 · 2026-08-31  Whisper Apple-mode build exit fix\nFixed successful Apple-only Whisper preparation returning status 1 and aborting the macOS release before compilation under set -e.\n\n"+
+                "v2.2.40 · 2026-08-31  macOS Whisper build handoff hardening\nHardened the macOS local-Whisper build handoff with architecture-based framework selection and explicit pre-compile diagnostics; also fixed this Android Developer Updates source regression.\n\n"+
+                "v2.2.39 · 2026-08-31  Whisper Release-asset pin fix\nCorrected the strict Apple whisper.cpp XCFramework integrity pin to the actual GitHub Release asset SHA-256 and byte count; local captions remain fully offline.\n\n"+
+                "v2.2.38 · 2026-08-31  Whisper dependency download hardening\nKept fully local cross-platform Whisper and hardened Apple framework preparation with verified retries when a direct GitHub release download is corrupted or stale.\n\n"+
+                "v2.2.37 · 2026-08-31  Cross-platform local Whisper + audio parity\niOS, macOS and Android now share local captions plus Live spectrum / Waveform. Captions use bundled on-device Whisper and media is never uploaded for transcription.\n\n"+
+                "v2.2.36 · 2026-08-31  Private local captions + responsive spectrum\nHardened the first local-only caption prototype and improved the iOS 20-band spectrum; the caption engine is superseded by local Whisper in v2.2.37.\n\n"+
+                "v2.2.35 · 2026-08-31  Live spectrum + resilient captions\nImproved iOS spectrum timing and chunked caption processing; the temporary caption engine is superseded by fully local Whisper in v2.2.37.\n\n"+
+                "v2.2.34 · 2026-08-31  Audio continuity + visual captions\nIntroduced persistent iOS Preview playback, spectrum/waveform visualization and synchronized highlighted caption UI.\n\n"+
                 "v2.2.33 · 2026-08-31  Remote Share help + media feedback\nSimplified iOS Remote Share with a quick Help guide and added clearer pressed/active Grid-card feedback on iOS and macOS.\n\n"+
                 "v2.2.32 · 2026-08-31  macOS 3D thumbnail build hotfix\nFixed the macOS async 3D thumbnail fallback compile regression and added a release guard for invalid async nil-coalescing.\n\n"+
                 "v2.2.3 · 2026-08-31  3D thumbnails + compact workflow\nAdded background 3D thumbnail capture/recapture, visual Remote Share confirmation, compact iOS layout controls, first-run add affordance, clearer Files access and dated update history.\n\n"+

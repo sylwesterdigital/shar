@@ -2,6 +2,7 @@
 set -e
 set -o pipefail
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 source "$ROOT/scripts/release_profile.sh"
 shar_load_release_profile
@@ -12,9 +13,9 @@ TAG="${RELEASE_TAG:-v$VERSION}"
 BUILD_ROOT="$ROOT/build/homepage"
 STAMP="$(date +%Y%m%d%H%M%S)"
 BUILD_DIR="$BUILD_ROOT/shar-homepage-$STAMP"
-log(){ printf '\n==> %s\n' "$*"; }
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; printf 'WARNING: retry %d/%d in %ss: %s\n' "$n" "$max" "$delay" "$*" >&2; sleep "$delay"; n=$((n+1)); done; }
+log(){ shar_section "$*"; }
+fail(){ shar_error "$*"; exit 1; }
+retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; shar_warn "retry $n/$max in ${delay}s: $*"; sleep "$delay"; n=$((n+1)); done; }
 for t in gh python3 rsync ssh curl gzip; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
 [[ -f "$ROOT/homepage/index.html" ]] || fail "homepage/index.html missing"
 [[ -f "$ROOT/homepage/receive.html" ]] || fail "homepage/receive.html missing"

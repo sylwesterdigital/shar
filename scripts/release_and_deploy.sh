@@ -3,14 +3,15 @@ set -e
 set -o pipefail
 export GIT_PAGER=cat PAGER=cat GH_PAGER=cat GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true GIT_TERMINAL_PROMPT=0 GH_PROMPT_DISABLED=1
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 EXPECTED_REMOTE="${EXPECTED_REMOTE:-git@github.com:sylwesterdigital/shar.git}"
 GH_REPO="${GH_REPO:-sylwesterdigital/shar}"
 BRANCH="${RELEASE_BRANCH:-main}"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 TAG="v$VERSION"
-log(){ printf '\n==> %s\n' "$*"; }
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+log(){ shar_section "$*"; }
+fail(){ shar_error "$*"; exit 1; }
 
 [[ "$(uname -s)" == Darwin ]] || fail "Shar releases must run on macOS."
 for t in git gh rsync ssh curl shasum xcodebuild xcrun security python3 node; do command -v "$t" >/dev/null 2>&1 || fail "Required release tool missing: $t"; done
@@ -59,8 +60,6 @@ log "Publishing GitHub Release $TAG"
 log "Deploying https://mojoworks.xyz/labs/shar/"
 ./scripts/deploy_homepage.sh
 
-printf '\n============================================================\n'
-printf 'SHAR RELEASE v%s COMPLETED SUCCESSFULLY\n' "$VERSION"
-printf 'GitHub: https://github.com/%s/releases/tag/%s\n' "$GH_REPO" "$TAG"
-printf 'Homepage: https://mojoworks.xyz/labs/shar/\n'
-printf '============================================================\n'
+shar_banner_success "SHAR RELEASE v$VERSION COMPLETED SUCCESSFULLY"
+shar_field "GitHub:" "https://github.com/$GH_REPO/releases/tag/$TAG"
+shar_field "Homepage:" "https://mojoworks.xyz/labs/shar/"

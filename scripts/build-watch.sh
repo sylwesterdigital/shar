@@ -6,6 +6,7 @@
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+source "$SCRIPT_DIR/terminal_style.sh"
 REPO_DIR="${REPO_DIR:-$(cd -- "$SCRIPT_DIR/.." && pwd)}"
 WATCH_DIR="${WATCH_DIR:-$REPO_DIR/archive}"
 ZIP_PATTERN="LocalWebSharePrototype-v*.zip"
@@ -22,16 +23,16 @@ cleanup() {
     rm -rf "$LOCK_DIR"
 }
 
-trap 'cleanup; echo; echo "LocalWebShare watcher stopped."; exit 130' INT TERM
+trap 'cleanup; echo; shar_warn "LocalWebShare watcher stopped."; exit 130' INT TERM
 trap cleanup EXIT
 
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    echo "LocalWebShare watcher is already running."
+    shar_error "LocalWebShare watcher is already running."
     exit 1
 fi
 
 log() {
-    printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"
+    printf '%b[%s]%b %s\n' "$SHAR_C_MUTED" "$(date '+%H:%M:%S')" "$SHAR_C_RESET" "$*"
 }
 
 valid_version() {
@@ -108,7 +109,7 @@ wait_until_stable() {
             return 0
         fi
 
-        log "ZIP is still being downloaded/written..."
+        printf '%b[%s]%b %b%s%b\n' "$SHAR_C_MUTED" "$(date '+%H:%M:%S')" "$SHAR_C_RESET" "$SHAR_C_YELLOW" "ZIP is still being downloaded/written..." "$SHAR_C_RESET"
     done
 }
 
@@ -146,19 +147,19 @@ validate_release() {
     local version zip_name zip_version
 
     [[ -f "$source_dir/VERSION" ]] || {
-        echo "ERROR: Release ZIP does not contain VERSION."
+        shar_error "Release ZIP does not contain VERSION."
         return 1
     }
     [[ -f "$source_dir/scripts/deploy.sh" ]] || {
-        echo "ERROR: Release ZIP does not contain scripts/deploy.sh."
+        shar_error "Release ZIP does not contain scripts/deploy.sh."
         return 1
     }
     [[ -f "$source_dir/scripts/app_build.sh" ]] || {
-        echo "ERROR: Release ZIP does not contain scripts/app_build.sh."
+        shar_error "Release ZIP does not contain scripts/app_build.sh."
         return 1
     }
     [[ -d "$source_dir/LocalWebShare.xcodeproj" ]] || {
-        echo "ERROR: Release ZIP does not contain LocalWebShare.xcodeproj."
+        shar_error "Release ZIP does not contain LocalWebShare.xcodeproj."
         return 1
     }
 
@@ -168,7 +169,7 @@ validate_release() {
     zip_version="${zip_version%.zip}"
 
     if [[ "$version" != "$zip_version" ]]; then
-        echo "ERROR: ZIP filename says v$zip_version but VERSION says v$version."
+        shar_error "ZIP filename says v$zip_version but VERSION says v$version."
         return 1
     fi
 
@@ -184,11 +185,8 @@ process_zip() {
         return 0
     fi
 
-    echo
-    echo "============================================================"
-    echo "New LocalWebShare package detected:"
-    echo "$zip_file"
-    echo "============================================================"
+    shar_banner_info "New LocalWebShare package detected"
+    printf '%b%s%b\n' "$SHAR_C_CYAN" "$zip_file" "$SHAR_C_RESET"
 
     wait_until_stable "$zip_file"
     signature="$(get_signature "$zip_file")"
@@ -197,7 +195,7 @@ process_zip() {
 
     log "Unpacking release package..."
     if ! unzip -q "$zip_file" -d "$tmp_dir"; then
-        echo "ERROR: Could not unzip:"
+        shar_error "Could not unzip release package:"
         echo "$zip_file"
         rm -rf "$tmp_dir"
         return 1
@@ -222,9 +220,9 @@ process_zip() {
     else
         log "Release version: v$version (current v$current_version)"
     fi
-    log "Synchronising repository:"
-    echo "  FROM: $source_dir"
-    echo "  TO:   $REPO_DIR"
+    log "Synchronising repository"
+    shar_field "FROM:" "$source_dir"
+    shar_field "TO:" "$REPO_DIR"
 
     # The release ZIP is authoritative for repository source files.
     # Local runtime data and Git metadata are always preserved.
@@ -239,7 +237,7 @@ process_zip() {
         --exclude='xcuserdata/' \
         "$source_dir/" \
         "$REPO_DIR/"; then
-        echo "ERROR: Repository rsync failed."
+        shar_error "Repository rsync failed."
         rm -rf "$tmp_dir"
         return 1
     fi
@@ -251,20 +249,17 @@ process_zip() {
     mark_processed "$signature"
 
     echo
-    log "Repository files updated."
-    log "Running deployment in:"
-    echo "$REPO_DIR"
+    shar_success "Repository files updated"
+    log "Running deployment"
+    shar_field "DIR:" "$REPO_DIR"
     echo
 
     cd "$REPO_DIR" || return 1
 
-    echo ">>> ./scripts/deploy.sh"
+    printf '%b>>>%b %s\n' "$SHAR_C_MAGENTA" "$SHAR_C_RESET" "./scripts/deploy.sh"
     ./scripts/deploy.sh || return 1
 
-    echo
-    echo "============================================================"
-    echo "LOCALWEBSHARE UPDATE + DEPLOYMENT COMPLETED SUCCESSFULLY"
-    echo "============================================================"
+    shar_banner_success "LOCALWEBSHARE UPDATE + DEPLOYMENT COMPLETED SUCCESSFULLY"
 
     # The release may contain an updated watcher. Reload it after success.
     log "Reloading watcher from the updated repository..."
@@ -273,12 +268,9 @@ process_zip() {
 }
 
 report_failure() {
-    echo
-    echo "============================================================"
-    echo "LOCALWEBSHARE UPDATE FAILED"
-    echo "The failed ZIP will not auto-run again every five seconds."
-    echo "Fix the problem, then touch/re-download this ZIP to retry, or save a newer release ZIP."
-    echo "============================================================"
+    shar_banner_error "LOCALWEBSHARE UPDATE FAILED"
+    printf '%b%s%b\n' "$SHAR_C_YELLOW" "The failed ZIP will not auto-run again every five seconds." "$SHAR_C_RESET" >&2
+    printf '%s\n' "Fix the problem, then touch/re-download this ZIP to retry, or save a newer release ZIP." >&2
 }
 
 # One-time cleanup for the obsolete LaunchAgent design.
@@ -286,14 +278,13 @@ if [[ -x "$REPO_DIR/scripts/remove-legacy-launchagent.sh" ]]; then
     "$ZSH_BIN" "$REPO_DIR/scripts/remove-legacy-launchagent.sh" || true
 fi
 
-echo "LocalWebShare update watcher started."
-echo
-echo "Watching:    $WATCH_DIR/$ZIP_PATTERN"
-echo "Repository:  $REPO_DIR"
-echo "Deploy:      $REPO_DIR/scripts/deploy.sh"
-echo "Git remote:  git@github.com:sylwesterdigital/shar.git"
-echo "Poll:        every ${POLL_SECONDS}s"
-echo "Stop:        Ctrl+C"
+shar_banner_info "Shar update watcher started"
+shar_field "Watching:" "$WATCH_DIR/$ZIP_PATTERN"
+shar_field "Repository:" "$REPO_DIR"
+shar_field "Deploy:" "$REPO_DIR/scripts/deploy.sh"
+shar_field "Git remote:" "git@github.com:sylwesterdigital/shar.git"
+shar_field "Poll:" "every ${POLL_SECONDS}s"
+shar_field "Stop:" "Ctrl+C"
 echo
 
 while true; do
@@ -302,6 +293,6 @@ while true; do
         process_zip "$latest_zip" || report_failure
     fi
 
-    printf '\r[%s] watching %s — Ctrl+C stops' "$(date '+%H:%M:%S')" "$ZIP_PATTERN"
+    printf '\r%b[%s]%b %b● watching%b %s %b— Ctrl+C stops%b' "$SHAR_C_MUTED" "$(date '+%H:%M:%S')" "$SHAR_C_RESET" "$SHAR_C_GREEN" "$SHAR_C_RESET" "$ZIP_PATTERN" "$SHAR_C_MUTED" "$SHAR_C_RESET"
     sleep "$POLL_SECONDS"
 done

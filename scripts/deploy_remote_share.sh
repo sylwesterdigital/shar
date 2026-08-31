@@ -2,6 +2,7 @@
 set -e
 set -o pipefail
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 source "$ROOT/scripts/release_profile.sh"
 shar_load_release_profile
 API_URL="${SHAR_REMOTE_API_URL:-https://mojoworks.xyz/api/shar/remote/v1}"
@@ -11,8 +12,8 @@ TARGET="$SHAR_REMOTE_USER@$SHAR_REMOTE_HOST"
 EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=15 -p "$SHAR_REMOTE_PORT")
 SCP=(scp -q -o BatchMode=yes -o ConnectTimeout=15 -P "$SHAR_REMOTE_PORT")
-log(){ printf '\n==> %s\n' "$*"; }
-fail(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+log(){ shar_section "$*"; }
+fail(){ shar_error "$*"; exit 1; }
 [[ -f "$ROOT/remote/server.js" ]] || fail "remote/server.js missing"
 [[ -f "$ROOT/scripts/remote_bootstrap.sh" ]] || fail "scripts/remote_bootstrap.sh missing"
 for t in ssh scp curl; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
@@ -53,7 +54,7 @@ if [[ "$NEED_BOOTSTRAP" == 1 ]]; then
   "${SCP[@]}" "$ROOT/remote/server.js" "$TARGET:/tmp/shar-remote-server.js"
   "${SCP[@]}" "$ROOT/scripts/remote_bootstrap.sh" "$TARGET:/tmp/shar-remote-bootstrap.sh"
   if ! "${SSH[@]}" "$TARGET" "chmod 700 /tmp/shar-remote-bootstrap.sh && /tmp/shar-remote-bootstrap.sh '$TURN_HOST' '$API_URL' '$RECEIVE_BASE' '$SHAR_REMOTE_USER' /tmp/shar-remote-server.js"; then
-    printf '\nShar remote bootstrap/repair failed before publication.\n' >&2
+    shar_error "Shar remote bootstrap/repair failed before publication."
     printf 'One-time manual fallback:\n  ssh -p %s %s\n  sudo /tmp/shar-remote-bootstrap.sh %q %q %q %q /tmp/shar-remote-server.js\n' "$SHAR_REMOTE_PORT" "$TARGET" "$TURN_HOST" "$API_URL" "$RECEIVE_BASE" "$SHAR_REMOTE_USER" >&2
     exit 1
   fi
@@ -65,7 +66,7 @@ for n in 1 2 3 4 5; do
     printf '%s\n' "$body"
     printf '%s' "$body" | grep -Fq "\"version\":\"$EXPECTED_VERSION\"" || fail "Public signaling is online but is not Shar v$EXPECTED_VERSION."
     printf '%s' "$body" | grep -q '"turn":true' || fail "Signaling is online but TURN is not configured."
-    printf 'Remote sharing infrastructure verified: %s\n' "$API_URL"
+    shar_success "Remote sharing infrastructure verified: $API_URL"
     exit 0
   fi
   sleep 2

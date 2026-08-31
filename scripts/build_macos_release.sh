@@ -2,8 +2,10 @@
 set -e
 set -o pipefail
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 "$ROOT/scripts/sync_ui_icons.sh"
+"$ROOT/scripts/prepare_local_whisper.sh" apple
 VERSION="$(tr -d '[:space:]' < VERSION)"
 BUILD_NUM="$(python3 - "$VERSION" <<'PY'
 import sys
@@ -15,35 +17,90 @@ APP="$BUILD_ROOT/Shar.app"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 RES="$CONTENTS/Resources"
+FRAMEWORKS="$CONTENTS/Frameworks"
 SIGNING_FINGERPRINT="${SHAR_SIGNING_FINGERPRINT:-B97863CA4E17170FCD5FBFA4C76A8DF3D91D5F6B}"
 NOTARY_PROFILE="${SHAR_NOTARY_PROFILE:-workwork-caption-notary}"
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-log(){ printf '\n==> %s\n' "$*"; }
-retry(){ local n=1; local max="$1"; local delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; printf 'WARNING: retry %d/%d in %ss: %s\n' "$n" "$max" "$delay" "$*" >&2; sleep "$delay"; n=$((n+1)); done; }
+fail(){ shar_error "$*"; exit 1; }
+log(){ shar_section "$*"; }
+retry(){ local n=1; local max="$1"; local delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; shar_warn "retry $n/$max in ${delay}s: $*"; sleep "$delay"; n=$((n+1)); done; }
 
-"$ROOT/scripts/check_macos_release_credentials.sh" >/dev/null
+log "Using release credentials prevalidated by release_and_deploy.sh"
 IDENTITY_LINE="$(security find-identity -v -p codesigning 2>/dev/null | grep -F "$SIGNING_FINGERPRINT" | head -n1 || true)"
 IDENTITY_NAME="$(printf '%s\n' "$IDENTITY_LINE" | sed -nE 's/.*"([^"]+)".*/\1/p')"
 [[ -n "$IDENTITY_NAME" ]] || IDENTITY_NAME="$SIGNING_FINGERPRINT"
 
-for t in xcrun swiftc iconutil codesign ditto plutil lipo hdiutil shasum; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
-rm -rf "$BUILD_ROOT"
-mkdir -p "$MACOS" "$RES" "$BUILD_ROOT/bin/arm64" "$BUILD_ROOT/bin/x86_64" "$ROOT/release"
-iconutil -c icns "$ROOT/macos/AppIcon.iconset" -o "$RES/AppIcon.icns"
-cp "$ROOT/assets/shar-logo-1024.png" "$RES/shar-logo-1024.png"
-SDK="$(xcrun --sdk macosx --show-sdk-path)"
+for t in xcrun swiftc iconutil codesign ditto plutil lipo hdiutil shasum find; do command -v "$t" >/dev/null 2>&1 || fail "Missing tool: $t"; done
+
+resolve_macos_whisper_framework() {
+  local xcroot="$ROOT/Dependencies/whisper/whisper.xcframework"
+  local candidate binary info plist platform
+  WHISPER_FRAMEWORK=""
+  WHISPER_FRAMEWORK_BINARY=""
+  [[ -d "$xcroot" ]] || fail "Prepared whisper.xcframework is missing: $xcroot"
+  while IFS= read -r candidate; do
+    [[ -d "$candidate" ]] || continue
+    if [[ -f "$candidate/Versions/Current/whisper" ]]; then
+      binary="$candidate/Versions/Current/whisper"
+    elif [[ -f "$candidate/Versions/A/whisper" ]]; then
+      binary="$candidate/Versions/A/whisper"
+    elif [[ -f "$candidate/whisper" ]]; then
+      binary="$candidate/whisper"
+    else
+      continue
+    fi
+    if [[ -f "$candidate/Versions/A/Resources/Info.plist" ]]; then
+      plist="$candidate/Versions/A/Resources/Info.plist"
+    elif [[ -f "$candidate/Resources/Info.plist" ]]; then
+      plist="$candidate/Resources/Info.plist"
+    elif [[ -f "$candidate/Info.plist" ]]; then
+      plist="$candidate/Info.plist"
+    else
+      printf 'Whisper framework candidate: %s\n  skipped: framework Info.plist missing\n' "$candidate"
+      continue
+    fi
+    platform="$(plutil -extract CFBundleSupportedPlatforms.0 raw -o - "$plist" 2>/dev/null || true)"
+    info="$(lipo -info "$binary" 2>&1 || true)"
+    printf 'Whisper framework candidate: %s\n  platform: %s\n  %s\n' "$candidate" "${platform:-unknown}" "$info"
+    [[ "$platform" == "MacOSX" ]] || continue
+    if [[ "$info" == *arm64* && "$info" == *x86_64* ]]; then
+      WHISPER_FRAMEWORK="$candidate"
+      WHISPER_FRAMEWORK_BINARY="$binary"
+      break
+    fi
+  done < <(find "$xcroot" -type d -name whisper.framework -print)
+  [[ -n "$WHISPER_FRAMEWORK" ]] || fail "No MacOSX whisper.framework containing both arm64 and x86_64 was found inside the prepared XCFramework."
+}
+
+log "Preparing macOS bundle + local Whisper runtime"
+rm -rf "$BUILD_ROOT" || fail "Could not clear macOS release build directory."
+mkdir -p "$MACOS" "$RES" "$FRAMEWORKS" "$BUILD_ROOT/bin/arm64" "$BUILD_ROOT/bin/x86_64" "$ROOT/release" || fail "Could not create macOS release directories."
+iconutil -c icns "$ROOT/macos/AppIcon.iconset" -o "$RES/AppIcon.icns" || fail "Could not build the macOS app icon."
+cp "$ROOT/assets/shar-logo-1024.png" "$RES/shar-logo-1024.png" || fail "Could not copy the Shar logo resource."
+[[ -f "$ROOT/Dependencies/whisper/models/ggml-base.bin" ]] || fail "Prepared local Whisper model is missing."
+cp "$ROOT/Dependencies/whisper/models/ggml-base.bin" "$RES/ggml-base.bin" || fail "Could not bundle the local Whisper model."
+resolve_macos_whisper_framework
+WHISPER_FDIR="$(dirname "$WHISPER_FRAMEWORK")"
+printf 'Using macOS Whisper framework: %s\n' "$WHISPER_FRAMEWORK"
+ditto "$WHISPER_FRAMEWORK" "$FRAMEWORKS/whisper.framework" || fail "Could not bundle macOS whisper.framework."
+[[ -e "$FRAMEWORKS/whisper.framework/whisper" || -e "$FRAMEWORKS/whisper.framework/Versions/Current/whisper" || -e "$FRAMEWORKS/whisper.framework/Versions/A/whisper" ]] || fail "Bundled macOS whisper.framework has no executable."
+SDK="$(xcrun --sdk macosx --show-sdk-path)" || fail "Could not resolve the macOS SDK."
 SOURCES=(
   "$ROOT/LocalWebShare/FileStore.swift"
   "$ROOT/LocalWebShare/MediaSupport.swift"
   "$ROOT/LocalWebShare/GeneratedUIIcons.swift"
   "$ROOT/LocalWebShare/LocalWebServer.swift"
   "$ROOT/LocalWebShare/ThreeDPreview.swift"
+  "$ROOT/LocalWebShare/LocalMediaIntelligence.swift"
   "$ROOT/macos/LocalWebShareMacApp.swift"
 )
 for arch in arm64 x86_64; do
   log "Compiling macOS $arch"
-  xcrun --sdk macosx swiftc -parse-as-library -sdk "$SDK" -target "${arch}-apple-macos13.0" \
-    -o "$BUILD_ROOT/bin/$arch/LocalWebShare" "${SOURCES[@]}" \
+  BRIDGE_OBJ="$BUILD_ROOT/bin/$arch/LocalWhisperBridge.o"
+  xcrun --sdk macosx clang -c -isysroot "$SDK" -target "${arch}-apple-macos13.3" -F "$WHISPER_FDIR" \
+    "$ROOT/LocalWebShare/LocalWhisperBridge.c" -o "$BRIDGE_OBJ"
+  xcrun --sdk macosx swiftc -parse-as-library -sdk "$SDK" -target "${arch}-apple-macos13.3" \
+    -o "$BUILD_ROOT/bin/$arch/LocalWebShare" "${SOURCES[@]}" "$BRIDGE_OBJ" \
+    -F "$WHISPER_FDIR" -framework whisper -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
     -framework SwiftUI -framework AppKit -framework AVFoundation -framework AVKit -framework QuickLookUI -framework Network -framework Combine -framework WebKit -framework CoreImage -framework UniformTypeIdentifiers -framework SceneKit -framework ModelIO
  done
 lipo -create "$BUILD_ROOT/bin/arm64/LocalWebShare" "$BUILD_ROOT/bin/x86_64/LocalWebShare" -output "$MACOS/LocalWebShare"
@@ -60,7 +117,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$VERSION</string>
 <key>CFBundleVersion</key><string>$BUILD_NUM</string>
-<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSMinimumSystemVersion</key><string>13.3</string>
 <key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSLocalNetworkUsageDescription</key><string>Shar uses the local network to share files with nearby devices.</string>
@@ -69,6 +126,7 @@ PLIST
 plutil -lint "$CONTENTS/Info.plist" >/dev/null
 
 log "Signing macOS app: $IDENTITY_NAME"
+codesign --force --options runtime --timestamp --sign "$SIGNING_FINGERPRINT" "$FRAMEWORKS/whisper.framework"
 codesign --force --options runtime --timestamp --deep --sign "$SIGNING_FINGERPRINT" "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 NOTARY_ZIP="$BUILD_ROOT/LocalWebShare-notary.zip"

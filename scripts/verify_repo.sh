@@ -4,10 +4,11 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 
-fail(){ printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-ok(){ printf 'OK: %s\n' "$*"; }
+fail(){ shar_error "$*"; exit 1; }
+ok(){ shar_success "$*"; }
 
 [[ -f VERSION ]] || fail "VERSION missing"
 VERSION_VALUE="$(tr -d '[:space:]' < VERSION)"
@@ -24,6 +25,7 @@ for p in \
   assets/shar-logo.svg assets/shar-logo-1024.png \
   LocalWebShare.xcodeproj/project.pbxproj LocalWebShare/Info.plist \
   LocalWebShare/MediaSupport.swift LocalWebShare/ThreeDPreview.swift LocalWebShare/GeneratedUIIcons.swift \
+  LocalWebShare/LocalMediaIntelligence.swift LocalWebShare/LocalWhisperBridge.c \
   LocalWebShare/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
   macos/LocalWebShareMacApp.swift macos/AppIcon.iconset/icon_512x512@2x.png \
   android/settings.gradle android/build.gradle android/app/build.gradle \
@@ -31,9 +33,11 @@ for p in \
   android/app/src/main/java/com/localwebshare/app/MainActivity.java \
   android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java \
   android/app/src/main/java/com/localwebshare/app/PreviewActivity.java \
+  android/app/src/main/java/com/localwebshare/app/AudioVisualizationView.java \
+  android/app/src/main/java/com/localwebshare/app/LocalWhisperBridge.kt \
   android/app/src/main/java/com/localwebshare/app/RemoteShareActivity.java \
   android/app/src/main/java/com/localwebshare/app/GeneratedUIIcons.java \
-  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh \
+  scripts/app_build.sh scripts/build_macos.sh scripts/build_android.sh scripts/build_all.sh scripts/sync_ui_icons.sh scripts/prepare_local_whisper.sh scripts/terminal_style.sh \
   scripts/build_macos_release.sh scripts/build_android_release.sh scripts/build_ios_check.sh \
   scripts/release_and_deploy.sh scripts/publish_github_release.sh scripts/deploy_homepage.sh \
   scripts/check_remote_share.sh scripts/deploy_remote_share.sh scripts/remote_bootstrap.sh scripts/test_remote_protocol.sh scripts/test_remote_crypto.sh \
@@ -46,6 +50,9 @@ done
 grep -Fq "$VERSION_VALUE" README.md || fail "README does not mention $VERSION_VALUE"
 grep -Fq "## [$VERSION_VALUE]" CHANGELOG.md || fail "CHANGELOG has no $VERSION_VALUE entry"
 grep -Eq '^/archive/$|^archive/$' .gitignore || fail "archive/ is not ignored"
+grep -Fq '/Dependencies/whisper/models/ggml-base.bin' .gitignore || fail "prepared Whisper model must be Git ignored"
+grep -Fq '/Dependencies/whisper/whisper.xcframework/' .gitignore || fail "prepared Whisper XCFramework must be Git ignored"
+grep -Fq '/android/app/src/main/assets/models/ggml-base.bin' .gitignore || fail "prepared Android Whisper model must be Git ignored"
 
 grep -Fq "MARKETING_VERSION = $VERSION_VALUE;" LocalWebShare.xcodeproj/project.pbxproj || fail "iOS marketing version mismatch"
 
@@ -65,6 +72,24 @@ PYSWIFTASYNCGUARD
 grep -Fq "CURRENT_PROJECT_VERSION = $BUILD_NUMBER;" LocalWebShare.xcodeproj/project.pbxproj || fail "iOS build number mismatch"
 grep -Eq "versionName[[:space:]]+'$VERSION_VALUE'" android/app/build.gradle || fail "Android versionName mismatch"
 grep -Eq "versionCode[[:space:]]+$BUILD_NUMBER" android/app/build.gradle || fail "Android versionCode mismatch"
+python3 - "$VERSION_VALUE" <<'PYACTIVEVERSION'
+from pathlib import Path
+import sys
+v=sys.argv[1]
+checks={
+    'LocalWebShare/ContentView.swift': f'ios-native-{v}',
+    'macos/LocalWebShareMacApp.swift': f'macos-native-{v}',
+    'LocalWebShare/LocalWebServer.swift': f'browser-sender-{v}',
+    'android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java': f'browser-sender-{v}',
+    'homepage/receive.html': f'receiver-{v}',
+    'remote/server.js': f"version:'{v}'",
+}
+missing=[]
+for path, token in checks.items():
+    if token not in Path(path).read_text(): missing.append(f'{path}: {token}')
+if missing:
+    raise SystemExit('Active client/service version identifiers are inconsistent: ' + ', '.join(missing))
+PYACTIVEVERSION
 grep -Fq 'ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS AppIcon asset is not configured"
 grep -Fq '<string>SharLogo</string>' LocalWebShare/Info.plist || fail "iOS launch screen does not reference SharLogo"
 grep -Fq '<key>CFBundleDisplayName</key>' LocalWebShare/Info.plist || fail "iOS display name key missing"
@@ -195,6 +220,7 @@ grep -Fq 'lws-preset-v2' LocalWebShare/LocalWebServer.swift || fail "Apple brows
 grep -Fq 'id="thumbSize"' LocalWebShare/LocalWebServer.swift || fail "Apple browser thumbnail size control missing"
 grep -Fq 'fallback-icon.missing' LocalWebShare/LocalWebServer.swift || fail "Apple browser icon fallback fix missing"
 grep -Fq 'lws-preset-v2' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android browser density presets missing"
+grep -Fq 'private static final String WEB_PAGE = new StringBuilder()' android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java || fail "Android embedded browser must be split below the JVM UTF-8 constant limit"
 grep -Fq "const REMOTE_API='https://mojoworks.xyz/api/shar/remote/v1'" LocalWebShare/LocalWebServer.swift || fail "Apple browser remote-share API missing"
 grep -Fq 'RTCPeerConnection' LocalWebShare/LocalWebServer.swift || fail "Apple browser WebRTC sender missing"
 grep -Fq 'remoteStart([serverSource(f)])' LocalWebShare/LocalWebServer.swift || fail "Browser file-card remote share action missing"
@@ -289,22 +315,87 @@ grep -Fq '2.2.35", "2026-08-31", "Live spectrum + resilient captions' macos/Loca
 grep -Fq 'version: "2.2.35", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.35 developer update missing"
 grep -Fq '2.2.36", "2026-08-31", "Private local captions + responsive spectrum' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.36 developer update missing"
 grep -Fq 'version: "2.2.36", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.36 developer update missing"
+grep -Fq '2.2.41", "2026-08-31", "Whisper Apple-mode build exit fix' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.41 developer update missing"
+grep -Fq 'version: "2.2.41", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.41 developer update missing"
+grep -Fq '2.2.42", "2026-08-31", "Coloured build + watcher output' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.42 developer update missing"
+grep -Fq 'version: "2.2.42", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.42 developer update missing"
+grep -Fq '2.2.43", "2026-08-31", "macOS Whisper platform/compiler fix' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.43 developer update missing"
+grep -Fq 'version: "2.2.43", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.43 developer update missing"
+grep -Fq 'CFBundleSupportedPlatforms.0 raw' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS Whisper framework platform verification missing"
+grep -Fq '[[ "$platform" == "MacOSX" ]] || continue' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS Whisper resolver does not reject non-MacOSX XCFramework slices"
+grep -Fq 'clang -c -isysroot "$SDK"' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS Whisper C bridge does not use clang -isysroot"
+! grep -Fq 'clang -c -sdk "$SDK"' scripts/build_macos_release.sh scripts/build_macos.sh || fail "unsupported clang -sdk flag remains in macOS build scripts"
+grep -Fq 'apple-macos13.3' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS Whisper build target is not aligned with framework minimum 13.3"
+grep -Fq '<key>LSMinimumSystemVersion</key><string>13.3</string>' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS bundle minimum version is not aligned with local Whisper framework"
+grep -Fq 'source "$SCRIPT_DIR/terminal_style.sh"' scripts/build-watch.sh || fail "build watcher terminal styling helper missing"
+grep -Fq 'shar_banner_success "LOCALWEBSHARE UPDATE + DEPLOYMENT COMPLETED SUCCESSFULLY"' scripts/build-watch.sh || fail "build watcher coloured success banner missing"
+grep -Fq 'NO_COLOR' scripts/terminal_style.sh || fail "terminal styling does not support NO_COLOR"
+grep -Fq 'FORCE_COLOR' scripts/terminal_style.sh || fail "terminal styling FORCE_COLOR test path missing"
+grep -Fq '# build_macos_release.sh runs with set -e, so MODE=apple must explicitly succeed.' scripts/prepare_local_whisper.sh || fail "Apple-only Whisper preparation success-status guard missing"
+grep -Fq 'exit 0' scripts/prepare_local_whisper.sh || fail "Whisper preparation helper has no explicit successful exit"
+grep -Fq '2.2.40", "2026-08-31", "macOS Whisper build handoff hardening' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.40 developer update missing"
+grep -Fq 'version: "2.2.40", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.40 developer update missing"
+grep -Fq 'No MacOSX whisper.framework containing both arm64 and x86_64' scripts/build_macos_release.sh scripts/build_macos.sh || fail "macOS Whisper platform + architecture framework selection guard missing"
+! grep -Fq -- "-path '*macos*' -name whisper.framework -print -quit" scripts/build_macos_release.sh scripts/build_macos.sh || fail "fragile path-name-based macOS Whisper framework lookup remains"
+python3 - <<'PYANDROIDUPDATES'
+from pathlib import Path
+s=Path('android/app/src/main/java/com/localwebshare/app/MainActivity.java').read_text()
+a=s.index('private void showDeveloperUpdates()')
+b=s.index('private void showAbout()', a)
+block=s[a:b]
+if block.count('String message=') != 1:
+    raise SystemExit('Android Developer Updates must declare String message exactly once')
+PYANDROIDUPDATES
+grep -Fq '2.2.39", "2026-08-31", "Whisper Release-asset pin fix' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.39 developer update missing"
+grep -Fq 'version: "2.2.39", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.39 developer update missing"
+grep -Fq 'XC_SHA="fd6af2471980094eadf8a19d4241ab89cd64c6110bfb75793cdcc68cb2ccf467"' scripts/prepare_local_whisper.sh || fail "Apple whisper.cpp Release-asset SHA-256 pin mismatch"
+grep -Fq 'XC_BYTES="50438559"' scripts/prepare_local_whisper.sh || fail "Apple whisper.cpp Release-asset byte-count pin mismatch"
+grep -Fq '2.2.38", "2026-08-31", "Whisper dependency download hardening' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.38 developer update missing"
+grep -Fq 'version: "2.2.38", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.38 developer update missing"
+grep -Fq '2.2.37", "2026-08-31", "Cross-platform local Whisper + audio parity' macos/LocalWebShareMacApp.swift || fail "macOS dated v2.2.37 developer update missing"
+grep -Fq 'version: "2.2.37", date: "2026-08-31"' LocalWebShare/ContentView.swift || fail "iOS dated v2.2.37 developer update missing"
 grep -Fq 'forInterval: CMTime(seconds: 1.0 / 30.0' LocalWebShare/MediaSupport.swift || fail "iOS audio clock is not updating at 30 Hz for Live spectrum"
-grep -Fq 'let targetFPS = min(20.0' LocalWebShare/MediaPlayerView.swift || fail "iOS dense local spectrum analysis missing"
-grep -Fq '(0..<20).map' LocalWebShare/MediaPlayerView.swift || fail "iOS 20-band local spectrum missing"
-grep -Fq 'a[index] + (b[index] - a[index]) * mix' LocalWebShare/MediaPlayerView.swift || fail "iOS spectrum interpolation missing"
-grep -Fq 'AudioCaptionChunker.makeChunks' LocalWebShare/MediaPlayerView.swift || fail "iOS local caption chunking missing"
-grep -Fq 'standardFormatWithSampleRate: 16_000' LocalWebShare/MediaPlayerView.swift || fail "iOS local 16 kHz caption preprocessing missing"
-grep -Fq 'request.requiresOnDeviceRecognition = true' LocalWebShare/MediaPlayerView.swift || fail "iOS captions are not hard-locked to on-device recognition"
-! grep -Fq 'Try Apple online transcription' LocalWebShare/MediaPlayerView.swift || fail "iOS online transcription fallback must not exist"
-! grep -Fq 'allowAppleOnline' LocalWebShare/MediaPlayerView.swift || fail "iOS online caption mode selector must not exist"
-! grep -Fq 'icloud.and.arrow' LocalWebShare/MediaPlayerView.swift || fail "iOS cloud transcription UI must not exist"
-grep -Fq 'On-device only • audio is never uploaded' LocalWebShare/MediaPlayerView.swift || fail "iOS local-caption privacy notice missing"
+grep -Fq 'private static let bandFrequencies: [Double] = (0..<20).map' LocalWebShare/LocalMediaIntelligence.swift || fail "shared Apple 20-band spectrum analyser missing"
+grep -Fq 'let targetFPS = min(24.0' LocalWebShare/LocalMediaIntelligence.swift || fail "shared Apple dense spectrum analysis missing"
+grep -Fq 'a[$0] + (b[$0] - a[$0]) * mix' LocalWebShare/LocalMediaIntelligence.swift || fail "shared Apple spectrum interpolation missing"
+grep -Fq 'standardFormatWithSampleRate: 16_000' LocalWebShare/LocalMediaIntelligence.swift || fail "shared Apple local 16 kHz Whisper preprocessing missing"
+grep -Fq '@_silgen_name("shar_whisper_transcribe")' LocalWebShare/LocalMediaIntelligence.swift || fail "Apple local Whisper bridge binding missing"
+grep -Fq '#include <whisper/whisper.h>' LocalWebShare/LocalWhisperBridge.c || fail "Apple whisper.cpp bridge header missing"
+grep -Fq 'params.language = "auto";' LocalWebShare/LocalWhisperBridge.c || fail "Apple multilingual local Whisper mode missing"
+grep -Fq 'params.token_timestamps = true;' LocalWebShare/LocalWhisperBridge.c || fail "Apple timestamped Whisper output missing"
+grep -Fq 'Local Whisper • audio is never uploaded' LocalWebShare/MediaPlayerView.swift || fail "iOS local-Whisper privacy notice missing"
 grep -Fq 'AudioVisualizationView(file: file, playback: audioPlayback)' LocalWebShare/MediaPlayerView.swift || fail "iOS audio visualization missing from full Preview"
 grep -Fq 'AudioCaptionStrip(file: file, playback: audioPlayback)' LocalWebShare/MediaPlayerView.swift || fail "iOS synchronized captions missing from full Preview"
-grep -Fq 'NSSpeechRecognitionUsageDescription' LocalWebShare/Info.plist || fail "iOS Speech Recognition usage description missing"
+grep -Fq 'SharLocalWhisperTranscriber.transcribe' LocalWebShare/MediaPlayerView.swift || fail "iOS captions do not use shared local Whisper"
 grep -Fq 'mode = mode == .spectrum ? .waveform : .spectrum' LocalWebShare/MediaPlayerView.swift || fail "iOS tap-switch spectrum/waveform control missing"
 grep -Fq 'audioPlayback.ensureLoaded(file, autoplayIfNew: true)' LocalWebShare/MediaPlayerView.swift || fail "iOS audio Preview no longer reuses persistent playback controller"
+! grep -Fq 'NSSpeechRecognitionUsageDescription' LocalWebShare/Info.plist || fail "iOS obsolete Speech Recognition permission text must not exist"
+! grep -R -Eiq '(^|[^A-Za-z])(SFSpeechRecognizer|SFSpeechRecognitionRequest|requiresOnDeviceRecognition|import[[:space:]]+Speech)([^A-Za-z]|$)' LocalWebShare macos || fail "Apple Speech framework caption code must not exist"
+grep -Fq 'MacAudioVisualizationView(file: file, playback: audioPlayback)' macos/LocalWebShareMacApp.swift || fail "macOS audio visualization missing from Preview"
+grep -Fq 'MacAudioCaptionStrip(file: file, playback: audioPlayback)' macos/LocalWebShareMacApp.swift || fail "macOS local captions missing from Preview"
+grep -Fq 'SharLocalWhisperTranscriber.transcribe' macos/LocalWebShareMacApp.swift || fail "macOS captions do not use shared local Whisper"
+grep -Fq 'Local Whisper • audio is never uploaded' macos/LocalWebShareMacApp.swift || fail "macOS local-Whisper privacy notice missing"
+grep -Fq 'mode = mode == .spectrum ? .waveform : .spectrum' macos/LocalWebShareMacApp.swift || fail "macOS tap-switch spectrum/waveform control missing"
+grep -Fq 'AudioVisualizationView(this)' android/app/src/main/java/com/localwebshare/app/PreviewActivity.java || fail "Android audio visualization missing from Preview"
+grep -Fq 'LocalWhisperBridge.transcribe' android/app/src/main/java/com/localwebshare/app/PreviewActivity.java || fail "Android local captions missing from Preview"
+grep -Fq 'Local Whisper • audio is never uploaded' android/app/src/main/java/com/localwebshare/app/PreviewActivity.java || fail "Android local-Whisper privacy notice missing"
+grep -Fq 'waveform=!waveform' android/app/src/main/java/com/localwebshare/app/AudioVisualizationView.java || fail "Android tap-switch spectrum/waveform control missing"
+grep -Fq 'double[] raw=new double[20]' android/app/src/main/java/com/localwebshare/app/AudioVisualizationView.java || fail "Android 20-band spectrum analyser missing"
+grep -Fq 'Whisper.loadModelFromAsset' android/app/src/main/java/com/localwebshare/app/LocalWhisperBridge.kt || fail "Android bundled local Whisper model loader missing"
+grep -Fq 'Whisper.transcribe' android/app/src/main/java/com/localwebshare/app/LocalWhisperBridge.kt || fail "Android local Whisper transcription call missing"
+grep -Fq "implementation 'dev.ffmpegkit-maintained:whisper-android:1.0.0'" android/app/build.gradle || fail "Android pinned on-device whisper.cpp dependency missing"
+grep -Fq 'MODEL_SHA="60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe"' scripts/prepare_local_whisper.sh || fail "Pinned Whisper model checksum missing"
+grep -Fq 'XC_SHA="fd6af2471980094eadf8a19d4241ab89cd64c6110bfb75793cdcc68cb2ccf467"' scripts/prepare_local_whisper.sh || fail "Pinned whisper.cpp GitHub Release-asset checksum missing"
+grep -Fq 'fetch_xc_with_gh' scripts/prepare_local_whisper.sh || fail "GitHub CLI verified Whisper retry missing"
+grep -Fq 'fetch_xc_with_api' scripts/prepare_local_whisper.sh || fail "GitHub Releases API verified Whisper retry missing"
+grep -Fq 'Direct GitHub release download did not match the pinned GitHub Release asset SHA-256' scripts/prepare_local_whisper.sh || fail "Whisper checksum mismatch diagnostics missing"
+grep -Fq 'whisper.xcframework in Frameworks' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS whisper.cpp XCFramework linkage missing"
+grep -Fq 'ggml-base.bin in Resources' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS bundled Whisper model resource missing"
+grep -Fq 'LocalWhisperBridge.c in Sources' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS local Whisper bridge source missing"
+grep -Fq 'LocalMediaIntelligence.swift in Sources' LocalWebShare.xcodeproj/project.pbxproj || fail "iOS shared media intelligence source missing"
+grep -Fq 'prepare_local_whisper.sh" all' scripts/build_all.sh || fail "distribution build does not prepare local Whisper dependencies"
+grep -Fq 'prepare_local_whisper.sh" apple' scripts/build_macos_release.sh || fail "macOS release build does not prepare local Whisper dependencies"
+grep -Fq 'prepare_local_whisper.sh" android' scripts/build_android_release.sh || fail "Android release build does not prepare local Whisper dependencies"
 grep -Fq '.frame(width: 700, height: 670)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share compact sheet dimensions missing"
 grep -Fq 'Text(remote.formattedPIN)' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share PIN display missing"
 grep -Fq '.font(.system(size: 34, weight: .bold, design: .monospaced))' macos/LocalWebShareMacApp.swift || fail "macOS Remote Share large PIN styling missing"
@@ -426,7 +517,16 @@ def html(text):
     m=re.search(r'<!doctype html>.*?</html>', text, re.S|re.I)
     if not m: raise SystemExit('Embedded browser HTML missing')
     return m.group(0)
-if html(apple) != html(android):
+def android_web_page(text):
+    m=re.search(r'private static final String WEB_PAGE = new StringBuilder\(\)(.*?)\.toString\(\);', text, re.S)
+    if not m: raise SystemExit('Android split WEB_PAGE builder missing')
+    chunks=[]
+    for chunk in re.findall(r'"""(.*?)"""', m.group(1), re.S):
+        if chunk.startswith('\n'): chunk=chunk[1:]
+        chunks.append(chunk)
+    joined=''.join(chunks)
+    return html(joined)
+if html(apple) != android_web_page(android):
     raise SystemExit('Apple and Android embedded browser UIs differ')
 Path('/tmp/shar-browser-verify.js').write_text(re.search(r'<script>(.*?)</script>', html(apple), re.S).group(1))
 three=re.search(r'private static let threeDViewerJavaScript = #"""\n(.*?)"""#', apple, re.S)
@@ -454,10 +554,10 @@ PY
 from pathlib import Path
 import re
 src=Path('android/app/src/main/java/com/localwebshare/app/LocalHttpServer.java').read_text()
-m=re.search(r'private static final String WEB_PAGE = (""".*?""");', src, re.S)
+m=re.search(r'private static final String WEB_PAGE = (new StringBuilder\(\).*?\.toString\(\));', src, re.S)
 t=re.search(r'private static final String THREE_D_VIEWER_JS = (""".*?""");', src, re.S)
 if not m:
-    raise SystemExit('Android embedded WEB_PAGE Java text block missing')
+    raise SystemExit('Android split embedded WEB_PAGE builder missing')
 if not t:
     raise SystemExit('Android embedded THREE_D_VIEWER_JS Java text block missing')
 Path('/tmp/SharAndroidWebPageProbe.java').write_text('final class SharAndroidWebPageProbe { static final String WEB_PAGE = ' + m.group(1) + '; static final String THREE_D_VIEWER_JS = ' + t.group(1) + '; }\n')

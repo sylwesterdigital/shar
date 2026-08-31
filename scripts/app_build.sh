@@ -22,10 +22,12 @@ set -o pipefail
 #   ./scripts/app_build.sh --no-launch
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
+source "$SCRIPT_DIR/terminal_style.sh"
 REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_DIR"
 
 "$SCRIPT_DIR/sync_ui_icons.sh"
+"$SCRIPT_DIR/prepare_local_whisper.sh" apple
 
 PROJECT="$REPO_DIR/LocalWebShare.xcodeproj"
 SCHEME="LocalWebShare"
@@ -77,14 +79,14 @@ while (($#)); do
     -h|--help)
       usage; exit 0 ;;
     *)
-      echo "ERROR: Unknown option: $1" >&2
+      shar_error "Unknown option: $1"
       usage >&2
       exit 2 ;;
   esac
 done
 
-say() { printf '\n==> %s\n' "$*"; }
-fail() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+say() { shar_section "$*"; }
+fail() { shar_error "$*"; exit 1; }
 
 # Use full Xcode even if xcode-select currently points at CommandLineTools.
 if [[ -z "${DEVELOPER_DIR:-}" ]]; then
@@ -258,7 +260,7 @@ set -e
 cat "$INSTALL_LOG"
 if (( INSTALL_STATUS != 0 )); then
   if grep -Eiq 'not enough storage|No space left on device|NSPOSIXErrorDomain error 28' "$INSTALL_LOG"; then
-    printf '\nWARNING: The connected iOS device does not have enough free storage to install Shar. The app built and signed successfully; returning status 21 so the distribution release can continue while preserving this as a visible device-install warning.\n' >&2
+    shar_warn "The connected iOS device does not have enough free storage to install Shar. The app built and signed successfully; returning status 21 so the distribution release can continue while preserving this as a visible device-install warning."
     printf 'Install log: %s\n' "$INSTALL_LOG" >&2
     exit 21
   fi
@@ -275,7 +277,7 @@ if ((LAUNCH)); then
       # Installation is authoritative for release validation. CoreDevice can reject
       # the optional launch when the phone locks between install and launch; that
       # must not abort macOS/Android/server/GitHub/homepage deployment.
-      printf '\nWARNING: App installed successfully, but iOS refused automatic launch (commonly because the device locked between install and launch). Continuing because installation succeeded.\n' >&2
+      shar_warn "App installed successfully, but iOS refused automatic launch (commonly because the device locked between install and launch). Continuing because installation succeeded."
     fi
   fi
 fi

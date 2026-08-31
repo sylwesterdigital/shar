@@ -9,3 +9,10 @@ DerivedData/
 android/.gradle/
 android/**/build/
 .idea/
+
+# Build-prepared local transcription dependencies (pinned/checksummed by prepare_local_whisper.sh)
+/Dependencies/whisper/models/ggml-base.bin
+/Dependencies/whisper/whisper.xcframework/
+/Dependencies/whisper/whisper-v*-xcframework.zip
+/Dependencies/whisper/NOTICE.txt
+/android/app/src/main/assets/models/ggml-base.bin

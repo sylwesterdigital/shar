@@ -4,6 +4,7 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
 SHELL_BIN="${SHELL_BIN:-/bin/zsh}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-$ROOT/archive}"
@@ -11,7 +12,7 @@ OUT="$ARCHIVE_DIR/LocalWebSharePrototype-v${VERSION}.zip"
 TMP="$(mktemp -d /tmp/localwebshare-package.XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid VERSION: $VERSION" >&2; exit 1; }
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { shar_error "Invalid VERSION: $VERSION"; exit 1; }
 "$SHELL_BIN" "$ROOT/scripts/verify_repo.sh"
 [[ -f "$ROOT/README.md" ]] || { echo "README.md missing" >&2; exit 1; }
 [[ -f "$ROOT/CHANGELOG.md" ]] || { echo "CHANGELOG.md missing" >&2; exit 1; }
@@ -29,6 +30,11 @@ rsync \
   --exclude='release/' \
   --exclude='android/.gradle/' \
   --exclude='android/**/build/' \
+  --exclude='Dependencies/whisper/models/ggml-base.bin' \
+  --exclude='Dependencies/whisper/whisper.xcframework/' \
+  --exclude='Dependencies/whisper/whisper-v*-xcframework.zip' \
+  --exclude='Dependencies/whisper/NOTICE.txt' \
+  --exclude='android/app/src/main/assets/models/ggml-base.bin' \
   --exclude='.git/' \
   --exclude='*.xcuserstate' \
   --exclude='xcuserdata/' \
@@ -37,4 +43,5 @@ rsync \
 
 rm -f "$OUT"
 ( cd "$TMP/repo" && /usr/bin/zip -qry "$OUT" . )
-echo "$OUT"
+shar_success "Release source package created"
+shar_field "ZIP:" "$OUT"

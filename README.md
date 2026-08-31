@@ -1,4 +1,4 @@
-# Shar — 2.2.36
+# Shar — 2.2.43
 
 Local-first file and media sharing for **iOS/iPadOS, macOS and Android**, now with optional **remote WebRTC sharing**. Each native client still runs its local HTTP server on port 8080 for LAN use, while Remote Share creates an expiring QR/link and transfers bytes over an encrypted WebRTC data channel directly peer-to-peer when possible or through the Shar TURN relay when required.
 
@@ -16,7 +16,7 @@ Expected local checkout:
 /Users/smielniczuk/Documents/works/shar
 ```
 
-`VERSION` is authoritative. Current release: **2.2.36** (build/version code **20236**).
+`VERSION` is authoritative. Current release: **2.2.43** (build/version code **20243**).
 
 ## Branding
 
@@ -102,6 +102,46 @@ Audio playback is owned by one persistent `SharedAudioPlaybackController` per na
 
 ## LAN and remote WebRTC sharing
 
+### v2.2.43 macOS Whisper platform/compiler fix
+
+- Fixed the first macOS local-Whisper compile failure from v2.2.42: Apple clang does not accept Swift's `-sdk` flag, so the C bridge now uses `-isysroot` with the resolved macOS SDK.
+- macOS Whisper framework selection now verifies `CFBundleSupportedPlatforms == MacOSX` before accepting a universal `arm64` + `x86_64` candidate, preventing a tvOS simulator framework from being selected merely because it has the same CPU architectures.
+- Raised the local-Whisper macOS deployment target to 13.3 to match the pinned whisper.cpp v1.9.0 macOS framework.
+- Local captions remain fully on-device/offline, with no cloud transcription route.
+
+### v2.2.42 coloured build/release terminal output
+
+Shar's foreground watcher and the release/build scripts now share one terminal styling layer. Interactive Terminal runs use coloured stage headings, green success states, yellow warnings, red errors, muted metadata/paths, and clearer package/release banners; redirected logs and environments using `NO_COLOR` remain plain text. The watcher keeps the existing semantic-version selection, stability checks, state handling, and deployment behavior unchanged.
+
+### v2.2.41 Whisper Apple-mode build exit fix
+
+The Apple-only dependency-preparation path was completing successfully but its final conditional Android-status print evaluated false. Because the helper had no explicit successful exit, that false condition became process status 1. Both macOS builders invoke the helper under `set -e`, so the release stopped immediately after printing the prepared model/framework paths and before any `Compiling macOS arm64` line. v2.2.41 explicitly exits 0 after successful preparation and adds a release verification guard for this contract. No transcription network path is introduced; captions remain local Whisper on iOS/iPadOS, macOS and Android.
+
+### v2.2.40 macOS Whisper build handoff hardening
+
+The macOS release now consumes the prepared Whisper XCFramework by inspecting the actual framework binary architectures instead of assuming a particular XCFramework directory name. The inner macOS builder no longer performs a second network notarization credential-history check after the release entry point already validated credentials, and each pre-compile resource/framework step now reports a specific failure. This release also fixes the Android Developer Updates Java declaration regression. Local captions remain fully offline on iOS/iPadOS, macOS and Android.
+
+### v2.2.39 Correct whisper.cpp Release-asset integrity pin
+
+- Corrected the Apple whisper.cpp v1.9.0 XCFramework pin to the SHA-256 and byte count of the actual GitHub **Release asset** downloaded by Shar: `fd6af2471980094eadf8a19d4241ab89cd64c6110bfb75793cdcc68cb2ccf467`, 50,438,559 bytes.
+- The v2.2.38 value came from the workflow artifact and therefore did not match the separately published Release asset. Shar still verifies the binary before extraction; the fix changes the expected identity rather than disabling the check.
+- Local captions remain entirely on-device/offline on iOS/iPadOS, macOS and Android.
+
+### v2.2.38 Whisper dependency download hardening
+
+- Kept the local-only cross-platform Whisper caption architecture from v2.2.37 and hardened Apple dependency preparation after a valid upstream XCFramework release download was observed arriving with bytes that did not match its pinned SHA-256.
+- Apple Whisper preparation still refuses unverified binaries. It now discards corrupt caches, retries the normal release URL without cache reuse, then retries through GitHub CLI and the GitHub Releases API before failing.
+- Failure diagnostics now include the received SHA-256 and byte count, making CDN/proxy/cache corruption visible instead of reporting only a generic checksum mismatch.
+- Android continues to use the pinned Maven Central on-device Whisper AAR and the same bundled multilingual model; no transcription network path is added.
+
+### v2.2.37 Cross-platform local Whisper + audio parity
+
+- Replaced the temporary Apple Speech caption path with **local Whisper**. iOS/iPadOS and macOS use the pinned official `whisper.cpp` Apple XCFramework; Android uses a pinned on-device whisper.cpp AAR. Media bytes are never sent to Apple, iCloud, Shar servers, or another transcription service.
+- The multilingual `ggml-base.bin` model is prepared at build time, checksum-verified, bundled into each native app, and then runs completely offline at runtime. Generated model/framework files are ignored by Git and excluded from source packages.
+- iOS/iPadOS, macOS and Android audio Preview now expose the same core experience: **Live spectrum ↔ whole-track Waveform**, **Create captions**, timestamp-synchronized caption text, and current-word highlighting.
+- Apple clients share one spectrum/waveform analyser and one local Whisper transcription implementation. Android uses an equivalent local 20-band analyser and the same timestamped-caption contract.
+- Release verification now rejects Apple Speech/cloud caption code and checks that all three native clients contain the local caption and audio-visualization paths.
+
 ### v2.2.36 Private local captions + responsive spectrum
 
 - Removed the Apple/cloud transcription fallback completely. iOS caption requests now set `requiresOnDeviceRecognition = true` unconditionally and Shar refuses caption creation when no on-device recognizer is available.
@@ -113,14 +153,13 @@ Audio playback is owned by one persistent `SharedAudioPlaybackController` per na
 
 - iOS **Live spectrum** now follows playback at a 20 Hz UI clock, with local frequency analysis sampled around 12 times per second and interpolated between analysis frames. This removes the slow stepping visible on longer tracks while keeping the whole-track Waveform mode unchanged.
 - Audio analysis reads the file sequentially in a background utility task instead of sparsely seeking through a capped set of frames, so long tracks retain useful time-aligned frequency movement.
-- Caption generation now splits long audio into short local chunks before sending them to Apple Speech, avoiding one large recognition request for multi-minute recordings.
-- Shar still tries on-device recognition first. If that fails or the current language has no on-device model, the UI offers an explicit **Try Apple online transcription** fallback and clearly states that audio may then be sent to Apple. Raw `kAFAssistantErrorDomain` messages are replaced with human-readable guidance.
+- Caption generation was split into shorter chunks to improve reliability. This temporary Apple Speech implementation is superseded by the fully local cross-platform Whisper engine in v2.2.37.
 
 ### v2.2.34 Audio continuity, spectrum/waveform and captions
 
 - iOS audio uses the existing shared playback controller when moving from Grid/List playback into full Preview, so opening the thumbnail does not restart an already-active track or interrupt its play/pause state.
 - Full iOS audio Preview now shows a compact visualization between metadata and the progress slider. Tap it to switch between a colour-coded frequency spectrum and a whole-track waveform with played progress highlighted. Analysis runs in a background utility task from the local file.
-- **Create captions** uses Apple Speech Recognition only on demand. Shar requires on-device recognition support for the current language and does not fall back to uploading audio for transcription. Recognized word timings are synchronized with playback and the current word is highlighted. This is intended primarily for spoken audio; songs/music may transcribe imperfectly.
+- **Create captions** introduced synchronized caption text with current-word highlighting. The original Apple Speech implementation is superseded by the fully local cross-platform Whisper engine in v2.2.37.
 
 ### v2.2.33 Remote Share help + media-card feedback
 

@@ -3,15 +3,16 @@ set -e
 set -o pipefail
 export GIT_PAGER=cat PAGER=cat GH_PAGER=cat GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true GIT_TERMINAL_PROMPT=0 GH_PROMPT_DISABLED=1
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 GH_REPO="${GH_REPO:-sylwesterdigital/shar}"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 TAG="${RELEASE_TAG:-v$VERSION}"
 RELEASE_DIR="$ROOT/release"
 NOTES="$RELEASE_DIR/LocalWebShare-v${VERSION}-RELEASE_NOTES.md"
-log(){ printf '\n==> %s\n' "$*"; }
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; printf 'WARNING: retry %d/%d in %ss: %s\n' "$n" "$max" "$delay" "$*" >&2; sleep "$delay"; n=$((n+1)); done; }
+log(){ shar_section "$*"; }
+fail(){ shar_error "$*"; exit 1; }
+retry(){ local n=1 max="$1" delay="$2"; shift 2; until "$@"; do local rc=$?; (( n >= max )) && return "$rc"; shar_warn "retry $n/$max in ${delay}s: $*"; sleep "$delay"; n=$((n+1)); done; }
 for t in gh git shasum awk; do command -v "$t" >/dev/null 2>&1 || fail "Missing required tool: $t"; done
 gh auth status -h github.com >/dev/null 2>&1 || fail "GitHub CLI is not authenticated."
 

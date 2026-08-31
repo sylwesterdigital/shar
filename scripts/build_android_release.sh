@@ -2,10 +2,12 @@
 set -e
 set -o pipefail
 ROOT="$(cd -- "$(dirname -- "$0")/.." && pwd)"
+source "$ROOT/scripts/terminal_style.sh"
 cd "$ROOT"
 source "$ROOT/scripts/android_env.sh"
 shar_android_env
 "$ROOT/scripts/sync_ui_icons.sh"
+"$ROOT/scripts/prepare_local_whisper.sh" android
 
 VERSION="$(tr -d '[:space:]' < VERSION)"
 ANDROID_DIR="$ROOT/android"
@@ -15,8 +17,8 @@ KEYSTORE_PATH="${SHAR_ANDROID_KEYSTORE:-$HOME/.config/workwork/shar-android-rele
 KEY_ALIAS="${SHAR_ANDROID_KEY_ALIAS:-shar}"
 KEYCHAIN_SERVICE="${SHAR_ANDROID_KEYCHAIN_SERVICE:-workwork.shar.android.keystore}"
 KEYCHAIN_ACCOUNT="${SHAR_ANDROID_KEYCHAIN_ACCOUNT:-shar}"
-fail(){ printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-log(){ printf '\n==> %s\n' "$*"; }
+fail(){ shar_error "$*"; exit 1; }
+log(){ shar_section "$*"; }
 
 "$ROOT/scripts/check_android_release_credentials.sh" >/dev/null
 PASSWORD="$(security find-generic-password -w -a "$KEYCHAIN_ACCOUNT" -s "$KEYCHAIN_SERVICE")"

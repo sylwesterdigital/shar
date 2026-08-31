@@ -1,4 +1,4 @@
-plugins { id 'com.android.application' }
+plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 
 def releaseStore = System.getenv('SHAR_ANDROID_KEYSTORE')
 def releaseAlias = System.getenv('SHAR_ANDROID_KEY_ALIAS') ?: 'shar'
@@ -13,8 +13,8 @@ android {
         applicationId 'com.localwebshare.app'
         minSdk 26
         targetSdk 35
-        versionCode 20236
-        versionName '2.2.36'
+        versionCode 20243
+        versionName '2.2.43'
     }
 
     signingConfigs {
@@ -42,4 +42,10 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+
+dependencies {
+    implementation 'dev.ffmpegkit-maintained:whisper-android:1.0.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
 }

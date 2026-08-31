@@ -17,6 +17,11 @@
 		A10000000000000000000010 /* MediaSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* MediaSupport.swift */; };
 		A10000000000000000000011 /* GeneratedUIIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* GeneratedUIIcons.swift */; };
 		A10000000000000000000012 /* ThreeDPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ThreeDPreview.swift */; };
+		A10000000000000000000013 /* LocalMediaIntelligence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* LocalMediaIntelligence.swift */; };
+		A10000000000000000000014 /* LocalWhisperBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* LocalWhisperBridge.c */; };
+		A10000000000000000000015 /* ggml-base.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* ggml-base.bin */; };
+		A10000000000000000000016 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* whisper.xcframework */; };
+		A10000000000000000000017 /* whisper.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +37,10 @@
 		A20000000000000000000010 /* MediaSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSupport.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* GeneratedUIIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedUIIcons.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* ThreeDPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreeDPreview.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* LocalMediaIntelligence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalMediaIntelligence.swift; sourceTree = "<group>"; };
+		A20000000000000000000014 /* LocalWhisperBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = LocalWhisperBridge.c; sourceTree = "<group>"; };
+		A20000000000000000000015 /* ggml-base.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = Dependencies/whisper/models/ggml-base.bin; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000016 /* whisper.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = Dependencies/whisper/whisper.xcframework; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,16 +48,33 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000016 /* whisper.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A30000000000000000000002 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				A10000000000000000000017 /* whisper.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
 				A40000000000000000000002 /* LocalWebShare */,
+				A20000000000000000000016 /* whisper.xcframework */,
+				A20000000000000000000015 /* ggml-base.bin */,
 				A40000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,6 +91,8 @@
 				A20000000000000000000010 /* MediaSupport.swift */,
 				A20000000000000000000011 /* GeneratedUIIcons.swift */,
 				A20000000000000000000012 /* ThreeDPreview.swift */,
+				A20000000000000000000013 /* LocalMediaIntelligence.swift */,
+				A20000000000000000000014 /* LocalWhisperBridge.c */,
 				A20000000000000000000006 /* Info.plist */,
 				A20000000000000000000009 /* Assets.xcassets */,
 			);
@@ -88,6 +116,7 @@
 			buildPhases = (
 				A60000000000000000000001 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
+				A30000000000000000000002 /* Embed Frameworks */,
 				A70000000000000000000001 /* Resources */,
 			);
 			buildRules = (
@@ -138,6 +167,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000009 /* Assets.xcassets in Resources */,
+				A10000000000000000000015 /* ggml-base.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +187,8 @@
 				A10000000000000000000010 /* MediaSupport.swift in Sources */,
 				A10000000000000000000011 /* GeneratedUIIcons.swift in Sources */,
 				A10000000000000000000012 /* ThreeDPreview.swift in Sources */,
+				A10000000000000000000013 /* LocalMediaIntelligence.swift in Sources */,
+				A10000000000000000000014 /* LocalWhisperBridge.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,12 +241,12 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20236;
+				CURRENT_PROJECT_VERSION = 20243;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.2.36;
+				MARKETING_VERSION = 2.2.43;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -229,12 +261,12 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CURRENT_PROJECT_VERSION = 20236;
+				CURRENT_PROJECT_VERSION = 20243;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = LocalWebShare/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 2.2.36;
+				MARKETING_VERSION = 2.2.43;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalWebShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
